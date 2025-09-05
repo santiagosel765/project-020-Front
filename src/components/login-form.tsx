@@ -19,6 +19,7 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Eye, EyeOff } from "lucide-react";
 import React from "react";
+import api from "@/lib/api";
 
 const formSchema = z.object({
   username: z.string().min(1, { message: "El usuario es requerido." }),
@@ -43,45 +44,42 @@ export function LoginForm() {
     setIsSubmitting(true);
     
     try {
-      const response = await fetch('/api/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user: values.username, pass: values.password }),
+      const { data } = await api.post('/auth/login', {
+        username: values.username,
+        password: values.password,
       });
 
-      const data = await response.json();
+      if (data?.token) {
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('token', data.token);
+          const userRole = data.user.role.toLowerCase();
+          localStorage.setItem('userRole', userRole);
+          toast({ title: "Inicio de sesión exitoso", description: `Bienvenido, ${data.user.name}.` });
 
-      if (response.ok && data.verified) {
-          if (typeof window !== 'undefined') {
-              const userRole = data.user.role.toLowerCase();
-              localStorage.setItem('userRole', userRole);
-              toast({ title: "Inicio de sesión exitoso", description: `Bienvenido, ${data.user.name}.` });
-              
-              if(userRole === 'admin') {
-                router.push('/admin/asignaciones');
-              } else if (userRole === 'supervisor') {
-                router.push('/admin/supervision');
-              } else {
-                router.push('/general');
-              }
+          if (userRole === 'admin') {
+            router.push('/admin/asignaciones');
+          } else if (userRole === 'supervisor') {
+            router.push('/admin/supervision');
+          } else {
+            router.push('/general');
           }
+        }
       } else {
-           toast({
-            variant: "destructive",
-            title: "Error de autenticación",
-            description: data.message || "Credenciales incorrectas. Por favor, inténtelo de nuevo.",
+        toast({
+          variant: "destructive",
+          title: "Error de autenticación",
+          description: data?.message || "Credenciales incorrectas. Por favor, inténtelo de nuevo.",
         });
       }
-
     } catch (error) {
-        console.error("Login API error:", error);
-        toast({
-            variant: "destructive",
-            title: "Error de red",
-            description: "No se pudo conectar con el servidor de autenticación.",
-        });
+      console.error("Login API error:", error);
+      toast({
+        variant: "destructive",
+        title: "Error de red",
+        description: "No se pudo conectar con el servidor de autenticación.",
+      });
     } finally {
-        setIsSubmitting(false);
+      setIsSubmitting(false);
     }
   }
 

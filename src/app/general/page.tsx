@@ -6,6 +6,7 @@ import { DocumentsTable } from "@/components/documents-table";
 import { Document } from "@/lib/data";
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
+import api from "@/lib/api";
 
 export default function GeneralPage() {
     const [documents, setDocuments] = useState<Document[]>([]);
@@ -15,11 +16,7 @@ export default function GeneralPage() {
     useEffect(() => {
         const fetchDocuments = async () => {
             try {
-                const response = await fetch('/api/documents');
-                if (!response.ok) {
-                    throw new Error('Failed to fetch documents');
-                }
-                const data = await response.json();
+                const { data } = await api.get<Document[]>('/documents');
                 // In a real app, this would be filtered for the current user
                 const userDocuments = data.filter((doc: Document) => doc.id !== 'DOC001');
                 setDocuments(userDocuments);
