@@ -2,7 +2,7 @@
 
 "use client";
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useParams } from 'next/navigation';
 import { User, Document } from '@/lib/data';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -33,6 +33,9 @@ import { Progress } from '@/components/ui/progress';
 import { Label } from '@/components/ui/label';
 import { calculateBusinessDays, parseDate } from '@/lib/date-utils';
 import { Skeleton } from '@/components/ui/skeleton';
+import { SignaturePad } from '@/components/signature-pad';
+import SignatureCanvas from 'react-signature-canvas';
+import api from '@/lib/api';
 
 type SignatoryStatus = 'FIRMADO' | 'RECHAZADO' | 'PENDIENTE';
 
@@ -116,39 +119,30 @@ export default function DocumentoDetallePage() {
   const [isSignedByCurrentUser, setIsSignedByCurrentUser] = useState(false);
 
   const [signatories, setSignatories] = useState<Signatory[]>([]);
+  const signatureCanvasRef = useRef<SignatureCanvas>(null);
   
   useEffect(() => {
     setIsClient(true);
     const role = localStorage.getItem('userRole');
     setUserRole(role);
-    const signature = localStorage.getItem('userSignature');
-    setUserSignature(signature);
-
-    if (typeof window !== 'undefined') {
-      const role = localStorage.getItem('userRole');
-      if (role === 'admin') {
-          setCurrentUserId('1');
-      } else {
-          setCurrentUserId(null); 
-      }
+    if (role === 'admin') {
+      setCurrentUserId('1');
+    } else {
+      setCurrentUserId(null);
     }
 
     const fetchDocument = async () => {
         if (!id) return;
         setIsLoadingDoc(true);
         try {
-            const response = await fetch(`/api/documents?id=${id}`);
-            if (!response.ok) {
-                throw new Error('Document not found');
-            }
-            const doc = await response.json();
+            const { data: doc } = await api.get<Document>(`/documents/${id}`);
             setDocument(doc);
             setPdfSrc(doc.filePath || `/files/prueba.pdf`);
 
             const getStatusChangeDateForUser = (user: User) => {
                 const docUser = doc.assignedUsers.find((u: User) => u.id === user.id);
                 return docUser?.statusChangeDate || doc.sendDate;
-            }
+            };
 
             const initialSignatories = doc.assignedUsers.map((user: User, index: number) => ({
                 ...user,
@@ -230,24 +224,34 @@ export default function DocumentoDetallePage() {
   }
 
   const handleSign = async () => {
-    if (!userSignature) {
+    if (!signatureCanvasRef.current || signatureCanvasRef.current.isEmpty()) {
         toast({
             variant: "destructive",
-            title: "Firma no encontrada",
-            description: "Por favor, configure su firma en los ajustes de perfil antes de firmar.",
+            title: "Firma requerida",
+            description: "Por favor, dibuje su firma antes de continuar.",
         });
         return;
     }
     setIsSigning(true);
-    // Simulate API call
-    setTimeout(() => {
-      setIsSignedByCurrentUser(true);
-      toast({
-        title: "Documento Firmado",
-        description: "El documento ha sido firmado exitosamente.",
-      });
-      setIsSigning(false);
-    }, 1500);
+    try {
+        const signature = signatureCanvasRef.current.getTrimmedCanvas().toDataURL('image/png');
+        await api.post(`/sign/${id}/draw`, { draw: signature });
+        setUserSignature(signature);
+        setIsSignedByCurrentUser(true);
+        toast({
+            title: "Documento Firmado",
+            description: "El documento ha sido firmado exitosamente.",
+        });
+    } catch (error) {
+        toast({
+            variant: "destructive",
+            title: "Error al firmar",
+            description: "No se pudo enviar la firma. Inténtelo nuevamente.",
+        });
+    } finally {
+        setIsSigning(false);
+        signatureCanvasRef.current?.clear();
+    }
   };
 
   const handleReject = async () => {
@@ -396,6 +400,12 @@ export default function DocumentoDetallePage() {
                     
                     {canSignOrReject && (
                         <div className="space-y-4">
+                            {!isSignedByCurrentUser && (
+                                <div className="space-y-2">
+                                    <Label>Firma</Label>
+                                    <SignaturePad ref={signatureCanvasRef} />
+                                </div>
+                            )}
                             {isSignedByCurrentUser && userSignature && (
                                 <div className="space-y-2">
                                     <Label>Su Firma</Label>
@@ -420,7 +430,7 @@ export default function DocumentoDetallePage() {
                                             Por favor, explique por qué está rechazando este documento. Esta información será registrada en la auditoría.
                                         </AlertDialogDescription>
                                         </AlertDialogHeader>
-                                        <Textarea 
+                                        <Textarea
                                             placeholder="Escriba aquí su justificación..."
                                             value={rejectionReason}
                                             onChange={(e) => setRejectionReason(e.target.value)}
