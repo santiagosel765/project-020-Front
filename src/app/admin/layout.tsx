@@ -43,8 +43,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   useEffect(() => {
     getMe()
       .then((user) => {
-        const roles: string[] = user?.roles ??
-          user?.rol_usuario?.map((r: any) => r?.rol?.nombre) ?? [];
+        const roles: string[] = user?.roles ?? [];
         const role = roles.includes('SUPERVISOR')
           ? 'supervisor'
           : roles.includes('ADMIN')

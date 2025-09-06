@@ -35,7 +35,7 @@ import { calculateBusinessDays, parseDate } from '@/lib/date-utils';
 import { Skeleton } from '@/components/ui/skeleton';
 import { SignaturePad } from '@/components/signature-pad';
 import SignatureCanvas from 'react-signature-canvas';
-import api from '@/lib/api';
+import api from '@/lib/axiosConfig';
 
 type SignatoryStatus = 'FIRMADO' | 'RECHAZADO' | 'PENDIENTE';
 

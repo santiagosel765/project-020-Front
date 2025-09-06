@@ -17,7 +17,7 @@ import { login as authLogin } from "@/services/authService";
 import { getMe } from "@/services/userService";
 
 const formSchema = z.object({
-  username: z.string().min(1, { message: "El usuario es requerido." }),
+  email: z.string().min(1, { message: "El correo es requerido." }),
   password: z.string().min(1, { message: "La contraseña es requerida." }),
 });
 
@@ -29,18 +29,17 @@ export function LoginForm() {
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
-    defaultValues: { username: "", password: "" },
+    defaultValues: { email: "", password: "" },
   });
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsSubmitting(true);
     try {
-      const data = await authLogin(values.username, values.password);
+      const data = await authLogin(values.email, values.password);
       toast({ title: "Inicio de sesión exitoso" });
 
       const me = await getMe();
-      const roles: string[] = me?.roles ??
-        me?.rol_usuario?.map((r: any) => r?.rol?.nombre) ?? [];
+      const roles: string[] = me?.roles ?? [];
 
       if (roles.includes('ADMIN')) {
         router.push('/admin/asignaciones');
@@ -64,12 +63,12 @@ export function LoginForm() {
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
         <FormField
           control={form.control}
-          name="username"
+          name="email"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Usuario</FormLabel>
+              <FormLabel>Correo</FormLabel>
               <FormControl>
-                <Input placeholder="Correo institucional o código" {...field} />
+                <Input placeholder="Correo institucional" {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>

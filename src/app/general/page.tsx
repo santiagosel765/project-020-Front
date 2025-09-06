@@ -6,7 +6,7 @@ import { DocumentsTable } from "@/components/documents-table";
 import { Document } from "@/lib/data";
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
-import api from "@/lib/api";
+import api from "@/lib/axiosConfig";
 
 export default function GeneralPage() {
     const [documents, setDocuments] = useState<Document[]>([]);
