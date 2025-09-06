@@ -1,4 +1,3 @@
-
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -8,18 +7,13 @@ import { useRouter } from 'next/navigation';
 
 import { Button } from "@/components/ui/button";
 import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
+  Form, FormControl, FormField, FormItem, FormLabel, FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Eye, EyeOff } from "lucide-react";
 import React from "react";
-import api from "@/lib/api";
+import { apiFetch, saveTokens, decodeJwt } from "@/lib/api";
 
 const formSchema = z.object({
   username: z.string().min(1, { message: "El usuario es requerido." }),
@@ -34,50 +28,49 @@ export function LoginForm() {
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
-    defaultValues: {
-      username: "",
-      password: "",
-    },
+    defaultValues: { username: "", password: "" },
   });
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsSubmitting(true);
-    
     try {
-      const { data } = await api.post('/auth/login', {
-        username: values.username,
-        password: values.password,
-      });
-
-      if (data?.token) {
-        if (typeof window !== 'undefined') {
-          localStorage.setItem('token', data.token);
-          const userRole = data.user.role.toLowerCase();
-          localStorage.setItem('userRole', userRole);
-          toast({ title: "Inicio de sesión exitoso", description: `Bienvenido, ${data.user.name}.` });
-
-          if (userRole === 'admin') {
-            router.push('/admin/asignaciones');
-          } else if (userRole === 'supervisor') {
-            router.push('/admin/supervision');
-          } else {
-            router.push('/general');
-          }
+      // 🔑 el backend espera "user" (correo o código) y "password"
+      const data = await apiFetch<{ access_token: string; refresh_token?: string }>(
+        '/auth/login',
+        {
+          method: 'POST',
+          body: JSON.stringify({ user: values.username, password: values.password }),
         }
+      );
+
+      saveTokens(data.access_token, data.refresh_token);
+
+      // Decide a dónde redirigir: /users/me o decodificando el token
+      // Opción A: decodificar rápidamente el JWT
+      const payload = decodeJwt<{ roles?: string[] }>(data.access_token);
+      const roles = payload?.roles ?? [];
+
+      toast({ title: "Inicio de sesión exitoso" });
+
+      if (roles.includes('ADMIN')) {
+        router.push('/admin/asignaciones');
+      } else if (roles.includes('SUPERVISOR')) {
+        router.push('/admin/supervision');
       } else {
-        toast({
-          variant: "destructive",
-          title: "Error de autenticación",
-          description: data?.message || "Credenciales incorrectas. Por favor, inténtelo de nuevo.",
-        });
+        router.push('/general');
       }
-    } catch (error) {
+
+      // Opción B (alternativa): consultar /users/me
+      // const me = await apiFetch<any>('/users/me');
+      // const roles = me?.rol_usuario?.map((r:any)=> r?.rol?.nombre) ?? [];
+      // if (roles.includes('ADMIN')) router.push('/admin/asignaciones');
+      // else if (roles.includes('SUPERVISOR')) router.push('/admin/supervision');
+      // else router.push('/general');
+
+    } catch (error: any) {
       console.error("Login API error:", error);
-      toast({
-        variant: "destructive",
-        title: "Error de red",
-        description: "No se pudo conectar con el servidor de autenticación.",
-      });
+      const msg = typeof error?.message === 'string' ? error.message : 'Error de autenticación';
+      toast({ variant: "destructive", title: "Error", description: msg });
     } finally {
       setIsSubmitting(false);
     }
@@ -93,7 +86,7 @@ export function LoginForm() {
             <FormItem>
               <FormLabel>Usuario</FormLabel>
               <FormControl>
-                <Input placeholder="Ingrese su usuario" {...field} />
+                <Input placeholder="Correo institucional o código" {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -122,8 +115,8 @@ export function LoginForm() {
           )}
         />
         <Button type="submit" className="w-full" disabled={isSubmitting}>
-            {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            {isSubmitting ? "Ingresando..." : "Ingresar"}
+          {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+          {isSubmitting ? "Ingresando..." : "Ingresar"}
         </Button>
       </form>
     </Form>
