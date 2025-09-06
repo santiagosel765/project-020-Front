@@ -3,6 +3,9 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
+import { AuthGuard } from '@/components/auth-guard';
+import { getMe } from '@/services/userService';
+import { logout } from '@/services/authService';
 import {
   SidebarProvider,
   Sidebar,
@@ -38,14 +41,21 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [userRole, setUserRole] = useState<string | null>(null);
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const role = localStorage.getItem('userRole');
-      setUserRole(role);
-      
-      if (role === 'supervisor' && pathname !== '/admin/supervision') {
-        router.replace('/admin/supervision');
-      }
-    }
+    getMe()
+      .then((user) => {
+        const roles: string[] = user?.roles ??
+          user?.rol_usuario?.map((r: any) => r?.rol?.nombre) ?? [];
+        const role = roles.includes('SUPERVISOR')
+          ? 'supervisor'
+          : roles.includes('ADMIN')
+            ? 'admin'
+            : null;
+        setUserRole(role);
+        if (role === 'supervisor' && pathname !== '/admin/supervision') {
+          router.replace('/admin/supervision');
+        }
+      })
+      .catch(() => router.replace('/'));
   }, [pathname, router]);
 
   const allMenuItems = [
@@ -65,9 +75,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   const handleLogout = (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem('userRole');
-    }
+    logout();
     router.push('/');
   }
 
@@ -127,58 +135,60 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         </header>
   );
 
-  if (userRole === 'supervisor') {
-    return (
-      <div className="flex min-h-screen w-full flex-col bg-muted/40">
-        {header}
-        <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-6">
-          {children}
-        </main>
-      </div>
-    )
-  }
+  if (!userRole) return null;
 
   return (
-    <SidebarProvider defaultOpen={!isMobile}>
-      <Sidebar>
-        <SidebarHeader>
-          <div className="flex items-center gap-2">
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-6 w-6 text-primary"><path d="M12 22a7 7 0 0 0 7-7c0-2-1-4-3-5s-3-2-3-5a7 7 0 0 0-14 0c0 3 1 4 3 5s3 3 3 5a7 7 0 0 0 7 7Z"/><path d="M12 10.5A2.5 2.5 0 0 1 9.5 8"/></svg>
-            <span className="font-headline text-lg group-data-[collapsible=icon]:hidden">
-              Génesis Sign
-            </span>
-          </div>
-        </SidebarHeader>
-        <SidebarContent className="p-2">
-          <SidebarMenu>
-            {menuItems.map((item) => (
-              <SidebarMenuItem key={item.href}>
-                <SidebarMenuButton
-                  onClick={() => router.push(item.href)}
-                  isActive={pathname.startsWith(item.href)}
-                  tooltip={item.label}
-                >
-                  <item.icon />
-                  <span>{item.label}</span>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            ))}
-          </SidebarMenu>
-        </SidebarContent>
-        <SidebarFooter>
-          <div className="hidden md:flex justify-end p-2">
-            <SidebarTrigger>
-                <PanelLeft className="h-5 w-5" />
-            </SidebarTrigger>
-          </div>
-        </SidebarFooter>
-      </Sidebar>
-      <SidebarInset>
-        {header}
-        <main className="flex-1 p-4 md:p-6 overflow-auto">
-          {children}
-        </main>
-      </SidebarInset>
-    </SidebarProvider>
+    <AuthGuard roles={['ADMIN', 'SUPERVISOR']}>
+      {userRole === 'supervisor' ? (
+        <div className="flex min-h-screen w-full flex-col bg-muted/40">
+          {header}
+          <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-6">
+            {children}
+          </main>
+        </div>
+      ) : (
+        <SidebarProvider defaultOpen={!isMobile}>
+          <Sidebar>
+            <SidebarHeader>
+              <div className="flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-6 w-6 text-primary"><path d="M12 22a7 7 0 0 0 7-7c0-2-1-4-3-5s-3-2-3-5a7 7 0 0 0-14 0c0 3 1 4 3 5s3 3 3 5a7 7 0 0 0 7 7Z"/><path d="M12 10.5A2.5 2.5 0 0 1 9.5 8"/></svg>
+                <span className="font-headline text-lg group-data-[collapsible=icon]:hidden">
+                  Génesis Sign
+                </span>
+              </div>
+            </SidebarHeader>
+            <SidebarContent className="p-2">
+              <SidebarMenu>
+                {menuItems.map((item) => (
+                  <SidebarMenuItem key={item.href}>
+                    <SidebarMenuButton
+                      onClick={() => router.push(item.href)}
+                      isActive={pathname.startsWith(item.href)}
+                      tooltip={item.label}
+                    >
+                      <item.icon />
+                      <span>{item.label}</span>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarContent>
+            <SidebarFooter>
+              <div className="hidden md:flex justify-end p-2">
+                <SidebarTrigger>
+                    <PanelLeft className="h-5 w-5" />
+                </SidebarTrigger>
+              </div>
+            </SidebarFooter>
+          </Sidebar>
+          <SidebarInset>
+            {header}
+            <main className="flex-1 p-4 md:p-6 overflow-auto">
+              {children}
+            </main>
+          </SidebarInset>
+        </SidebarProvider>
+      )}
+    </AuthGuard>
   );
 }
