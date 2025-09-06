@@ -13,7 +13,8 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Eye, EyeOff } from "lucide-react";
 import React from "react";
-import { apiFetch, saveTokens, decodeJwt } from "@/lib/api";
+import { login as authLogin } from "@/services/authService";
+import { getMe } from "@/services/userService";
 
 const formSchema = z.object({
   username: z.string().min(1, { message: "El usuario es requerido." }),
@@ -34,23 +35,12 @@ export function LoginForm() {
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsSubmitting(true);
     try {
-      // 🔑 el backend espera "user" (correo o código) y "password"
-      const data = await apiFetch<{ access_token: string; refresh_token?: string }>(
-        '/auth/login',
-        {
-          method: 'POST',
-          body: JSON.stringify({ user: values.username, password: values.password }),
-        }
-      );
-
-      saveTokens(data.access_token, data.refresh_token);
-
-      // Decide a dónde redirigir: /users/me o decodificando el token
-      // Opción A: decodificar rápidamente el JWT
-      const payload = decodeJwt<{ roles?: string[] }>(data.access_token);
-      const roles = payload?.roles ?? [];
-
+      const data = await authLogin(values.username, values.password);
       toast({ title: "Inicio de sesión exitoso" });
+
+      const me = await getMe();
+      const roles: string[] = me?.roles ??
+        me?.rol_usuario?.map((r: any) => r?.rol?.nombre) ?? [];
 
       if (roles.includes('ADMIN')) {
         router.push('/admin/asignaciones');
@@ -59,13 +49,6 @@ export function LoginForm() {
       } else {
         router.push('/general');
       }
-
-      // Opción B (alternativa): consultar /users/me
-      // const me = await apiFetch<any>('/users/me');
-      // const roles = me?.rol_usuario?.map((r:any)=> r?.rol?.nombre) ?? [];
-      // if (roles.includes('ADMIN')) router.push('/admin/asignaciones');
-      // else if (roles.includes('SUPERVISOR')) router.push('/admin/supervision');
-      // else router.push('/general');
 
     } catch (error: any) {
       console.error("Login API error:", error);
