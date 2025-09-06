@@ -1,7 +1,7 @@
 import api from '@/lib/axiosConfig';
 
 export interface User {
-  roles?: string[];
+  roles: string[];
   [key: string]: any;
 }
 

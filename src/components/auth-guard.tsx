@@ -17,8 +17,7 @@ export function AuthGuard({ children, roles }: AuthGuardProps) {
     let mounted = true;
     getMe()
       .then((user) => {
-        const userRoles: string[] = user?.roles ??
-          user?.rol_usuario?.map((r: any) => r?.rol?.nombre) ?? [];
+        const userRoles: string[] = user?.roles ?? [];
         if (!roles || roles.some((r) => userRoles.includes(r))) {
           if (mounted) setAuthorized(true);
         } else {
