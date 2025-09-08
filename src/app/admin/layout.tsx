@@ -4,7 +4,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { AuthGuard } from '@/components/auth-guard';
-import { getMe } from '@/services/userService';
+import { getMeOnce } from '@/services/userService';
 import { logout } from '@/services/authService';
 import {
   SidebarProvider,
@@ -41,7 +41,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [userRole, setUserRole] = useState<string | null>(null);
 
   useEffect(() => {
-    getMe()
+    getMeOnce()
       .then((user) => {
         const roles: string[] = user?.roles ?? [];
         const role = roles.includes('SUPERVISOR')

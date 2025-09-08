@@ -7,7 +7,11 @@ function normalizeBase(url?: string | null) {
 }
 
 const ENV_BASE = normalizeBase(process.env.NEXT_PUBLIC_API_BASE || null);
-const baseURL = ENV_BASE || 'http://localhost:3200/api/v1';
+const baseURL =
+  ENV_BASE ||
+  (process.env.NODE_ENV !== 'production'
+    ? 'http://localhost:3200/api/v1'
+    : undefined);
 
 if (typeof window !== 'undefined' && process.env.NODE_ENV !== 'production') {
   console.log('[axios] baseURL =', baseURL);

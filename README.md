@@ -43,3 +43,14 @@ El backend entrega un **access token** en el cuerpo de la respuesta y un **refre
 Las peticiones se realizan con `Authorization: Bearer <access_token>` y `withCredentials: true`.
 
 Si una petición responde `401`, el cliente usa `/auth/refresh` para obtener un nuevo `access_token` y reintenta automáticamente la petición original.
+
+## Cómo probar Auth end-to-end
+
+1. Crea `.env.local` con `NEXT_PUBLIC_API_BASE` apuntando al backend.
+2. Realiza login en la app.
+3. El cliente llama `getMe()` para obtener roles y permitir acceso.
+4. Deja expirar el access token: la próxima solicitud devolverá `401`.
+5. El interceptor usa `/auth/refresh` y reintenta la petición original.
+6. Ejecuta logout para invalidar la sesión.
+
+Nota: el refresh token viaja en una cookie `HttpOnly` y no es accesible desde JavaScript.
