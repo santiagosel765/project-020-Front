@@ -5,10 +5,24 @@ import React, { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form';
 import { User } from '@/lib/data';
 import { Loader2 } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
@@ -16,7 +30,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 interface UserFormModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (user: User) => void;
+  onSubmit: (user: FormValues) => void;
   user?: User;
 }
 
@@ -33,8 +47,9 @@ const formSchema = z.object({
   role: z.enum(['Admin', 'General', 'Supervisor']),
   avatar: z.string(),
 });
+type FormValues = z.infer<typeof formSchema>;
 
-const defaultUserValues: Omit<User, 'id'> = {
+const defaultUserValues: FormValues = {
   employeeCode: '',
   name: '',
   position: '',
@@ -44,11 +59,11 @@ const defaultUserValues: Omit<User, 'id'> = {
   department: '',
   notificationType: 'Whatsapp',
   role: 'General',
-  avatar: `https://placehold.co/100x100.png`
+  avatar: `https://placehold.co/100x100.png`,
 };
 
-export function UserFormModal({ isOpen, onClose, onSave, user }: UserFormModalProps) {
-  const form = useForm<User>({
+export function UserFormModal({ isOpen, onClose, onSubmit, user }: UserFormModalProps) {
+  const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: user ? { ...user, notificationType: 'Whatsapp' } : defaultUserValues,
   });
@@ -60,8 +75,8 @@ export function UserFormModal({ isOpen, onClose, onSave, user }: UserFormModalPr
   }, [isOpen, user, form]);
 
 
-  const onSubmit = (data: User) => {
-    onSave(data);
+  const handleSubmit = (data: FormValues) => {
+    onSubmit(data);
   };
   
   return (
@@ -74,7 +89,7 @@ export function UserFormModal({ isOpen, onClose, onSave, user }: UserFormModalPr
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="flex-1 flex flex-col overflow-hidden">
+          <form onSubmit={form.handleSubmit(handleSubmit)} className="flex-1 flex flex-col overflow-hidden">
             <div className="flex-1 overflow-y-auto pr-6 pl-1 -mr-6 space-y-4">
               <FormField
                 control={form.control}

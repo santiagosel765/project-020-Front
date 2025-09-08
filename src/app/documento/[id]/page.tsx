@@ -119,7 +119,7 @@ export default function DocumentoDetallePage() {
   const [isSignedByCurrentUser, setIsSignedByCurrentUser] = useState(false);
 
   const [signatories, setSignatories] = useState<Signatory[]>([]);
-  const signatureCanvasRef = useRef<SignatureCanvas>(null);
+  const signatureCanvasRef = useRef<SignatureCanvas | null>(null);
   
   useEffect(() => {
     setIsClient(true);
@@ -144,13 +144,26 @@ export default function DocumentoDetallePage() {
                 return docUser?.statusChangeDate || doc.sendDate;
             };
 
-            const initialSignatories = doc.assignedUsers.map((user: User, index: number) => ({
+            const initialSignatories: Signatory[] = doc.assignedUsers
+              .map((user: User, index: number) => ({
                 ...user,
-                status: index % 3 === 0 ? 'FIRMADO' : index % 3 === 1 ? 'RECHAZADO' : 'PENDIENTE',
-                responsibility: index % 3 === 0 ? 'APRUEBA' : index % 3 === 1 ? 'REVISA' : 'ENTERADO',
-                rejectionReason: index % 3 === 1 ? 'El presupuesto excede lo aprobado para este trimestre.' : undefined,
+                status: (index % 3 === 0
+                  ? 'FIRMADO'
+                  : index % 3 === 1
+                  ? 'RECHAZADO'
+                  : 'PENDIENTE') as SignatoryStatus,
+                responsibility: (index % 3 === 0
+                  ? 'APRUEBA'
+                  : index % 3 === 1
+                  ? 'REVISA'
+                  : 'ENTERADO') as Signatory['responsibility'],
+                rejectionReason:
+                  index % 3 === 1
+                    ? 'El presupuesto excede lo aprobado para este trimestre.'
+                    : undefined,
                 statusChangeDate: getStatusChangeDateForUser(user),
-            })).sort((a:User, b:User) => a.name.localeCompare(b.name)) || [];
+              }))
+              .sort((a: User, b: User) => a.name.localeCompare(b.name));
             setSignatories(initialSignatories);
         } catch (error) {
             setDocument(null);
@@ -277,12 +290,12 @@ export default function DocumentoDetallePage() {
 
   const handleDownload = () => {
     if (!pdfSrc) return;
-    const link = document.createElement('a');
+    const link = window.document.createElement('a');
     link.href = pdfSrc;
-    link.download = `${document.name}.pdf`;
-    document.body.appendChild(link);
+    link.download = `${document?.name}.pdf`;
+    window.document.body.appendChild(link);
     link.click();
-    document.body.removeChild(link);
+    window.document.body.removeChild(link);
   };
 
   const streamText = (text: string, interval = 20) => {

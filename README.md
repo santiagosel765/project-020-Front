@@ -43,4 +43,3 @@ El backend entrega un **access token** en el cuerpo de la respuesta y un **refre
 Las peticiones se realizan con `Authorization: Bearer <access_token>` y `withCredentials: true`.
 
 Si una petición responde `401`, el cliente usa `/auth/refresh` para obtener un nuevo `access_token` y reintenta automáticamente la petición original.
-

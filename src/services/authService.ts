@@ -1,5 +1,5 @@
 import api from '@/lib/axiosConfig';
-import { setToken, clearToken, broadcastLogout } from '@/lib/tokenStore';
+import { setToken, clearToken } from '@/lib/tokenStore';
 
 export async function login(email: string, password: string) {
   const res = await api.post('/auth/login', { email, password });
@@ -13,6 +13,5 @@ export async function logout() {
     await api.post('/auth/logout');
   } finally {
     clearToken();
-    broadcastLogout();
   }
 }

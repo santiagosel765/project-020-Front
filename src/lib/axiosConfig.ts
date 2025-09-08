@@ -1,5 +1,5 @@
 import axios, { AxiosError, AxiosRequestConfig, AxiosResponse } from 'axios';
-import { getToken, setToken, clearToken, onTokenBroadcast } from './tokenStore';
+import { getToken, setToken, clearToken } from './tokenStore';
 
 function normalizeBase(url?: string | null) {
   if (!url) return null;
@@ -112,12 +112,5 @@ api.interceptors.response.use(
     throw error;
   }
 );
-
-/* ------------------------- Sincronizar logout entre pestañas ------------------------- */
-onTokenBroadcast((evt) => {
-  if (evt?.type === 'logout') {
-    queue = [];
-  }
-});
 
 export default api;

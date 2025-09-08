@@ -20,6 +20,8 @@ interface UsersTableProps {
   onDeleteUser: (userId: string) => void;
 }
 
+type UserInput = Omit<User, 'id'> & { id?: string };
+
 const getInitials = (name: string) => {
   const names = name.split(' ');
   if (names.length > 2) {
@@ -63,8 +65,9 @@ export function UsersTable({ users, onSaveUser, onDeleteUser }: UsersTableProps)
     setSelectedUser(undefined);
   };
 
-  const handleSaveUser = (user: User) => {
-    onSaveUser(user);
+  const handleSaveUser = (user: UserInput) => {
+    const withId: User = user.id ? (user as User) : { ...user, id: Date.now().toString() };
+    onSaveUser(withId);
     handleCloseModal();
   };
   
@@ -213,10 +216,10 @@ export function UsersTable({ users, onSaveUser, onDeleteUser }: UsersTableProps)
           </Button>
         </div>
       </Card>
-      <UserFormModal 
+      <UserFormModal
         isOpen={isModalOpen}
         onClose={handleCloseModal}
-        onSave={handleSaveUser}
+        onSubmit={handleSaveUser}
         user={selectedUser}
       />
     </>
