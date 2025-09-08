@@ -99,6 +99,7 @@ api.interceptors.response.use(
         }
         return api(original);
       } catch (e) {
+        // Refresh falló: limpia credenciales y rechaza
         clearToken();
         flushQueue(e, null);
         throw e;
