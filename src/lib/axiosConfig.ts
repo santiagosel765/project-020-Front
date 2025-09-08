@@ -71,7 +71,6 @@ api.interceptors.response.use(
     if (status === 401 && !original._retry) {
       if (isRefreshUrl(original.url || '')) {
         clearToken();
-        if (typeof window !== 'undefined') window.location.href = '/';
         throw error;
       }
 
@@ -100,10 +99,9 @@ api.interceptors.response.use(
         }
         return api(original);
       } catch (e) {
-        // Refresh falló: limpias credenciales y rediriges a login
+        // Refresh falló: limpia credenciales y rechaza
         clearToken();
         flushQueue(e, null);
-        if (typeof window !== 'undefined') window.location.href = '/';
         throw e;
       } finally {
         isRefreshing = false;
