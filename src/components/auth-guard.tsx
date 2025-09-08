@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { getMe } from '@/services/userService';
+import { getMeOnce } from '@/services/userService';
 
 interface AuthGuardProps {
   children: React.ReactNode;
@@ -15,7 +15,7 @@ export function AuthGuard({ children, roles }: AuthGuardProps) {
 
   useEffect(() => {
     let mounted = true;
-    getMe()
+    getMeOnce()
       .then((user) => {
         const userRoles: string[] = user?.roles ?? [];
         if (!roles || roles.some((r) => userRoles.includes(r))) {

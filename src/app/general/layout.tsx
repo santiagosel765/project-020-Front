@@ -5,7 +5,7 @@ import { GeneralHeader } from "@/components/general-header";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { AuthGuard } from "@/components/auth-guard";
-import { getMe } from "@/services/userService";
+import { getMeOnce } from "@/services/userService";
 
 export default function GeneralLayout({
   children,
@@ -16,7 +16,7 @@ export default function GeneralLayout({
   const router = useRouter();
 
   useEffect(() => {
-    getMe()
+    getMeOnce()
       .then((user) => {
         const roles: string[] = user?.roles ?? [];
         if (roles.includes('ADMIN')) {

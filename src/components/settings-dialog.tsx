@@ -27,6 +27,7 @@ import Cropper from 'react-easy-crop';
 import type { Point, Area } from 'react-easy-crop';
 import getCroppedImg from '@/lib/crop-image';
 import { Slider } from './ui/slider';
+import { getMeOnce } from '@/services/userService';
 
 const SettingsDialogContext = React.createContext({
     setOpen: (open: boolean) => {}
@@ -83,7 +84,15 @@ export function SettingsDialog({ children }: { children: React.ReactNode }) {
     const storedTheme = localStorage.getItem('theme') || 'light';
     setTheme(storedTheme);
     document.documentElement.classList.toggle('dark', storedTheme === 'dark');
-    setUserRole(localStorage.getItem('userRole'));
+    getMeOnce().then((user) => {
+      const roles: string[] = user?.roles ?? [];
+      const role = roles.includes('ADMIN')
+        ? 'admin'
+        : roles.includes('SUPERVISOR')
+          ? 'supervisor'
+          : 'general';
+      setUserRole(role);
+    });
     
     const savedSignature = localStorage.getItem('userSignature');
     if(savedSignature) {

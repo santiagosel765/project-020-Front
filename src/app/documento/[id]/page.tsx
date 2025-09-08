@@ -36,6 +36,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { SignaturePad } from '@/components/signature-pad';
 import SignatureCanvas from 'react-signature-canvas';
 import api from '@/lib/axiosConfig';
+import { getMeOnce } from '@/services/userService';
 
 type SignatoryStatus = 'FIRMADO' | 'RECHAZADO' | 'PENDIENTE';
 
@@ -123,13 +124,21 @@ export default function DocumentoDetallePage() {
   
   useEffect(() => {
     setIsClient(true);
-    const role = localStorage.getItem('userRole');
-    setUserRole(role);
-    if (role === 'admin') {
-      setCurrentUserId('1');
-    } else {
-      setCurrentUserId(null);
-    }
+    getMeOnce()
+      .then((user) => {
+        const roles: string[] = user?.roles ?? [];
+        const role = roles.includes('ADMIN')
+          ? 'admin'
+          : roles.includes('SUPERVISOR')
+            ? 'supervisor'
+            : 'general';
+        setUserRole(role);
+        setCurrentUserId(user.id);
+      })
+      .catch(() => {
+        setUserRole(null);
+        setCurrentUserId(null);
+      });
 
     const fetchDocument = async () => {
         if (!id) return;
