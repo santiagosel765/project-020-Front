@@ -1,11 +1,12 @@
 import api from '@/lib/axiosConfig';
 
 export interface User {
+  id: string;
+  email: string;
   roles: string[];
-  [key: string]: any;
 }
 
 export async function getMe(): Promise<User> {
-  const res = await api.get('/users/me');
+  const res = await api.get<User>('/users/me');
   return res.data;
 }

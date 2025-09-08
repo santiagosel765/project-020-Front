@@ -1,5 +1,5 @@
 import axios, { AxiosError, AxiosRequestConfig, AxiosResponse } from 'axios';
-import { getToken, setToken, clearToken, onTokenBroadcast } from './tokenStore';
+import { getToken, setToken, clearToken } from './tokenStore';
 
 function normalizeBase(url?: string | null) {
   if (!url) return null;
@@ -71,7 +71,6 @@ api.interceptors.response.use(
     if (status === 401 && !original._retry) {
       if (isRefreshUrl(original.url || '')) {
         clearToken();
-        if (typeof window !== 'undefined') window.location.href = '/';
         throw error;
       }
 
@@ -100,10 +99,8 @@ api.interceptors.response.use(
         }
         return api(original);
       } catch (e) {
-        // Refresh falló: limpias credenciales y rediriges a login
         clearToken();
         flushQueue(e, null);
-        if (typeof window !== 'undefined') window.location.href = '/';
         throw e;
       } finally {
         isRefreshing = false;
@@ -114,12 +111,5 @@ api.interceptors.response.use(
     throw error;
   }
 );
-
-/* ------------------------- Sincronizar logout entre pestañas ------------------------- */
-onTokenBroadcast((evt) => {
-  if (evt?.type === 'logout') {
-    queue = [];
-  }
-});
 
 export default api;
