@@ -1,76 +1,125 @@
-import axios, { AxiosError, AxiosRequestConfig } from 'axios';
-import { getToken, setToken, clearToken } from './tokenStore';
+import axios, { AxiosError, AxiosRequestConfig, AxiosResponse } from 'axios';
+import { getToken, setToken, clearToken, onTokenBroadcast } from './tokenStore';
 
+function normalizeBase(url?: string | null) {
+  if (!url) return null;
+  return url.replace(/\/+$/, ''); 
+}
+
+const ENV_BASE = normalizeBase(process.env.NEXT_PUBLIC_API_BASE || null);
+const baseURL = ENV_BASE || 'http://localhost:3200/api/v1';
+
+if (typeof window !== 'undefined' && process.env.NODE_ENV !== 'production') {
+  console.log('[axios] baseURL =', baseURL);
+  // @ts-ignore
+  window.__AXIOS_BASE__ = baseURL;
+}
+
+/* ------------------------- Cliente Axios ------------------------- */
 const api = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_BASE,
-  withCredentials: true,
+  baseURL,
+  withCredentials: true,           
+  timeout: 15000,                 
+  headers: {
+    Accept: 'application/json',
+    'X-Requested-With': 'XMLHttpRequest',
+  },
 });
 
+/* ------------------------- Interceptor de request ------------------------- */
 api.interceptors.request.use((config) => {
   const token = getToken();
-  if (token && config.headers) {
-    config.headers.Authorization = `Bearer ${token}`;
+  if (token) {
+    config.headers = config.headers ?? {};
+    (config.headers as any).Authorization = `Bearer ${token}`;
   }
   return config;
 });
 
+/* ------------------------- Cola de reintentos durante refresh ------------------------- */
 let isRefreshing = false;
-let failedQueue: {
+let queue: Array<{
   resolve: (value?: unknown) => void;
   reject: (error: any) => void;
-  config: AxiosRequestConfig;
-}[] = [];
+  config: AxiosRequestConfig & { _retry?: boolean };
+}> = [];
 
-const processQueue = (error: any, token: string | null = null) => {
-  failedQueue.forEach((prom) => {
-    if (error) {
-      prom.reject(error);
-    } else {
-      if (token && prom.config.headers) {
-        prom.config.headers.Authorization = `Bearer ${token}`;
-      }
-      prom.resolve(api(prom.config));
+function flushQueue(error: any, token: string | null = null) {
+  queue.forEach(({ resolve, reject, config }) => {
+    if (error) return reject(error);
+    if (token) {
+      config.headers = config.headers ?? {};
+      (config.headers as any).Authorization = `Bearer ${token}`;
     }
+    resolve(api(config));
   });
-  failedQueue = [];
-};
+  queue = [];
+}
 
+function isRefreshUrl(url?: string) {
+  if (!url) return false;
+  return /\/auth\/refresh$/.test(url);
+}
+
+/* ------------------------- Interceptor de response ------------------------- */
 api.interceptors.response.use(
-  (response) => response,
+  (res: AxiosResponse) => res,
   async (error: AxiosError) => {
-    const originalConfig = error.config as AxiosRequestConfig & { _retry?: boolean };
+    const original = (error.config || {}) as AxiosRequestConfig & { _retry?: boolean };
 
-    if (error.response?.status === 401 && !originalConfig._retry) {
-      originalConfig._retry = true;
+    const status = error.response?.status;
+    if (status === 401 && !original._retry) {
+      if (isRefreshUrl(original.url || '')) {
+        clearToken();
+        if (typeof window !== 'undefined') window.location.href = '/';
+        throw error;
+      }
 
+      original._retry = true;
+
+      // Si ya hay un refresh en curso, encolamos esta request
       if (isRefreshing) {
         return new Promise((resolve, reject) => {
-          failedQueue.push({ resolve, reject, config: originalConfig });
+          queue.push({ resolve, reject, config: original });
         });
       }
 
+      // Disparamos el refresh (cookie HttpOnly via withCredentials)
       isRefreshing = true;
-
       try {
-        const res = await api.post('/auth/refresh');
-        const newToken = (res.data as any)?.access_token;
-        setToken(newToken);
-        processQueue(null, newToken);
-        if (originalConfig.headers) {
-          originalConfig.headers.Authorization = `Bearer ${newToken}`;
+        const { data } = await api.post('/auth/refresh');
+        const newAccess = (data as any)?.access_token;
+        if (newAccess) setToken(newAccess);
+
+        flushQueue(null, newAccess);
+
+        // Reintenta la request original con el nuevo access
+        if (newAccess) {
+          original.headers = original.headers ?? {};
+          (original.headers as any).Authorization = `Bearer ${newAccess}`;
         }
-        return api(originalConfig);
-      } catch (refreshError) {
+        return api(original);
+      } catch (e) {
+        // Refresh falló: limpias credenciales y rediriges a login
         clearToken();
-        processQueue(refreshError, null);
-        return Promise.reject(refreshError);
+        flushQueue(e, null);
+        if (typeof window !== 'undefined') window.location.href = '/';
+        throw e;
       } finally {
         isRefreshing = false;
       }
     }
 
-    return Promise.reject(error);
+    // Puedes normalizar errores aquí si quieres una forma estándar
+    throw error;
   }
 );
+
+/* ------------------------- Sincronizar logout entre pestañas ------------------------- */
+onTokenBroadcast((evt) => {
+  if (evt?.type === 'logout') {
+    queue = [];
+  }
+});
 
 export default api;
