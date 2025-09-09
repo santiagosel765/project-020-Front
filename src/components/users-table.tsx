@@ -183,10 +183,10 @@ export function UsersTable({ users, onSaveUser, onDeleteUser }: UsersTableProps)
         </div>
       </Card>
 
-      <UserFormModal 
+      <UserFormModal
         isOpen={isModalOpen}
         onClose={handleCloseModal}
-        onSave={handleSaveUser}
+        onSave={(u) => handleSaveUser(u as User)}
         user={selectedUser}
       />
     </>

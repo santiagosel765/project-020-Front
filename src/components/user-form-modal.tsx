@@ -23,28 +23,15 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Loader2 } from "lucide-react";
+import type { User } from "@/lib/data";
 
-export interface User {
-  id?: string;
-  primerNombre: string;
-  segundoNombre?: string;
-  tercerNombre?: string;
-  primerApellido: string;
-  segundoApellido?: string;
-  apellidoCasada?: string;
-  codigoEmpleado: string;
-  posicionId: string;
-  gerenciaId: string;
-  correoInstitucional: string;
-  telefono: string;
-  fotoPerfil?: string;
-}
+type UserForm = Omit<User, "name" | "position" | "department">;
 
 interface UserFormModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (user: User) => void;
-  user?: User;
+  onSave: (user: UserForm) => Promise<void> | void;
+  user?: UserForm;
 }
 
 const formSchema = z.object({
@@ -63,7 +50,7 @@ const formSchema = z.object({
   fotoPerfil: z.string().optional(),
 });
 
-const defaultUserValues: Omit<User, "id"> = {
+const defaultUserValues: Omit<UserForm, "id"> = {
   primerNombre: "",
   segundoNombre: "",
   tercerNombre: "",
@@ -84,7 +71,7 @@ export function UserFormModal({
   onSave,
   user,
 }: UserFormModalProps) {
-  const form = useForm<User>({
+  const form = useForm<UserForm>({
     resolver: zodResolver(formSchema),
     defaultValues: user ? { ...user } : defaultUserValues,
   });
@@ -95,39 +82,9 @@ export function UserFormModal({
     }
   }, [isOpen, user, form]);
 
-  const onSubmit = async (data: User) => {
-  const payload = {
-    primer_nombre: data.primerNombre,
-    segundo_nombre: data.segundoNombre,
-    tercer_nombre: data.tercerNombre,
-    primer_apellido: data.primerApellido,
-    segundo_apellido: data.segundoApellido,
-    apellido_casada: data.apellidoCasada,
-    codigo_empleado: data.codigoEmpleado,
-    posicion_id: data.posicionId,
-    gerencia_id: data.gerenciaId,
-    correo_institucional: data.correoInstitucional,
-    telefono: data.telefono,
-    foto_perfil: data.fotoPerfil || null,
+  const onSubmit = async (data: UserForm) => {
+    await onSave(data);
   };
-
-  try {
-    const response = await fetch("http://localhost:3200/api/v1/users", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-
-    // Ignoramos el error falso y siempre mostramos éxito
-    const savedUser = await response.json();
-    alert("Usuario creado con éxito 🎉");
-    onSave(savedUser);
-    onClose();
-  } catch (error) {
-    console.error(error);
-    alert("Error al conectar con el servidor");
-  }
-};
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>

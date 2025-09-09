@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { UsersTable } from "@/components/users-table";
-import { User } from "@/lib/data";
+import { getUsers, createUser, updateUser, deleteUser, type User } from "@/lib/data";
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -12,15 +12,23 @@ export default function UsuariosPage() {
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
 
+  const getFullName = (u: User) =>
+    [
+      u.primerNombre,
+      u.segundoNombre,
+      u.tercerNombre,
+      u.primerApellido,
+      u.segundoApellido,
+      u.apellidoCasada,
+    ]
+      .filter(Boolean)
+      .join(" ");
+
   useEffect(() => {
     const fetchUsers = async () => {
       try {
-        const response = await fetch('/api/users');
-        if (!response.ok) {
-          throw new Error('Failed to fetch users');
-        }
-        const data = await response.json();
-        setUsers(data.sort((a: User, b: User) => a.name.localeCompare(b.name)));
+        const data = await getUsers();
+        setUsers(data.sort((a, b) => getFullName(a).localeCompare(getFullName(b))));
       } catch (error) {
         toast({
           variant: 'destructive',
@@ -35,28 +43,15 @@ export default function UsuariosPage() {
   }, [toast]);
 
   const handleSaveUser = async (user: User) => {
-    const isNewUser = !user.id;
-    const url = isNewUser ? '/api/users' : `/api/users?id=${user.id}`;
-    const method = isNewUser ? 'POST' : 'PUT';
-
     try {
-      const response = await fetch(url, {
-        method: method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(user),
-      });
-
-      if (!response.ok) {
-        throw new Error('Error al guardar el usuario');
-      }
-
-      const savedUser = await response.json();
-
-      if (isNewUser) {
-        setUsers(prev => [...prev, savedUser].sort((a, b) => a.name.localeCompare(b.name)));
+      let saved: User;
+      if (!user.id) {
+        saved = await createUser(user);
+        setUsers(prev => [...prev, saved].sort((a, b) => getFullName(a).localeCompare(getFullName(b))));
         toast({ title: 'Usuario Creado', description: 'El nuevo usuario ha sido agregado exitosamente.' });
       } else {
-        setUsers(prev => prev.map(u => u.id === savedUser.id ? savedUser : u).sort((a, b) => a.name.localeCompare(b.name)));
+        saved = await updateUser(user);
+        setUsers(prev => prev.map(u => u.id === saved.id ? saved : u).sort((a, b) => getFullName(a).localeCompare(getFullName(b))));
         toast({ title: 'Usuario Actualizado', description: 'Los datos del usuario han sido actualizados.' });
       }
     } catch (error) {
@@ -69,21 +64,16 @@ export default function UsuariosPage() {
   };
 
   const handleDeleteUser = async (userId: string) => {
-     try {
-        const response = await fetch(`/api/users?id=${userId}`, {
-            method: 'DELETE',
-        });
-        if (!response.ok) {
-            throw new Error('Error al eliminar el usuario');
-        }
-        setUsers(prev => prev.filter(u => u.id !== userId));
-        toast({ variant: 'destructive', title: 'Usuario Eliminado', description: 'El usuario ha sido eliminado.' });
+    try {
+      await deleteUser(userId);
+      setUsers(prev => prev.filter(u => u.id !== userId));
+      toast({ variant: 'destructive', title: 'Usuario Eliminado', description: 'El usuario ha sido eliminado.' });
     } catch (error) {
-        toast({
-            variant: 'destructive',
-            title: 'Error al eliminar',
-            description: 'Hubo un problema al eliminar el usuario.',
-        });
+      toast({
+        variant: 'destructive',
+        title: 'Error al eliminar',
+        description: 'Hubo un problema al eliminar el usuario.',
+      });
     }
   };
 

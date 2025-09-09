@@ -1,13 +1,7 @@
-import js from '@eslint/js'
-import tseslint from 'typescript-eslint'
-import next from 'eslint-config-next'
+import js from '@eslint/js';
+import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
   { ignores: ['.next/**', 'dist/**'] },
-  next,
-  {
-    rules: {
-      '@next/next/no-html-link-for-pages': 'off',
-    },
-  },
-)
+  js.configs.recommended,
+);
