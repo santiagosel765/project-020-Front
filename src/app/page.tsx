@@ -5,13 +5,12 @@ import Image from 'next/image';
 export default function Home() {
   return (
     <div className="min-h-screen flex items-center justify-center p-4 relative">
-       <Image
+      <Image
         src="/loginbg.jpeg"
-        alt="Fondo de inicio de sesión"
-        layout="fill"
-        objectFit="cover"
-        quality={100}
-        className="-z-10"
+        alt="Background"
+        fill
+        priority
+        style={{ objectFit: "cover" }}
       />
       <div className="absolute inset-0 bg-black/50 -z-10"></div>
       <Card className="w-full max-w-md glassmorphism">
