@@ -18,7 +18,7 @@ import {
   SidebarTrigger,
   SidebarFooter,
 } from '@/components/ui/sidebar';
-import { FilePlus2, FolderKanban, ShieldCheck, Users, LogOut, Settings, Bell, Menu, FileText, PanelLeft } from 'lucide-react';
+import { FilePlus2, FolderKanban, ShieldCheck, Users, LogOut, Settings, Bell, Menu, FileText, PanelLeft, Key } from 'lucide-react';
 import { usePathname, useRouter } from 'next/navigation';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -60,6 +60,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     { href: '/admin/documentos', label: 'Documentos', icon: FolderKanban },
     { href: '/admin/mis-documentos', label: 'Mis Documentos', icon: FileText },
     { href: '/admin/usuarios', label: 'Usuarios', icon: Users },
+    { href: '/admin/roles', label: 'Roles', icon: Key },
     { href: '/admin/supervision', label: 'Supervisión', icon: ShieldCheck },
   ];
 
