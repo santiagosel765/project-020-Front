@@ -24,6 +24,7 @@ export function AuthGuard({ children, roles }: AuthGuardProps) {
     }
   }, [loading, me, roles, router]);
 
+  if (loading) return null;
   if (!authorized) return null;
 
   return <>{children}</>;
