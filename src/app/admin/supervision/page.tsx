@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect } from 'react';
@@ -6,6 +5,7 @@ import { SupervisionTable } from "@/components/supervision-table";
 import { Document, User } from "@/lib/data";
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
+import { api } from '@/lib/axiosConfig';
 
 export default function SupervisionPage() {
     const [documents, setDocuments] = useState<Document[]>([]);
@@ -17,20 +17,11 @@ export default function SupervisionPage() {
         const fetchData = async () => {
             try {
                 const [docsRes, usersRes] = await Promise.all([
-                    fetch('/api/documents'),
-                    fetch('/api/users')
+                    api.get('/documents'),
+                    api.get('/users')
                 ]);
-
-                if (!docsRes.ok || !usersRes.ok) {
-                    throw new Error('Failed to fetch data');
-                }
-
-                const docsData = await docsRes.json();
-                const usersData = await usersRes.json();
-                
-                setDocuments(docsData);
-                setUsers(usersData);
-
+                setDocuments(docsRes.data);
+                setUsers(usersRes.data);
             } catch (error) {
                 toast({
                     variant: 'destructive',
@@ -43,10 +34,10 @@ export default function SupervisionPage() {
         };
         fetchData();
     }, [toast]);
-    
+
     const supervisionDocuments = documents.slice(0, 20).map((doc, index) => ({
         ...doc,
-        sentBy: users.length > 0 ? users[index % users.length] : {} as User, 
+        sentBy: users.length > 0 ? users[index % users.length] : {} as User,
         statusDescription: doc.status === 'Rechazado' ? 'Firma rechazada por Finanzas.' : 'Pendiente de firma por CEO.',
     }));
 
@@ -70,8 +61,8 @@ export default function SupervisionPage() {
 
     return (
       <div className="h-full">
-          <SupervisionTable 
-              documents={supervisionDocuments} 
+          <SupervisionTable
+              documents={supervisionDocuments}
               title="Supervisión de Documentos"
               description="Monitoree el estado y progreso de todos los documentos en tiempo real."
           />

@@ -68,6 +68,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   const menuItems = allMenuItems.filter(item => me?.pages?.some(p => p.url === item.href));
 
+  useEffect(() => {
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('me.pages', me?.pages?.map(p => p.url));
+      console.log('sidebar items', menuItems.map(i => i.href));
+    }
+  }, [me, menuItems]);
+
   const getPageTitle = () => {
     if (userRole === 'supervisor') return 'Supervisión';
     return allMenuItems.find(item => pathname.startsWith(item.href))?.label || 'Dashboard';

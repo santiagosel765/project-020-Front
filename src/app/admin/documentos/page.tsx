@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect } from 'react';
@@ -6,6 +5,7 @@ import { DocumentsTable } from "@/components/documents-table";
 import { Document } from "@/lib/data";
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
+import { api } from '@/lib/axiosConfig';
 
 export default function DocumentosPage() {
   const [documents, setDocuments] = useState<Document[]>([]);
@@ -15,11 +15,7 @@ export default function DocumentosPage() {
   useEffect(() => {
     const fetchDocuments = async () => {
       try {
-        const response = await fetch('/api/documents');
-        if (!response.ok) {
-          throw new Error('Failed to fetch documents');
-        }
-        const data = await response.json();
+        const { data } = await api.get('/documents');
         setDocuments(data);
       } catch (error) {
         toast({
@@ -54,8 +50,8 @@ export default function DocumentosPage() {
 
   return (
     <div className="h-full">
-        <DocumentsTable 
-            documents={documents} 
+        <DocumentsTable
+            documents={documents}
             title="Gestión de Documentos"
             description="Visualice, busque y gestione todos los documentos de la plataforma."
         />

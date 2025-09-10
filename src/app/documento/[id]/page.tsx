@@ -36,7 +36,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { SignaturePad } from '@/components/signature-pad';
 import SignatureCanvas from 'react-signature-canvas';
 import api from '@/lib/axiosConfig';
-import { getMeOnce } from '@/services/userService';
+import { useSession } from '@/lib/session';
 
 type SignatoryStatus = 'FIRMADO' | 'RECHAZADO' | 'PENDIENTE';
 
@@ -102,6 +102,7 @@ export default function DocumentoDetallePage() {
   const params = useParams();
   const { id } = params;
   const { toast } = useToast();
+  const { me } = useSession();
   const [document, setDocument] = useState<Document | null>(null);
   const [isLoadingDoc, setIsLoadingDoc] = useState(true);
   const [pdfSrc, setPdfSrc] = useState<string | null>(null);
@@ -124,21 +125,14 @@ export default function DocumentoDetallePage() {
   
   useEffect(() => {
     setIsClient(true);
-    getMeOnce()
-      .then((user) => {
-        const roles: string[] = user?.roles ?? [];
-        const role = roles.includes('ADMIN')
-          ? 'admin'
-          : roles.includes('SUPERVISOR')
-            ? 'supervisor'
-            : 'general';
-        setUserRole(role);
-        setCurrentUserId(user.id);
-      })
-      .catch(() => {
-        setUserRole(null);
-        setCurrentUserId(null);
-      });
+    const roles: string[] = me?.roles ?? [];
+    const role = roles.includes('ADMIN')
+      ? 'admin'
+      : roles.includes('SUPERVISOR')
+        ? 'supervisor'
+        : 'general';
+    setUserRole(role);
+    setCurrentUserId(me?.id ?? null);
 
     const fetchDocument = async () => {
         if (!id) return;
@@ -188,7 +182,7 @@ export default function DocumentoDetallePage() {
 
     fetchDocument();
 
-  }, [id, toast]);
+  }, [id, toast, me]);
 
   const canSignOrReject = useMemo(() => {
     if (!isClient || !currentUserId || userRole === 'supervisor' || !document) {
