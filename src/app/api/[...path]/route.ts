@@ -1,12 +1,12 @@
 import { NextRequest } from 'next/server';
 import { proxyRequest } from '../_proxy';
 
+export const dynamic = 'force-dynamic';
+
 async function handler(req: NextRequest, ctx: { params: Promise<{ path: string[] }> }) {
   const { path } = await ctx.params;
   return proxyRequest(req, `/${path.join('/')}`);
 }
-
-export const dynamic = 'force-dynamic';
 export const GET = handler;
 export const POST = handler;
 export const PUT = handler;

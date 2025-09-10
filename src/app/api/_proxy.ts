@@ -4,12 +4,11 @@ const API_BASE = process.env.NEXT_PUBLIC_API_BASE!;
 const isBodyless = (m: string) => m === 'GET' || m === 'HEAD';
 
 export async function proxyRequest(req: NextRequest, targetPath: string) {
-
   const target = `${API_BASE}${targetPath.startsWith('/') ? '' : '/'}${targetPath}`;
 
   const headers = new Headers(req.headers);
-  const cookie = req.headers.get('cookie') ?? '';
-  if (cookie) headers.set('cookie', cookie);
+  const incomingCookie = req.headers.get('cookie');
+  if (incomingCookie) headers.set('cookie', incomingCookie);
   headers.delete('host');
   headers.delete('content-length');
 
@@ -38,15 +37,14 @@ export async function proxyRequest(req: NextRequest, targetPath: string) {
     });
   }
 
-  const setCookie =
-    (backendRes.headers as any).getSetCookie?.() ||
-    (backendRes.headers as any).raw?.()['set-cookie'] ||
-    backendRes.headers.get('set-cookie');
+  const setCookies =
+    (backendRes.headers as any).getSetCookie?.() ??
+    (backendRes.headers.get('set-cookie')
+      ? [backendRes.headers.get('set-cookie')!]
+      : []);
 
-  if (setCookie) {
-    (Array.isArray(setCookie) ? setCookie : [setCookie]).forEach((v: string) => {
-      resp.headers.append('set-cookie', v);
-    });
+  for (const c of setCookies) {
+    resp.headers.append('set-cookie', c);
   }
 
   resp.headers.set('Cache-Control', 'no-store');

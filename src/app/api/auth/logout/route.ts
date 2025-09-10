@@ -4,5 +4,6 @@ import { proxyRequest } from '../../_proxy';
 export const dynamic = 'force-dynamic';
 
 export async function POST(req: NextRequest) {
-  return proxyRequest(req, '/auth/refresh');
+  return proxyRequest(req, '/auth/logout');
 }
+
