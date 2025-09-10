@@ -19,18 +19,7 @@ async function proxy(req: NextRequest, target: string) {
   return new NextResponse(data, { status: resp.status, headers: respHeaders });
 }
 
-export async function GET(req: NextRequest) {
-  return proxy(req, `${API_BASE}/paginas`);
+export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+  return proxy(req, `${API_BASE}/paginas/${params.id}/restore`);
 }
 
-export async function POST(req: NextRequest) {
-  return proxy(req, `${API_BASE}/paginas`);
-}
-
-export async function PATCH(req: NextRequest) {
-  return proxy(req, `${API_BASE}/paginas`);
-}
-
-export async function DELETE(req: NextRequest) {
-  return proxy(req, `${API_BASE}/paginas`);
-}
