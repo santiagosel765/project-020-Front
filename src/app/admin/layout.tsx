@@ -4,7 +4,6 @@
 
 import React, { useEffect } from 'react';
 import { AuthGuard } from '@/components/auth-guard';
-import { logout } from '@/services/authService';
 import { useSession } from '@/lib/session';
 import {
   SidebarProvider,

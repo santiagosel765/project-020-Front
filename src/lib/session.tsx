@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { api } from './axiosConfig';
+import { clearToken } from './tokenStore';
 
 interface Page { url: string }
 interface Me { pages: Page[]; roles?: string[]; id?: string; email?: string }
@@ -43,7 +44,8 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     try {
       await api.post('/auth/logout');
     } finally {
-      setMe(null); 
+      clearToken();
+      setMe(null);
     }
   }, []);
 
@@ -53,9 +55,9 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     void refreshMe();
   }, [refreshMe]);
 
-    const value = useMemo(() => ({ me, loading, refreshMe, signOut }), [me, loading, refreshMe, signOut]);
-    return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;
-  }
+  const value = useMemo(() => ({ me, loading, refreshMe, signOut }), [me, loading, refreshMe, signOut]);
+  return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;
+}
 
 export function useSession() {
   return useContext(SessionContext);

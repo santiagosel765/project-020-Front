@@ -36,7 +36,7 @@ let isRefreshing = false;
 let queue: Array<{
   resolve: (value?: unknown) => void;
   reject: (error: any) => void;
-  config: AxiosRequestConfig & { _retry?: boolean };
+  config: AxiosRequestConfig & { _retried?: boolean };
 }> = [];
 
 function flushQueue(error: any, token: string | null = null) {
@@ -56,20 +56,26 @@ function isRefreshUrl(url?: string) {
   return /\/auth\/refresh$/.test(url);
 }
 
+function isLogoutUrl(url?: string) {
+  if (!url) return false;
+  return /\/auth\/logout$/.test(url);
+}
+
 /* ------------------------- Interceptor de response ------------------------- */
 api.interceptors.response.use(
   (res: AxiosResponse) => res,
   async (error: AxiosError) => {
-    const original = (error.config || {}) as AxiosRequestConfig & { _retry?: boolean };
+    const original = (error.config || {}) as AxiosRequestConfig & { _retried?: boolean };
 
     const status = error.response?.status;
-    if (status === 401 && !original._retry) {
-      if (isRefreshUrl(original.url || '')) {
+    const url = original.url || '';
+    if (status === 401 && !original._retried && !isLogoutUrl(url)) {
+      if (isRefreshUrl(url)) {
         clearToken();
         throw error;
       }
 
-      original._retry = true;
+      original._retried = true;
 
       // Si ya hay un refresh en curso, encolamos esta request
       if (isRefreshing) {

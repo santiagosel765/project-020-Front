@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useSession } from '@/lib/session';
 
 interface AuthGuardProps {
@@ -12,20 +12,21 @@ interface AuthGuardProps {
 export function AuthGuard({ children, roles }: AuthGuardProps) {
   const router = useRouter();
   const { me, loading } = useSession();
-  const [authorized, setAuthorized] = useState(false);
 
   useEffect(() => {
     if (loading) return;
-    const userRoles: string[] = me?.roles ?? [];
-    if (me && (!roles || roles.some((r) => userRoles.includes(r)))) {
-      setAuthorized(true);
-    } else {
+    if (!me) {
+      router.replace('/');
+      return;
+    }
+    if (roles && !(me.roles ?? []).some((r) => roles.includes(r))) {
       router.replace('/');
     }
   }, [loading, me, roles, router]);
 
   if (loading) return null;
-  if (!authorized) return null;
+  if (!me) return null;
+  if (roles && !(me.roles ?? []).some((r) => roles.includes(r))) return null;
 
   return <>{children}</>;
 }
