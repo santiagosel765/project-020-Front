@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE!;
-const isBodyless = (m: string) => m === 'GET' || m === 'HEAD';
+const isBodylessMethod = (m: string) => m === 'GET' || m === 'HEAD';
 
 export async function proxyRequest(req: NextRequest, targetPath: string) {
   const target = `${API_BASE}${targetPath.startsWith('/') ? '' : '/'}${targetPath}`;
@@ -9,12 +9,13 @@ export async function proxyRequest(req: NextRequest, targetPath: string) {
   const headers = new Headers(req.headers);
   const incomingCookie = req.headers.get('cookie');
   if (incomingCookie) headers.set('cookie', incomingCookie);
+
   headers.delete('host');
   headers.delete('content-length');
 
-  const body = isBodyless(req.method) ? undefined : await req.arrayBuffer();
+  const body = isBodylessMethod(req.method) ? undefined : await req.arrayBuffer();
 
-  const backendRes = await fetch(target, {
+  const upstream = await fetch(target, {
     method: req.method,
     headers,
     body,
@@ -23,32 +24,41 @@ export async function proxyRequest(req: NextRequest, targetPath: string) {
     redirect: 'manual',
   });
 
-  const ct = backendRes.headers.get('content-type') || '';
-  let resp: NextResponse;
+  const resHeaders = new Headers();
+  upstream.headers.forEach((value, key) => {
+    const k = key.toLowerCase();
+    if (k === 'content-length' || k === 'transfer-encoding' || k === 'connection') return;
+    if (k === 'content-encoding') return;
+    if (k === 'set-cookie') return;
+    resHeaders.append(key, value);
+  });
 
-  if (ct.includes('application/json')) {
-    const data = await backendRes.json();
-    resp = NextResponse.json(data, { status: backendRes.status });
-  } else {
-    const buf = await backendRes.arrayBuffer();
-    resp = new NextResponse(buf, {
-      status: backendRes.status,
-      headers: { 'content-type': ct || 'application/octet-stream' },
-    });
+  resHeaders.set('cache-control', 'no-store');
+
+  const setCookiesFromGetSetCookie = (upstream.headers as any).getSetCookie?.();
+  const setCookiesFromRaw = (upstream.headers as any).raw?.()?.['set-cookie'];
+  const setCookieSingle = upstream.headers.get('set-cookie');
+
+  if (Array.isArray(setCookiesFromGetSetCookie)) {
+    for (const c of setCookiesFromGetSetCookie) resHeaders.append('set-cookie', c);
+  } else if (Array.isArray(setCookiesFromRaw)) {
+    for (const c of setCookiesFromRaw) resHeaders.append('set-cookie', c);
+  } else if (typeof setCookieSingle === 'string' && setCookieSingle) {
+    resHeaders.append('set-cookie', setCookieSingle);
   }
 
-  const setCookies =
-    (backendRes.headers as any).getSetCookie?.() ??
-    (backendRes.headers.get('set-cookie')
-      ? [backendRes.headers.get('set-cookie')!]
-      : []);
+  const status = upstream.status;
 
-  for (const c of setCookies) {
-    resp.headers.append('set-cookie', c);
+  if (status === 204 || status === 304) {
+    return new NextResponse(null, { status, headers: resHeaders });
   }
 
-  resp.headers.set('Cache-Control', 'no-store');
-  resp.headers.delete('content-length');
+  const buf = await upstream.arrayBuffer();
+  if (!resHeaders.has('content-type')) {
+    resHeaders.set('content-type', 'application/octet-stream');
+  }
 
-  return resp;
+  resHeaders.delete('content-length');
+
+  return new NextResponse(buf, { status, headers: resHeaders });
 }
