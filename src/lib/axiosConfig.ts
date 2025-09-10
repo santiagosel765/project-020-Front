@@ -1,17 +1,8 @@
 import axios, { AxiosError, AxiosRequestConfig, AxiosResponse } from 'axios';
 import { getToken, setToken, clearToken } from './tokenStore';
 
-function normalizeBase(url?: string | null) {
-  if (!url) return null;
-  return url.replace(/\/+$/, ''); 
-}
-
-const ENV_BASE = normalizeBase(process.env.NEXT_PUBLIC_API_BASE || null);
-const baseURL =
-  ENV_BASE ||
-  (process.env.NODE_ENV !== 'production'
-    ? 'http://localhost:3200/api/v1'
-    : undefined);
+// Always proxy through Next.js API routes
+const baseURL = '/api';
 
 if (typeof window !== 'undefined' && process.env.NODE_ENV !== 'production') {
   console.log('[axios] baseURL =', baseURL);
@@ -20,10 +11,10 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV !== 'production') {
 }
 
 /* ------------------------- Cliente Axios ------------------------- */
-const api = axios.create({
+export const api = axios.create({
   baseURL,
-  withCredentials: true,           
-  timeout: 15000,                 
+  withCredentials: true,
+  timeout: 15000,
   headers: {
     Accept: 'application/json',
     'X-Requested-With': 'XMLHttpRequest',

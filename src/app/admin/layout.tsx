@@ -2,10 +2,10 @@
 
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useEffect } from 'react';
 import { AuthGuard } from '@/components/auth-guard';
-import { getMeOnce } from '@/services/userService';
 import { logout } from '@/services/authService';
+import { useSession } from '@/lib/session';
 import {
   SidebarProvider,
   Sidebar,
@@ -38,34 +38,32 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const pathname = usePathname();
   const router = useRouter();
   const isMobile = useIsMobile();
-  const [userRole, setUserRole] = useState<string | null>(null);
+  const { me, loading } = useSession();
+  const userRole = me?.roles?.includes('SUPERVISOR')
+    ? 'supervisor'
+    : me?.roles?.includes('ADMIN')
+      ? 'admin'
+      : null;
 
   useEffect(() => {
-    getMeOnce()
-      .then((user) => {
-        const roles: string[] = user?.roles ?? [];
-        const role = roles.includes('SUPERVISOR')
-          ? 'supervisor'
-          : roles.includes('ADMIN')
-            ? 'admin'
-            : null;
-        setUserRole(role);
-        if (role === 'supervisor' && pathname !== '/admin/supervision') {
-          router.replace('/admin/supervision');
-        }
-      })
-      .catch(() => router.replace('/'));
-  }, [pathname, router]);
+    if (!loading) {
+      if (!me) {
+        router.replace('/');
+      } else if (userRole === 'supervisor' && pathname !== '/admin/supervision') {
+        router.replace('/admin/supervision');
+      }
+    }
+  }, [loading, me, userRole, pathname, router]);
 
   const allMenuItems = [
-    { href: '/admin/asignaciones', label: 'Asignaciones', icon: FilePlus2, roles: ['admin'] },
-    { href: '/admin/documentos', label: 'Documentos', icon: FolderKanban, roles: ['admin'] },
-    { href: '/admin/mis-documentos', label: 'Mis Documentos', icon: FileText, roles: ['admin'] },
-    { href: '/admin/usuarios', label: 'Usuarios', icon: Users, roles: ['admin'] },
-    { href: '/admin/supervision', label: 'Supervisión', icon: ShieldCheck, roles: ['admin', 'supervisor'] },
+    { href: '/admin/asignaciones', label: 'Asignaciones', icon: FilePlus2 },
+    { href: '/admin/documentos', label: 'Documentos', icon: FolderKanban },
+    { href: '/admin/mis-documentos', label: 'Mis Documentos', icon: FileText },
+    { href: '/admin/usuarios', label: 'Usuarios', icon: Users },
+    { href: '/admin/supervision', label: 'Supervisión', icon: ShieldCheck },
   ];
 
-  const menuItems = allMenuItems.filter(item => userRole && item.roles.includes(userRole));
+  const menuItems = allMenuItems.filter(item => me?.pages?.some(p => p.url === item.href));
 
   const getPageTitle = () => {
     if (userRole === 'supervisor') return 'Supervisión';
@@ -134,7 +132,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         </header>
   );
 
-  if (!userRole) return null;
+  if (loading || !userRole) return null;
 
   return (
     <AuthGuard roles={['ADMIN', 'SUPERVISOR']}>
