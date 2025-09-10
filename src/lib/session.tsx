@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { api } from './axiosConfig';
 
 interface Page { url: string }
@@ -10,12 +10,14 @@ interface SessionValue {
   me: Me | null;
   loading: boolean;
   refreshMe: () => Promise<Me | null>;
+  signOut: () => Promise<void>;    
 }
 
 const SessionContext = createContext<SessionValue>({
   me: null,
   loading: true,
   refreshMe: async () => null,
+  signOut: async () => {},     
 });
 
 export function SessionProvider({ children }: { children: React.ReactNode }) {
@@ -37,18 +39,23 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  const signOut = useCallback(async () => {
+    try {
+      await api.post('/auth/logout');
+    } finally {
+      setMe(null); 
+    }
+  }, []);
+
   useEffect(() => {
     if (fetched.current) return;
     fetched.current = true;
     void refreshMe();
   }, [refreshMe]);
 
-  return (
-    <SessionContext.Provider value={{ me, loading, refreshMe }}>
-      {children}
-    </SessionContext.Provider>
-  );
-}
+    const value = useMemo(() => ({ me, loading, refreshMe, signOut }), [me, loading, refreshMe, signOut]);
+    return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;
+  }
 
 export function useSession() {
   return useContext(SessionContext);

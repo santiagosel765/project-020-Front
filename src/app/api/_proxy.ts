@@ -1,33 +1,56 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE!;
+const isBodyless = (m: string) => m === 'GET' || m === 'HEAD';
 
 export async function proxyRequest(req: NextRequest, targetPath: string) {
+
+  const target = `${API_BASE}${targetPath.startsWith('/') ? '' : '/'}${targetPath}`;
+
   const headers = new Headers(req.headers);
-  const cookie = req.headers.get('cookie');
+  const cookie = req.headers.get('cookie') ?? '';
   if (cookie) headers.set('cookie', cookie);
   headers.delete('host');
   headers.delete('content-length');
 
-  const init: RequestInit = {
+  const body = isBodyless(req.method) ? undefined : await req.arrayBuffer();
+
+  const backendRes = await fetch(target, {
     method: req.method,
     headers,
-    redirect: 'manual',
+    body,
     credentials: 'include',
-    body: ['GET', 'HEAD'].includes(req.method) ? undefined : await req.arrayBuffer(),
-  };
+    cache: 'no-store',
+    redirect: 'manual',
+  });
 
-  const res = await fetch(`${API_BASE}${targetPath}`, init);
-  const data = await res.arrayBuffer();
-  const resHeaders = new Headers(res.headers);
-  resHeaders.set('cache-control', 'no-store');
+  const ct = backendRes.headers.get('content-type') || '';
+  let resp: NextResponse;
 
-  const setCookie = (res.headers as any).getSetCookie?.() || (res.headers as any).raw?.()['set-cookie'];
-  if (Array.isArray(setCookie)) {
-    setCookie.forEach((c: string) => resHeaders.append('set-cookie', c));
-  } else if (typeof setCookie === 'string') {
-    resHeaders.append('set-cookie', setCookie);
+  if (ct.includes('application/json')) {
+    const data = await backendRes.json();
+    resp = NextResponse.json(data, { status: backendRes.status });
+  } else {
+    const buf = await backendRes.arrayBuffer();
+    resp = new NextResponse(buf, {
+      status: backendRes.status,
+      headers: { 'content-type': ct || 'application/octet-stream' },
+    });
   }
 
-  return new NextResponse(data, { status: res.status, headers: resHeaders });
+  const setCookie =
+    (backendRes.headers as any).getSetCookie?.() ||
+    (backendRes.headers as any).raw?.()['set-cookie'] ||
+    backendRes.headers.get('set-cookie');
+
+  if (setCookie) {
+    (Array.isArray(setCookie) ? setCookie : [setCookie]).forEach((v: string) => {
+      resp.headers.append('set-cookie', v);
+    });
+  }
+
+  resp.headers.set('Cache-Control', 'no-store');
+  resp.headers.delete('content-length');
+
+  return resp;
 }

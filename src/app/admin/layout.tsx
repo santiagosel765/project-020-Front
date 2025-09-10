@@ -38,7 +38,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const pathname = usePathname();
   const router = useRouter();
   const isMobile = useIsMobile();
-  const { me, loading } = useSession();
+  const { me, loading, signOut } = useSession();
   const userRole = me?.roles?.includes('SUPERVISOR')
     ? 'supervisor'
     : me?.roles?.includes('ADMIN')
@@ -80,10 +80,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     return allMenuItems.find(item => pathname.startsWith(item.href))?.label || 'Dashboard';
   }
 
-  const handleLogout = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    logout();
-    router.push('/');
+  async function handleLogout() {
+    await signOut();  
+    router.replace('/'); 
   }
 
   const header = (
@@ -131,7 +130,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                            </div>
                          </SettingsDialog.Trigger>
                        </DropdownMenuItem>
-                      <DropdownMenuItem onClick={handleLogout}>
+                      <DropdownMenuItem
+                        onSelect={async (e) => {
+                          e.preventDefault();
+                          await handleLogout();
+                        }}
+                      >
                         <LogOut className="mr-2 h-4 w-4" />
                         <span>Cerrar Sesión</span>
                       </DropdownMenuItem>
