@@ -40,15 +40,22 @@ export function LoginForm() {
       toast({ title: "Inicio de sesión exitoso" });
 
       const me = await refreshMe();
-      const roles: string[] = me?.roles ?? [];
 
-      if (roles.includes('ADMIN')) {
-        router.push('/admin/asignaciones');
-      } else if (roles.includes('SUPERVISOR')) {
-        router.push('/admin/supervision');
-      } else {
-        router.push('/general');
-      }
+      const preferred = [
+        '/admin/asignaciones',
+        '/admin/documentos',
+        '/admin/mis-documentos',
+        '/admin/usuarios',
+        '/admin/roles',
+        '/admin/page',
+        '/admin/permission',
+        '/admin/supervision',
+      ];
+
+      const allowed = me?.pages?.map(p => p.url) ?? [];
+      const dest = preferred.find(p => allowed.includes(p)) || '/general';
+
+      router.push(dest);
 
     } catch (error: any) {
       console.error("Login API error:", error);

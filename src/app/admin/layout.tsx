@@ -38,11 +38,15 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const router = useRouter();
   const isMobile = useIsMobile();
   const { me, loading, signOut } = useSession();
-  const userRole = me?.roles?.includes('SUPERVISOR')
-    ? 'supervisor'
-    : me?.roles?.includes('ADMIN')
-      ? 'admin'
-      : null;
+  const isSupervisor =
+    me?.roles?.includes('SUPERVISOR') ||
+    me?.pages?.some(p => p.url === '/admin/supervision');
+
+  const isAdmin =
+    me?.roles?.includes('ADMIN') ||
+    me?.pages?.some(p => p.url.startsWith('/admin'));
+
+  const userRole = isSupervisor ? 'supervisor' : (isAdmin ? 'admin' : null);
 
   useEffect(() => {
     if (!loading) {
