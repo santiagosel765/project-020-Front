@@ -27,7 +27,7 @@ import Cropper from 'react-easy-crop';
 import type { Point, Area } from 'react-easy-crop';
 import getCroppedImg from '@/lib/crop-image';
 import { Slider } from './ui/slider';
-import { getMeOnce } from '@/services/userService';
+import { useSession } from '@/lib/session';
 
 const SettingsDialogContext = React.createContext({
     setOpen: (open: boolean) => {}
@@ -62,6 +62,7 @@ export function SettingsDialog({ children }: { children: React.ReactNode }) {
   const [mounted, setMounted] = useState(false);
   const [theme, setTheme] = useState('light');
   const [userRole, setUserRole] = useState<string | null>(null);
+  const { me } = useSession();
   const { toast } = useToast();
   
   const [currentSignature, setCurrentSignature] = useState<string | null>(null);
@@ -84,15 +85,13 @@ export function SettingsDialog({ children }: { children: React.ReactNode }) {
     const storedTheme = localStorage.getItem('theme') || 'light';
     setTheme(storedTheme);
     document.documentElement.classList.toggle('dark', storedTheme === 'dark');
-    getMeOnce().then((user) => {
-      const roles: string[] = user?.roles ?? [];
-      const role = roles.includes('ADMIN')
-        ? 'admin'
-        : roles.includes('SUPERVISOR')
-          ? 'supervisor'
-          : 'general';
-      setUserRole(role);
-    });
+    const roles: string[] = me?.roles ?? [];
+    const role = roles.includes('ADMIN')
+      ? 'admin'
+      : roles.includes('SUPERVISOR')
+        ? 'supervisor'
+        : 'general';
+    setUserRole(role);
     
     const savedSignature = localStorage.getItem('userSignature');
     if(savedSignature) {
@@ -103,7 +102,7 @@ export function SettingsDialog({ children }: { children: React.ReactNode }) {
         setAvatarImage(savedAvatar);
     }
 
-  }, []);
+  }, [me]);
 
   const handleThemeChange = (isDark: boolean) => {
     const newTheme = isDark ? 'dark' : 'light';
@@ -172,7 +171,7 @@ export function SettingsDialog({ children }: { children: React.ReactNode }) {
 
   const onCropComplete = useCallback((croppedArea: Area, croppedAreaPixels: Area) => {
     setCroppedAreaPixels(croppedAreaPixels);
-  }, []);
+  }, [me]);
 
   const showCroppedImage = useCallback(async () => {
     try {

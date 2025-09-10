@@ -1,0 +1,64 @@
+{
+  "appRoutes": [
+    "/admin/asignaciones",
+    "/admin/documentos",
+    "/admin/mis-documentos",
+    "/admin/page",
+    "/admin/permission",
+    "/admin/roles",
+    "/admin/supervision",
+    "/admin/usuarios",
+    "/documento/[id]",
+    "/general"
+  ],
+  "menuItems": [
+    {
+      "label": "Asignaciones",
+      "href": "/admin/asignaciones"
+    },
+    {
+      "label": "Documentos",
+      "href": "/admin/documentos"
+    },
+    {
+      "label": "Mis Documentos",
+      "href": "/admin/mis-documentos"
+    },
+    {
+      "label": "Usuarios",
+      "href": "/admin/usuarios"
+    },
+    {
+      "label": "Roles",
+      "href": "/admin/roles"
+    },
+    {
+      "label": "Páginas",
+      "href": "/admin/page"
+    },
+    {
+      "label": "Permisos",
+      "href": "/admin/permission"
+    },
+    {
+      "label": "Supervisión",
+      "href": "/admin/supervision"
+    },
+    {
+      "label": "Mis Documentos",
+      "href": "/general"
+    }
+  ],
+  "suggestedBackendPageUrls": [
+    "/admin/asignaciones",
+    "/admin/documentos",
+    "/admin/mis-documentos",
+    "/admin/usuarios",
+    "/admin/roles",
+    "/admin/page",
+    "/admin/permission",
+    "/admin/supervision",
+    "/general",
+    "/documento/[id]"
+  ]
+}

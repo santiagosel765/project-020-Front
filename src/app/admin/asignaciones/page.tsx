@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import { Upload, Search, Loader2 } from "lucide-react";
+import { api } from "@/lib/axiosConfig";
 import { getUsers, type User as ApiUser } from "@/lib/data";
 import { useToast } from "@/hooks/use-toast";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -143,9 +144,7 @@ export default function AsignacionesPage() {
     try {
       const formData = new FormData();
       formData.append("file", pdfFile);
-      const response = await fetch("/api/upload", { method: "POST", body: formData });
-      if (!response.ok) throw new Error("Error al subir el archivo.");
-      const result = await response.json();
+      const { data: result } = await api.post('/upload', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
       uploadedPdfPath = result.filePath;
       toast({ title: "Archivo Subido", description: "El PDF se guardó en el servidor." });
     } catch (error) {
@@ -177,13 +176,7 @@ export default function AsignacionesPage() {
     };
 
     try {
-      const response = await fetch("/api/documents", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(newDocument),
-      });
-      if (!response.ok) throw new Error("Error al crear el documento.");
-      const createdDoc = await response.json();
+      const { data: createdDoc } = await api.post('/documents', newDocument);
 
       toast({ title: "Documento Enviado", description: "El documento se envió para firma." });
 

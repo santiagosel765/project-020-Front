@@ -14,7 +14,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Loader2, Eye, EyeOff } from "lucide-react";
 import React from "react";
 import { login as authLogin } from "@/services/authService";
-import { getMe } from "@/services/userService";
+import { useSession } from "@/lib/session";
 
 const formSchema = z.object({
   email: z.string().min(1, { message: "El correo es requerido." }),
@@ -24,6 +24,7 @@ const formSchema = z.object({
 export function LoginForm() {
   const router = useRouter();
   const { toast } = useToast();
+  const { refreshMe } = useSession();
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [showPassword, setShowPassword] = React.useState(false);
 
@@ -35,10 +36,10 @@ export function LoginForm() {
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsSubmitting(true);
     try {
-      const data = await authLogin(values.email, values.password);
+      await authLogin(values.email, values.password);
       toast({ title: "Inicio de sesión exitoso" });
 
-      const me = await getMe();
+      const me = await refreshMe();
       const roles: string[] = me?.roles ?? [];
 
       if (roles.includes('ADMIN')) {

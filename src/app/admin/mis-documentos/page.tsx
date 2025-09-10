@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect } from 'react';
@@ -6,6 +5,7 @@ import { DocumentsTable } from "@/components/documents-table";
 import { Document } from "@/lib/data";
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
+import { api } from '@/lib/axiosConfig';
 
 export default function MisDocumentosPage() {
   const [documents, setDocuments] = useState<Document[]>([]);
@@ -15,14 +15,9 @@ export default function MisDocumentosPage() {
   useEffect(() => {
     const fetchDocuments = async () => {
       try {
-        const response = await fetch('/api/documents');
-        if (!response.ok) {
-          throw new Error('Failed to fetch documents');
-        }
-        const data = await response.json();
-        // In a real app, this would be filtered for the current admin user
-        const adminUserId = '1'; // Assuming admin user has id '1'
-        const userDocuments = data.filter((doc: Document) => 
+        const { data } = await api.get('/documents');
+        const adminUserId = '1';
+        const userDocuments = data.filter((doc: Document) =>
             doc.assignedUsers.some(user => user.id === adminUserId)
         );
         setDocuments(userDocuments);
@@ -53,8 +48,8 @@ export default function MisDocumentosPage() {
 
   return (
     <div className="h-full">
-        <DocumentsTable 
-            documents={documents} 
+        <DocumentsTable
+            documents={documents}
             title="Mis Documentos"
             description="Documentos asignados a usted para revisar y firmar."
         />
