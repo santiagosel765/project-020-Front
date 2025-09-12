@@ -5,7 +5,8 @@ import { DocumentsTable } from "@/components/documents-table";
 import { Document } from "@/lib/data";
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
-import { api } from '@/lib/axiosConfig';
+import { getAssignmentsByUser } from '@/services/documentsService';
+import { getMe } from '@/services/usersService';
 
 export default function MisDocumentosPage() {
   const [documents, setDocuments] = useState<Document[]>([]);
@@ -15,12 +16,9 @@ export default function MisDocumentosPage() {
   useEffect(() => {
     const fetchDocuments = async () => {
       try {
-        const { data } = await api.get('/documents');
-        const adminUserId = '1';
-        const userDocuments = data.filter((doc: Document) =>
-            doc.assignedUsers.some(user => user.id === adminUserId)
-        );
-        setDocuments(userDocuments);
+        const me = await getMe();
+        const data = await getAssignmentsByUser(me.id);
+        setDocuments(data as Document[]);
       } catch (error) {
         toast({
           variant: 'destructive',

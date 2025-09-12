@@ -5,7 +5,7 @@ import { DocumentsTable } from "@/components/documents-table";
 import { Document } from "@/lib/data";
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
-import { api } from '@/lib/axiosConfig';
+import { getSupervisionDocs } from '@/services/documentsService';
 
 export default function DocumentosPage() {
   const [documents, setDocuments] = useState<Document[]>([]);
@@ -15,8 +15,8 @@ export default function DocumentosPage() {
   useEffect(() => {
     const fetchDocuments = async () => {
       try {
-        const { data } = await api.get('/documents');
-        setDocuments(data);
+        const data = await getSupervisionDocs();
+        setDocuments(data as Document[]);
       } catch (error) {
         toast({
           variant: 'destructive',
