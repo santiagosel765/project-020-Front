@@ -1,5 +1,3 @@
-
-
 "use client";
 
 import React, { useEffect } from 'react';
@@ -17,7 +15,21 @@ import {
   SidebarTrigger,
   SidebarFooter,
 } from '@/components/ui/sidebar';
-import { FilePlus2, FolderKanban, ShieldCheck, Users, LogOut, Settings, Bell, Menu, FileText, PanelLeft, Key, File as FileIcon, Shield as ShieldIcon } from 'lucide-react';
+import {
+  FilePlus2,
+  FolderKanban,
+  ShieldCheck,
+  Users,
+  LogOut,
+  Settings,
+  Bell,
+  Menu,
+  FileText,
+  PanelLeft,
+  Key,
+  FileIcon,
+  ShieldIcon,
+} from 'lucide-react';
 import { usePathname, useRouter } from 'next/navigation';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -32,121 +44,115 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { SettingsDialog } from '@/components/settings-dialog';
 
-
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const isMobile = useIsMobile();
+
   const { me, loading, signOut } = useSession();
-  const isSupervisor =
-    me?.roles?.includes('SUPERVISOR') ||
-    me?.pages?.some(p => p.url === '/admin/supervision');
 
   const isAdmin =
     me?.roles?.includes('ADMIN') ||
-    me?.pages?.some(p => p.url.startsWith('/admin'));
+    me?.pages?.some((p) => p.url?.startsWith('/admin'));
 
-  const userRole = isSupervisor ? 'supervisor' : (isAdmin ? 'admin' : null);
+  const isSupervisor =
+    !isAdmin &&
+    (me?.roles?.includes('SUPERVISOR') ||
+      me?.pages?.some((p) => p.url === '/admin/supervision'));
+
+  const userRole: 'admin' | 'supervisor' | null = isAdmin ? 'admin' : isSupervisor ? 'supervisor' : null;
 
   useEffect(() => {
-    if (!loading) {
-      if (!me) {
-        router.replace('/');
-      } else if (userRole === 'supervisor' && pathname !== '/admin/supervision') {
-        router.replace('/admin/supervision');
-      }
+    if (loading) return;
+    if (!me) {
+      router.replace('/');
+      return;
+    }
+    if (userRole === 'supervisor' && pathname !== '/admin/supervision') {
+      router.replace('/admin/supervision');
     }
   }, [loading, me, userRole, pathname, router]);
 
   const allMenuItems = [
-    { href: '/admin/asignaciones', label: 'Asignaciones', icon: FilePlus2 },
-    { href: '/admin/documentos', label: 'Documentos', icon: FolderKanban },
-    { href: '/admin/mis-documentos', label: 'Mis Documentos', icon: FileText },
-    { href: '/admin/usuarios', label: 'Usuarios', icon: Users },
-    { href: '/admin/roles', label: 'Roles', icon: Key },
-    { href: '/admin/page', label: 'Páginas', icon: FileIcon },
-    { href: '/admin/permission', label: 'Permisos', icon: ShieldIcon },
-    { href: '/admin/supervision', label: 'Supervisión', icon: ShieldCheck },
+    { href: "/admin/asignaciones", label: "Asignaciones", icon: FilePlus2 },
+    { href: "/admin/documentos", label: "Documentos", icon: FolderKanban },
+    { href: "/admin/mis-documentos", label: "Mis Documentos", icon: FileText },
+    { href: "/admin/usuarios", label: "Usuarios", icon: Users },
+    { href: "/admin/roles", label: "Roles", icon: Key },
+    { href: "/admin/page", label: "Páginas", icon: FileIcon },
+    { href: "/admin/permission", label: "Permisos", icon: ShieldIcon },
+    { href: "/admin/supervision", label: "Supervisión", icon: ShieldCheck },
   ];
 
-  const menuItems = allMenuItems.filter(item => me?.pages?.some(p => p.url === item.href));
-
-  useEffect(() => {
-    if (process.env.NODE_ENV !== 'production') {
-      console.log('me.pages', me?.pages?.map(p => p.url));
-      console.log('sidebar items', menuItems.map(i => i.href));
-    }
-  }, [me, menuItems]);
+  const menuItems = allMenuItems.filter((item) =>
+    me?.pages?.some((p) => p.url === item.href)
+  );
 
   const getPageTitle = () => {
     if (userRole === 'supervisor') return 'Supervisión';
     return allMenuItems.find(item => pathname.startsWith(item.href))?.label || 'Dashboard';
-  }
+  };
 
-  async function handleLogout() {
-    await signOut();  
-    router.replace('/'); 
-  }
+  const handleLogout = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    await signOut();
+    router.replace('/');
+  };
 
   const header = (
-        <header className="sticky top-0 z-10 flex h-14 items-center gap-4 border-b bg-background/80 px-4 backdrop-blur-md sm:h-16 md:px-6">
-            <div className="flex-1 md:hidden">
-              {userRole !== 'supervisor' && (
-                <SidebarTrigger>
-                  <Menu/>
-                </SidebarTrigger>
-              )}
-            </div>
-            <div className="hidden md:flex flex-1 items-center">
-                <h1 className="text-lg font-semibold md:text-xl">
-                    {getPageTitle()}
-                </h1>
-            </div>
-            <div className="flex items-center gap-4">
-                <Button variant="ghost" size="icon" className="rounded-full">
-                  <Bell className="h-5 w-5" />
-                  <span className="sr-only">Notificaciones</span>
-                </Button>
-                <SettingsDialog>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" className="relative h-10 w-10 rounded-full">
-                        <Avatar className="h-10 w-10">
-                          <AvatarImage src="https://placehold.co/100x100.png" alt="Admin" data-ai-hint="person avatar"/>
-                          <AvatarFallback>{userRole === 'admin' ? 'AD' : 'SP'}</AvatarFallback>
-                        </Avatar>
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-56">
-                      <DropdownMenuLabel>
-                        <p>{userRole === 'admin' ? 'Admin' : 'Supervisor'}</p>
-                        <p className="text-xs text-muted-foreground font-normal">
-                          {userRole === 'admin' ? 'admin@zignosign.com' : 'supervisor@zignosign.com'}
-                        </p>
-                      </DropdownMenuLabel>
-                      <DropdownMenuSeparator />
-                       <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-                         <SettingsDialog.Trigger asChild>
-                           <div className="w-full cursor-pointer flex items-center">
-                             <Settings className="mr-2 h-4 w-4" />
-                             <span>Configuración</span>
-                           </div>
-                         </SettingsDialog.Trigger>
-                       </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onSelect={async (e) => {
-                          e.preventDefault();
-                          await handleLogout();
-                        }}
-                      >
-                        <LogOut className="mr-2 h-4 w-4" />
-                        <span>Cerrar Sesión</span>
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </SettingsDialog>
-            </div>
-        </header>
+    <header className="sticky top-0 z-10 flex h-14 items-center gap-4 border-b bg-background/80 px-4 backdrop-blur-md sm:h-16 md:px-6">
+      <div className="flex-1 md:hidden">
+        {userRole !== 'supervisor' && (
+          <SidebarTrigger>
+            <Menu />
+          </SidebarTrigger>
+        )}
+      </div>
+      <div className="hidden md:flex flex-1 items-center">
+        <h1 className="text-lg font-semibold md:text-xl">
+          {getPageTitle()}
+        </h1>
+      </div>
+      <div className="flex items-center gap-4">
+        <Button variant="ghost" size="icon" className="rounded-full">
+          <Bell className="h-5 w-5" />
+          <span className="sr-only">Notificaciones</span>
+        </Button>
+        <SettingsDialog>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" className="relative h-10 w-10 rounded-full">
+                <Avatar className="h-10 w-10">
+                  <AvatarImage src="https://placehold.co/100x100.png" alt="Admin" data-ai-hint="person avatar" />
+                  <AvatarFallback>{userRole === 'admin' ? 'AD' : 'SP'}</AvatarFallback>
+                </Avatar>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuLabel>
+                <p>{userRole === 'admin' ? 'Admin' : 'Supervisor'}</p>
+                <p className="text-xs text-muted-foreground font-normal">
+                  {userRole === 'admin' ? 'admin@zignosign.com' : 'supervisor@zignosign.com'}
+                </p>
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                <SettingsDialog.Trigger asChild>
+                  <div className="w-full cursor-pointer flex items-center">
+                    <Settings className="mr-2 h-4 w-4" />
+                    <span>Configuración</span>
+                  </div>
+                </SettingsDialog.Trigger>
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={handleLogout}>
+                <LogOut className="mr-2 h-4 w-4" />
+                <span>Cerrar Sesión</span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </SettingsDialog>
+      </div>
+    </header>
   );
 
   if (loading || !userRole) return null;
