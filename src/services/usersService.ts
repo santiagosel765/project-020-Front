@@ -1,37 +1,42 @@
-import api from "./axiosConfig";
-import { Api } from "@/types/api";
+import api from '@/lib/axiosConfig';
+import { Api } from '@/types/api';
+import { normalizeList, normalizeOne } from '@/lib/apiEnvelope';
 
 export async function createUser(body: Api.CreateUserDto) {
-  return (await api.post("/users", body)).data;
+  const { data } = await api.post("/users", body);
+  return normalizeOne<any>(data);
 }
 
 export async function getUsers() {
-  return (await api.get<Api.User[]>("/users")).data;
+  const { data } = await api.get<Api.User[]>("/users");
+  return normalizeList<Api.User>(data);
 }
 
 export async function getMe() {
-  return (
-    await api.get("/users/me")
-  ).data as {
+  const { data } = await api.get("/users/me");
+  return normalizeOne<{
     id: number;
     nombre: string;
     correo: string;
     pages: { id: number; nombre: string; url: string }[];
     roles: string[];
-  };
+  }>(data);
 }
 
 export async function getUser(id: number) {
-  return (await api.get<Api.User>(`/users/${id}`)).data;
+  const { data } = await api.get<Api.User>(`/users/${id}`);
+  return normalizeOne<Api.User>(data);
 }
 
 export async function updateUser(
   id: number,
   body: Partial<Api.CreateUserDto>,
 ) {
-  return (await api.patch(`/users/${id}`, body)).data;
+  const { data } = await api.patch(`/users/${id}`, body);
+  return normalizeOne<any>(data);
 }
 
 export async function deleteUser(id: number) {
-  return (await api.delete(`/users/${id}`)).data;
+  const { data } = await api.delete(`/users/${id}`);
+  return normalizeOne<any>(data);
 }

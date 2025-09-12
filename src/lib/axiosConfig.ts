@@ -65,6 +65,14 @@ function isLogoutUrl(url?: string) {
 api.interceptors.response.use(
   (res: AxiosResponse) => res,
   async (error: AxiosError) => {
+    const toError = (err: any) => {
+      const e: any = new Error(err?.message || 'Network error');
+      e.isNetwork = !err?.response;
+      e.status = err?.response?.status;
+      e.payload = err?.response?.data;
+      return e;
+    };
+
     const original = (error.config || {}) as AxiosRequestConfig & { _retried?: boolean };
 
     const status = error.response?.status;
@@ -72,7 +80,7 @@ api.interceptors.response.use(
     if (status === 401 && !original._retried && !isLogoutUrl(url)) {
       if (isRefreshUrl(url)) {
         clearToken();
-        throw error;
+        return Promise.reject(toError(error));
       }
 
       original._retried = true;
@@ -103,14 +111,14 @@ api.interceptors.response.use(
         // Refresh falló: limpia credenciales y rechaza
         clearToken();
         flushQueue(e, null);
-        throw e;
+        return Promise.reject(toError(e));
       } finally {
         isRefreshing = false;
       }
     }
 
-    // Puedes normalizar errores aquí si quieres una forma estándar
-    throw error;
+    // Normaliza error de red / 5xx
+    return Promise.reject(toError(error));
   }
 );
 

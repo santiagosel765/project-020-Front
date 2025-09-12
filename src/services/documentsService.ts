@@ -1,5 +1,6 @@
-import api from "./axiosConfig";
-import { Api } from "@/types/api";
+import api from '@/lib/axiosConfig';
+import { Api } from '@/types/api';
+import { normalizeList, normalizeOne } from '@/lib/apiEnvelope';
 
 function toFormData(obj: Record<string, any>) {
   const fd = new FormData();
@@ -16,7 +17,8 @@ function toFormData(obj: Record<string, any>) {
 export async function uploadDocument(file: File) {
   const fd = new FormData();
   fd.append("file", file);
-  return (await api.post("/documents", fd)).data as { fileKey?: string };
+  const { data } = await api.post("/documents", fd);
+  return normalizeOne<{ fileKey?: string }>(data);
 }
 
 export async function createCuadroFirma(args: {
@@ -33,11 +35,13 @@ export async function createCuadroFirma(args: {
   fd.append("empresa_id", String(args.meta.empresa_id));
   fd.append("createdBy", String(args.meta.createdBy));
   fd.append("responsables", JSON.stringify(args.responsables));
-  return (await api.post("/documents/cuadro-firmas", fd)).data;
+  const { data } = await api.post("/documents/cuadro-firmas", fd);
+  return normalizeOne<any>(data);
 }
 
 export async function getCuadroFirma(id: number) {
-  return (await api.get(`/documents/cuadro-firmas/${id}`)).data;
+  const { data } = await api.get(`/documents/cuadro-firmas/${id}`);
+  return normalizeOne<any>(data);
 }
 
 export async function updateCuadroFirma(
@@ -48,7 +52,8 @@ export async function updateCuadroFirma(
   },
 ) {
   const fd = toFormData(body as any);
-  return (await api.patch(`/documents/cuadro-firmas/${id}`, fd)).data;
+  const { data } = await api.patch(`/documents/cuadro-firmas/${id}`, fd);
+  return normalizeOne<any>(data);
 }
 
 export async function patchDocumentoForCuadro(
@@ -59,7 +64,8 @@ export async function patchDocumentoForCuadro(
   fd.append("file", args.file);
   fd.append("idUser", String(args.idUser));
   if (args.observaciones) fd.append("observaciones", args.observaciones);
-  return (await api.patch(`/documents/cuadro-firmas/documento/${id}`, fd)).data;
+  const { data } = await api.patch(`/documents/cuadro-firmas/documento/${id}`, fd);
+  return normalizeOne<any>(data);
 }
 
 export async function signCuadroFirma(body: Api.FirmaCuadroDto & { file: File }) {
@@ -70,71 +76,74 @@ export async function signCuadroFirma(body: Api.FirmaCuadroDto & { file: File })
   fd.append("cuadroFirmaId", String(body.cuadroFirmaId));
   fd.append("responsabilidadId", String(body.responsabilidadId));
   fd.append("nombreResponsabilidad", body.nombreResponsabilidad);
-  return (await api.post("/documents/cuadro-firmas/firmar", fd)).data;
+  const { data } = await api.post("/documents/cuadro-firmas/firmar", fd);
+  return normalizeOne<any>(data);
 }
 
 export async function getDocumentoUrl(fileName: string) {
-  return (
-    await api.get(`/documents/cuadro-firmas/documento-url`, {
-      params: { fileName },
-    })
-  ).data;
+  const { data } = await api.get(`/documents/cuadro-firmas/documento-url`, {
+    params: { fileName },
+  });
+  return normalizeOne<any>(data);
 }
 
 export async function getEstadosFirma() {
-  return (await api.get("/documents/estados-firma")).data as Api.EstadoFirma[];
+  const { data } = await api.get("/documents/estados-firma");
+  return normalizeList<Api.EstadoFirma>(data);
 }
 
 export async function addHistorialCuadroFirma(
   body: Api.AddHistorialCuadroFirmaDto,
 ) {
-  return (await api.post("/documents/cuadro-firmas/historial", body)).data;
+  const { data } = await api.post("/documents/cuadro-firmas/historial", body);
+  return normalizeOne<any>(data);
 }
 
 export async function getHistorialCuadroFirma(
   id: number,
   params?: Record<string, any>,
 ) {
-  return (
-    await api.get(`/documents/cuadro-firmas/historial/${id}`, { params })
-  ).data;
+  const { data } = await api.get(`/documents/cuadro-firmas/historial/${id}`, { params });
+  return normalizeList<any>(data);
 }
 
 export async function getFirmantesCuadro(id: number) {
-  return (await api.get(`/documents/cuadro-firmas/firmantes/${id}`)).data;
+  const { data } = await api.get(`/documents/cuadro-firmas/firmantes/${id}`);
+  return normalizeList<any>(data);
 }
 
 export async function getAssignmentsByUser(
   userId: number,
   params?: Record<string, any>,
 ) {
-  return (
-    await api.get(`/documents/cuadro-firmas/by-user/${userId}`, {
-      params,
-    })
-  ).data;
+  const { data } = await api.get(`/documents/cuadro-firmas/by-user/${userId}`, {
+    params,
+  });
+  return normalizeList<any>(data);
 }
 
 export async function getSupervisionDocs(params?: Record<string, any>) {
-  return (
-    await api.get(`/documents/cuadro-firmas/documentos/supervision`, {
-      params,
-    })
-  ).data;
+  const { data } = await api.get(`/documents/cuadro-firmas/documentos/supervision`, {
+    params,
+  });
+  return normalizeList<any>(data);
 }
 
 export async function changeEstadoAsignacion(
   body: Api.UpdateEstadoAsignacionDto,
 ) {
-  return (await api.patch(`/documents/cuadro-firmas/estado`, body)).data;
+  const { data } = await api.patch(`/documents/cuadro-firmas/estado`, body);
+  return normalizeOne<any>(data);
 }
 
 export async function analyzePdfTest(file: File) {
   const fd = new FormData();
   fd.append("files", file);
-  return (await api.post(`/documents/analyze-pdf-test`, fd)).data as string;
+  const { data } = await api.post(`/documents/analyze-pdf-test`, fd);
+  return normalizeOne<string>(data);
 }
 
 export async function createPlantilla(body: Api.CreatePlantillaDto) {
-  return (await api.post(`/documents/plantilla`, body)).data;
+  const { data } = await api.post(`/documents/plantilla`, body);
+  return normalizeOne<any>(data);
 }
