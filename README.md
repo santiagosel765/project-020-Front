@@ -18,7 +18,7 @@ npm install
 Copiar `.env.local.example` a `.env.local` y ajustar si es necesario:
 
 ```
-NEXT_PUBLIC_API_BASE=http://localhost:3200/api/v1
+NEXT_PUBLIC_API_BASE=http://localhost:3200/api
 ```
 
 ## Desarrollo

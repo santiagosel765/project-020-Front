@@ -16,7 +16,7 @@ function toFormData(obj: Record<string, any>) {
 export async function uploadDocument(file: File) {
   const fd = new FormData();
   fd.append("file", file);
-  return (await api.post("/v1/documents", fd)).data as { fileKey?: string };
+  return (await api.post("/documents", fd)).data as { fileKey?: string };
 }
 
 export async function createCuadroFirma(args: {
@@ -33,11 +33,11 @@ export async function createCuadroFirma(args: {
   fd.append("empresa_id", String(args.meta.empresa_id));
   fd.append("createdBy", String(args.meta.createdBy));
   fd.append("responsables", JSON.stringify(args.responsables));
-  return (await api.post("/v1/documents/cuadro-firmas", fd)).data;
+  return (await api.post("/documents/cuadro-firmas", fd)).data;
 }
 
 export async function getCuadroFirma(id: number) {
-  return (await api.get(`/v1/documents/cuadro-firmas/${id}`)).data;
+  return (await api.get(`/documents/cuadro-firmas/${id}`)).data;
 }
 
 export async function updateCuadroFirma(
@@ -48,7 +48,7 @@ export async function updateCuadroFirma(
   },
 ) {
   const fd = toFormData(body as any);
-  return (await api.patch(`/v1/documents/cuadro-firmas/${id}`, fd)).data;
+  return (await api.patch(`/documents/cuadro-firmas/${id}`, fd)).data;
 }
 
 export async function patchDocumentoForCuadro(
@@ -59,7 +59,7 @@ export async function patchDocumentoForCuadro(
   fd.append("file", args.file);
   fd.append("idUser", String(args.idUser));
   if (args.observaciones) fd.append("observaciones", args.observaciones);
-  return (await api.patch(`/v1/documents/cuadro-firmas/documento/${id}`, fd)).data;
+  return (await api.patch(`/documents/cuadro-firmas/documento/${id}`, fd)).data;
 }
 
 export async function signCuadroFirma(body: Api.FirmaCuadroDto & { file: File }) {
@@ -70,25 +70,25 @@ export async function signCuadroFirma(body: Api.FirmaCuadroDto & { file: File })
   fd.append("cuadroFirmaId", String(body.cuadroFirmaId));
   fd.append("responsabilidadId", String(body.responsabilidadId));
   fd.append("nombreResponsabilidad", body.nombreResponsabilidad);
-  return (await api.post("/v1/documents/cuadro-firmas/firmar", fd)).data;
+  return (await api.post("/documents/cuadro-firmas/firmar", fd)).data;
 }
 
 export async function getDocumentoUrl(fileName: string) {
   return (
-    await api.get(`/v1/documents/cuadro-firmas/documento-url`, {
+    await api.get(`/documents/cuadro-firmas/documento-url`, {
       params: { fileName },
     })
   ).data;
 }
 
 export async function getEstadosFirma() {
-  return (await api.get("/v1/documents/estados-firma")).data as Api.EstadoFirma[];
+  return (await api.get("/documents/estados-firma")).data as Api.EstadoFirma[];
 }
 
 export async function addHistorialCuadroFirma(
   body: Api.AddHistorialCuadroFirmaDto,
 ) {
-  return (await api.post("/v1/documents/cuadro-firmas/historial", body)).data;
+  return (await api.post("/documents/cuadro-firmas/historial", body)).data;
 }
 
 export async function getHistorialCuadroFirma(
@@ -96,12 +96,12 @@ export async function getHistorialCuadroFirma(
   params?: Record<string, any>,
 ) {
   return (
-    await api.get(`/v1/documents/cuadro-firmas/historial/${id}`, { params })
+    await api.get(`/documents/cuadro-firmas/historial/${id}`, { params })
   ).data;
 }
 
 export async function getFirmantesCuadro(id: number) {
-  return (await api.get(`/v1/documents/cuadro-firmas/firmantes/${id}`)).data;
+  return (await api.get(`/documents/cuadro-firmas/firmantes/${id}`)).data;
 }
 
 export async function getAssignmentsByUser(
@@ -109,7 +109,7 @@ export async function getAssignmentsByUser(
   params?: Record<string, any>,
 ) {
   return (
-    await api.get(`/v1/documents/cuadro-firmas/by-user/${userId}`, {
+    await api.get(`/documents/cuadro-firmas/by-user/${userId}`, {
       params,
     })
   ).data;
@@ -117,7 +117,7 @@ export async function getAssignmentsByUser(
 
 export async function getSupervisionDocs(params?: Record<string, any>) {
   return (
-    await api.get(`/v1/documents/cuadro-firmas/documentos/supervision`, {
+    await api.get(`/documents/cuadro-firmas/documentos/supervision`, {
       params,
     })
   ).data;
@@ -126,15 +126,15 @@ export async function getSupervisionDocs(params?: Record<string, any>) {
 export async function changeEstadoAsignacion(
   body: Api.UpdateEstadoAsignacionDto,
 ) {
-  return (await api.patch(`/v1/documents/cuadro-firmas/estado`, body)).data;
+  return (await api.patch(`/documents/cuadro-firmas/estado`, body)).data;
 }
 
 export async function analyzePdfTest(file: File) {
   const fd = new FormData();
   fd.append("files", file);
-  return (await api.post(`/v1/documents/analyze-pdf-test`, fd)).data as string;
+  return (await api.post(`/documents/analyze-pdf-test`, fd)).data as string;
 }
 
 export async function createPlantilla(body: Api.CreatePlantillaDto) {
-  return (await api.post(`/v1/documents/plantilla`, body)).data;
+  return (await api.post(`/documents/plantilla`, body)).data;
 }
