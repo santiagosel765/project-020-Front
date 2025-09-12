@@ -1,37 +1,41 @@
-import api from "./axiosConfig";
-import { Api } from "@/types/api";
+import api from '@/lib/axiosConfig';
+import { Api } from '@/types/api';
+import { normalizeList, normalizeOne } from '@/lib/apiEnvelope';
 
 export async function getRoles(params?: { all?: string | number }) {
-  return (await api.get("/roles", { params })).data as Api.Rol[];
+  const { data } = await api.get("/roles", { params });
+  return normalizeList<Api.Rol>(data);
 }
 
 export async function createRole(body: Api.CreateRolDto) {
-  return (await api.post("/roles", body)).data;
+  const { data } = await api.post("/roles", body);
+  return normalizeOne<any>(data);
 }
 
 export async function updateRole(
   id: number,
   body: Partial<Api.CreateRolDto>,
 ) {
-  return (await api.patch(`/roles/${id}`, body)).data;
+  const { data } = await api.patch(`/roles/${id}`, body);
+  return normalizeOne<any>(data);
 }
 
 export async function deleteRole(id: number) {
-  return (await api.delete(`/roles/${id}`)).data;
+  const { data } = await api.delete(`/roles/${id}`);
+  return normalizeOne<any>(data);
 }
 
 export async function restoreRole(id: number) {
-  return (await api.patch(`/roles/${id}/restore`)).data;
+  const { data } = await api.patch(`/roles/${id}/restore`);
+  return normalizeOne<any>(data);
 }
 
 export async function getRolePages(id: number) {
-  return (
-    await api.get<{ paginaIds: number[] }>(`/roles/${id}/paginas`)
-  ).data;
+  const { data } = await api.get<{ paginaIds: number[] }>(`/roles/${id}/paginas`);
+  return normalizeOne<{ paginaIds: number[] }>(data);
 }
 
 export async function setRolePages(id: number, paginaIds: number[]) {
-  return (
-    await api.put(`/roles/${id}/paginas`, { paginaIds })
-  ).data as { paginaIds: number[] };
+  const { data } = await api.put(`/roles/${id}/paginas`, { paginaIds });
+  return normalizeOne<{ paginaIds: number[] }>(data);
 }

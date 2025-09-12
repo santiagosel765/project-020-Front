@@ -1,5 +1,7 @@
-import api from "./axiosConfig";
+import api from '@/lib/axiosConfig';
+import { normalizeOne } from '@/lib/apiEnvelope';
 
 export async function pingAI() {
-  return (await api.get<string>("/ai")).data;
+  const { data } = await api.get<string>("/ai");
+  return normalizeOne<string>(data);
 }
