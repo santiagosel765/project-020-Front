@@ -9,8 +9,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import { Upload, Search, Loader2 } from "lucide-react";
-import { api } from "@/lib/axiosConfig";
-import { getUsers, type User as ApiUser } from "@/lib/data";
+import { getUsers, getMe, type User as ApiUser } from "@/services/usersService";
+import { createCuadroFirma } from "@/services/documentsService";
 import { useToast } from "@/hooks/use-toast";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -22,7 +22,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { useRouter } from "next/navigation";
 
 
 type UIUser = {
@@ -34,13 +33,11 @@ type UIUser = {
 };
 
 const toUIUser = (u: ApiUser): UIUser => ({
-  id: u.id ?? crypto.randomUUID(),
-  name: [u.primerNombre, u.segundoNombre, u.tercerNombre, u.primerApellido, u.segundoApellido, u.apellidoCasada]
-    .filter(Boolean)
-    .join(" "),
-  position: u.posicionId || "—",
-  department: u.gerenciaId || "—",
-  avatar: u.fotoPerfil,
+  id: String(u.id ?? crypto.randomUUID()),
+  name: (u as any).nombre ?? "",
+  position: "—",
+  department: "—",
+  avatar: undefined,
 });
 
 type Signatory = UIUser & { responsibility: "REVISA" | "APRUEBA" | "ENTERADO" | null };
@@ -53,7 +50,6 @@ const getInitials = (name: string) => {
 
 export default function AsignacionesPage() {
   const { toast } = useToast();
-  const router = useRouter();
 
   const [searchTerm, setSearchTerm] = useState("");
   const [users, setUsers] = useState<UIUser[]>([]);
@@ -140,44 +136,32 @@ export default function AsignacionesPage() {
       return;
     }
 
-    let uploadedPdfPath = "";
     try {
-      const formData = new FormData();
-      formData.append("file", pdfFile);
-      const { data: result } = await api.post('/upload', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
-      uploadedPdfPath = result.filePath;
-      toast({ title: "Archivo Subido", description: "El PDF se guardó en el servidor." });
-    } catch (error) {
-      console.error("File upload error:", error);
-      toast({ variant: "destructive", title: "Error de Carga", description: "No se pudo subir el PDF." });
-      setIsLoading(false);
-      return;
-    }
+      const me = await getMe();
+      const form = event.target as HTMLFormElement;
+      const title = (form.elements.namedItem("title") as HTMLInputElement).value;
+      const meta = {
+        titulo: title,
+        descripcion: documentContent,
+        version: (form.elements.namedItem("version") as HTMLInputElement).value,
+        codigo: (form.elements.namedItem("code") as HTMLInputElement).value,
+        empresa_id: 1,
+        createdBy: me.id,
+      };
+      const responsables: any = {
+        ELABORA: [{ idUser: me.id }],
+        REVISA: signatories
+          .filter((s) => s.responsibility === "REVISA")
+          .map((s) => ({ idUser: Number(s.id) })),
+        APRUEBA: signatories
+          .filter((s) => s.responsibility === "APRUEBA")
+          .map((s) => ({ idUser: Number(s.id) })),
+        ENTERADO: signatories
+          .filter((s) => s.responsibility === "ENTERADO")
+          .map((s) => ({ idUser: Number(s.id) })),
+      };
 
-    const form = event.target as HTMLFormElement;
-    const title = (form.elements.namedItem("title") as HTMLInputElement).value;
-
-    const newDocument = {
-      name: title,
-      description: documentContent,
-      code: (form.elements.namedItem("code") as HTMLInputElement).value,
-      filePath: uploadedPdfPath,
-      sendDate: new Date().toLocaleDateString("es-ES"),
-      lastStatusChangeDate: new Date().toLocaleDateString("es-ES"),
-      businessDays: 0,
-      status: "Pendiente" as const,
-      assignedUsers: signatories.map((s) => ({
-        id: s.id,
-        name: s.name,
-        position: s.position,
-        department: s.department,
-        responsibility: s.responsibility,
-      })),
-    };
-
-    try {
-      const { data: createdDoc } = await api.post('/documents', newDocument);
-
+      await createCuadroFirma({ file: pdfFile, meta, responsables });
       toast({ title: "Documento Enviado", description: "El documento se envió para firma." });
 
       setSignatories([]);
@@ -186,8 +170,6 @@ export default function AsignacionesPage() {
       setPdfFileName(null);
       if (pdfInputRef.current) pdfInputRef.current.value = "";
       form.reset();
-
-      router.push(`/documento/${createdDoc.id}`);
     } catch (error) {
       console.error("Document creation error:", error);
       toast({

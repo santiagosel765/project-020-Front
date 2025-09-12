@@ -2,26 +2,21 @@
 
 import React, { useState, useEffect } from 'react';
 import { SupervisionTable } from "@/components/supervision-table";
-import { Document, User } from "@/lib/data";
+import { Document } from "@/lib/data";
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
-import { api } from '@/lib/axiosConfig';
+import { getSupervisionDocs } from '@/services/documentsService';
 
 export default function SupervisionPage() {
     const [documents, setDocuments] = useState<Document[]>([]);
-    const [users, setUsers] = useState<User[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const { toast } = useToast();
 
     useEffect(() => {
         const fetchData = async () => {
             try {
-                const [docsRes, usersRes] = await Promise.all([
-                    api.get('/documents'),
-                    api.get('/users')
-                ]);
-                setDocuments(docsRes.data);
-                setUsers(usersRes.data);
+                const data = await getSupervisionDocs();
+                setDocuments(data as Document[]);
             } catch (error) {
                 toast({
                     variant: 'destructive',
@@ -34,13 +29,7 @@ export default function SupervisionPage() {
         };
         fetchData();
     }, [toast]);
-
-    const supervisionDocuments = documents.slice(0, 20).map((doc, index) => ({
-        ...doc,
-        sentBy: users.length > 0 ? users[index % users.length] : {} as User,
-        statusDescription: doc.status === 'Rechazado' ? 'Firma rechazada por Finanzas.' : 'Pendiente de firma por CEO.',
-    }));
-
+    const supervisionDocuments = documents;
     if (isLoading) {
         return (
             <div className="space-y-4">

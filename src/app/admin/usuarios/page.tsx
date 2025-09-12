@@ -3,9 +3,10 @@
 
 import React, { useState, useEffect } from 'react';
 import { UsersTable } from "@/components/users-table";
-import { getUsers, createUser, updateUser, deleteUser, type User } from "@/lib/data";
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
+import { getUsers, createUser, updateUser, deleteUser } from '@/services/usersService';
+import type { User } from '@/lib/data';
 
 export default function UsuariosPage() {
   const [users, setUsers] = useState<User[]>([]);
@@ -28,7 +29,7 @@ export default function UsuariosPage() {
     const fetchUsers = async () => {
       try {
         const data = await getUsers();
-        setUsers(data.sort((a, b) => getFullName(a).localeCompare(getFullName(b))));
+        setUsers((data as unknown as User[]).sort((a, b) => getFullName(a).localeCompare(getFullName(b))));
       } catch (error) {
         toast({
           variant: 'destructive',
@@ -46,11 +47,11 @@ export default function UsuariosPage() {
     try {
       let saved: User;
       if (!user.id) {
-        saved = await createUser(user);
+        saved = await createUser(user as any);
         setUsers(prev => [...prev, saved].sort((a, b) => getFullName(a).localeCompare(getFullName(b))));
         toast({ title: 'Usuario Creado', description: 'El nuevo usuario ha sido agregado exitosamente.' });
       } else {
-        saved = await updateUser(user);
+        saved = await updateUser(user.id!, user as any);
         setUsers(prev => prev.map(u => u.id === saved.id ? saved : u).sort((a, b) => getFullName(a).localeCompare(getFullName(b))));
         toast({ title: 'Usuario Actualizado', description: 'Los datos del usuario han sido actualizados.' });
       }
@@ -65,7 +66,7 @@ export default function UsuariosPage() {
 
   const handleDeleteUser = async (userId: string) => {
     try {
-      await deleteUser(userId);
+      await deleteUser(Number(userId));
       setUsers(prev => prev.filter(u => u.id !== userId));
       toast({ variant: 'destructive', title: 'Usuario Eliminado', description: 'El usuario ha sido eliminado.' });
     } catch (error) {
