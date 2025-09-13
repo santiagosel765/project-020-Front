@@ -16,6 +16,7 @@ export interface User {
   gerenciaId: string;
   correoInstitucional: string;
   telefono: string;
+  activo?: boolean;
   fotoPerfil?: string;
   /** Campos agregados para componentes de UI */
   name: string;
