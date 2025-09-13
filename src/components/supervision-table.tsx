@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useMemo } from 'react';
@@ -6,177 +5,156 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Document, User } from '@/lib/data';
 import { Search, ArrowUpDown } from 'lucide-react';
-import { cn } from "@/lib/utils";
+import { cn } from '@/lib/utils';
 import { Button } from './ui/button';
-import { useRouter } from 'next/navigation';
-
-type SupervisionDocument = Document & {
-  sentBy: User;
-  statusDescription: string;
-};
+import type { SupervisionDoc, DocEstado } from '@/services/documentsService';
 
 interface SupervisionTableProps {
-  documents: SupervisionDocument[];
+  documents: SupervisionDoc[];
   title: string;
   description: string;
 }
 
-const getStatusClass = (status: Document['status']): string => {
+const getStatusClass = (status: DocEstado): string => {
   switch (status) {
-    case 'Completado': return 'bg-green-100 text-green-800 border-green-400';
-    case 'En Progreso': return 'bg-yellow-100 text-yellow-800 border-yellow-400';
-    case 'Rechazado': return 'bg-red-100 text-red-800 border-red-400';
-    case 'Pendiente': return 'bg-blue-100 text-blue-800 border-blue-400';
-    default: return 'bg-gray-100 text-gray-800 border-gray-400';
+    case 'Completado':
+      return 'bg-green-100 text-green-800 border-green-400';
+    case 'En Progreso':
+      return 'bg-yellow-100 text-yellow-800 border-yellow-400';
+    case 'Rechazado':
+      return 'bg-red-100 text-red-800 border-red-400';
+    case 'Pendiente':
+      return 'bg-blue-100 text-blue-800 border-blue-400';
+    default:
+      return 'bg-gray-100 text-gray-800 border-gray-400';
   }
 };
 
-const getButtonStatusClass = (status: Document['status'] | 'Todos', currentFilter: Document['status'] | 'Todos'): string => {
-    if (status === 'Todos') {
-        return currentFilter === 'Todos' ? 'bg-primary text-primary-foreground' : 'bg-gray-200 text-gray-800 hover:bg-gray-300';
-    }
-    const colorClasses = {
-        'Completado': 'bg-green-100 text-green-800 border border-green-300 hover:bg-green-200 focus:ring-green-500',
-        'En Progreso': 'bg-yellow-100 text-yellow-800 border border-yellow-300 hover:bg-yellow-200 focus:ring-yellow-500',
-        'Rechazado': 'bg-red-100 text-red-800 border border-red-300 hover:bg-red-200 focus:ring-red-500',
-        'Pendiente': 'bg-blue-100 text-blue-800 border border-blue-300 hover:bg-blue-200 focus:ring-blue-500'
-    };
-    const activeClass = 'ring-2 ring-offset-2 ring-primary';
-    const baseClass = colorClasses[status];
-    return currentFilter === status ? `${baseClass} ${activeClass}` : baseClass;
-}
+const getButtonStatusClass = (status: DocEstado | 'Todos', current: DocEstado | 'Todos'): string => {
+  if (status === 'Todos') {
+    return current === 'Todos' ? 'bg-primary text-primary-foreground' : 'bg-gray-200 text-gray-800 hover:bg-gray-300';
+  }
+  const colorClasses = {
+    Completado:
+      'bg-green-100 text-green-800 border border-green-300 hover:bg-green-200 focus:ring-green-500',
+    'En Progreso':
+      'bg-yellow-100 text-yellow-800 border border-yellow-300 hover:bg-yellow-200 focus:ring-yellow-500',
+    Rechazado: 'bg-red-100 text-red-800 border border-red-300 hover:bg-red-200 focus:ring-red-500',
+    Pendiente: 'bg-blue-100 text-blue-800 border border-blue-300 hover:bg-blue-200 focus:ring-blue-500',
+  } as const;
+  const activeClass = 'ring-2 ring-offset-2 ring-primary';
+  const baseClass = colorClasses[status];
+  return current === status ? `${baseClass} ${activeClass}` : baseClass;
+};
 
-export function SupervisionTable({ documents, title, description }: SupervisionTableProps) {
-  const router = useRouter();
+export function SupervisionTable({ documents: docs, title, description }: SupervisionTableProps) {
+  const documents = Array.isArray(docs) ? docs : [];
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<Document['status'] | 'Todos'>('Todos');
+  const [statusFilter, setStatusFilter] = useState<DocEstado | 'Todos'>('Todos');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
 
-  const statusCounts = useMemo(() => {
-    const counts: { [key: string]: number } = {
-      Todos: documents.length,
-      Completado: 0,
-      'En Progreso': 0,
-      Rechazado: 0,
-      Pendiente: 0,
-    };
-    documents.forEach(doc => {
-      counts[doc.status] = (counts[doc.status] || 0) + 1;
-    });
-    return counts;
-  }, [documents]);
+  const counts = useMemo(
+    () =>
+      documents.reduce(
+        (acc, d) => {
+          acc.Todos++;
+          acc[d.estado] = (acc[d.estado] ?? 0) + 1;
+          return acc;
+        },
+        { Todos: 0, Pendiente: 0, 'En Progreso': 0, Rechazado: 0, Completado: 0 } as Record<string, number>,
+      ),
+    [documents],
+  );
 
-  const parseDate = (dateString: string) => {
-    const [day, month, year] = dateString.split('/');
-    return new Date(`${year}-${month}-${day}`).getTime();
-  };
+  const parseDate = (d?: string) => (d ? new Date(d).getTime() : 0);
 
-  const filteredDocuments = useMemo(() => {
-    let filtered = documents.filter(doc =>
-        (doc.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        doc.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        doc.sentBy.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        doc.code.toLowerCase().includes(searchTerm.toLowerCase())) &&
-        (statusFilter === 'Todos' || doc.status === statusFilter)
+  const filtered = useMemo(() => {
+    let list = documents.filter(
+      (d) =>
+        (d.titulo.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          (d.descripcion ?? '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+          (d.empresa?.nombre ?? '').toLowerCase().includes(searchTerm.toLowerCase())) &&
+        (statusFilter === 'Todos' || d.estado === statusFilter),
     );
-
-    if (sortOrder !== null) {
-        filtered.sort((a, b) => {
-            const dateA = parseDate(a.sendDate);
-            const dateB = parseDate(b.sendDate);
-            if (sortOrder === 'asc') {
-                return dateA - dateB;
-            } else {
-                return dateB - dateA;
-            }
-        });
-    }
-
-    return filtered;
-
+    list.sort((a, b) => {
+      const aDate = parseDate(a.addDate);
+      const bDate = parseDate(b.addDate);
+      return sortOrder === 'asc' ? aDate - bDate : bDate - aDate;
+    });
+    return list;
   }, [documents, searchTerm, statusFilter, sortOrder]);
 
-  const handleSort = () => {
-    setSortOrder(prev => (prev === 'asc' ? 'desc' : 'asc'));
-  };
+  const handleSort = () => setSortOrder((prev) => (prev === 'asc' ? 'desc' : 'asc'));
 
-  const handleRowClick = (docId: string) => {
-    router.push(`/documento/${docId}`);
-  };
-
-  const statusButtons: (Document['status'] | 'Todos')[] = ['Todos', 'Completado', 'En Progreso', 'Rechazado', 'Pendiente'];
+  const statusButtons: (DocEstado | 'Todos')[] = ['Todos', 'Completado', 'En Progreso', 'Rechazado', 'Pendiente'];
 
   return (
     <Card className="w-full h-full flex flex-col glassmorphism">
       <CardHeader>
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-            <div className="space-y-1.5">
-                <CardTitle>{title}</CardTitle>
-                <CardDescription>{description}</CardDescription>
-            </div>
-            <div className="relative w-full md:w-1/3">
-                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input
-                placeholder="Buscar por nombre, descripción, usuario..."
-                className="pl-8"
-                value={searchTerm}
-                onChange={e => setSearchTerm(e.target.value)}
-                />
-            </div>
+          <div className="space-y-1.5">
+            <CardTitle>{title}</CardTitle>
+            <CardDescription>{description}</CardDescription>
+          </div>
+          <div className="relative w-full md:w-1/3">
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Buscar por título, empresa..."
+              className="pl-8"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
         </div>
         <div className="flex flex-wrap gap-2 mt-4">
-            {statusButtons.map(status => (
-                <Button 
-                    key={status}
-                    onClick={() => setStatusFilter(status)}
-                    className={cn(getButtonStatusClass(status, statusFilter), "h-8 px-2.5 py-1.5")}
-                    variant="outline"
-                >
-                    {status} <span className="ml-2 text-xs opacity-75">({statusCounts[status as keyof typeof statusCounts]})</span>
-                </Button>
-            ))}
+          {statusButtons.map((status) => (
+            <Button
+              key={status}
+              onClick={() => setStatusFilter(status)}
+              className={cn(getButtonStatusClass(status, statusFilter), 'h-8 px-2.5 py-1.5')}
+              variant="outline"
+            >
+              {status} <span className="ml-2 text-xs opacity-75">({counts[status]})</span>
+            </Button>
+          ))}
         </div>
       </CardHeader>
       <CardContent className="flex-grow overflow-auto">
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Enviado por</TableHead>
-              <TableHead>Título</TableHead>
-              <TableHead>Código</TableHead>
-              <TableHead>Descripción</TableHead>
               <TableHead className="cursor-pointer" onClick={handleSort}>
                 <div className="flex items-center gap-2">
-                    Fecha Envío
-                    <ArrowUpDown className="h-4 w-4" />
+                  Título
+                  <ArrowUpDown className="h-4 w-4" />
                 </div>
               </TableHead>
+              <TableHead>Empresa</TableHead>
               <TableHead>Estado</TableHead>
-              <TableHead>Descripción Estado</TableHead>
+              <TableHead>Días</TableHead>
+              <TableHead>Nota</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredDocuments.map(doc => (
-              <TableRow key={doc.id}>
-                <TableCell className="font-medium">{doc.sentBy.name}</TableCell>
+            {filtered.map((d) => (
+              <TableRow key={d.id}>
+                <TableCell className="font-medium">{d.titulo}</TableCell>
+                <TableCell className="text-muted-foreground">{d.empresa?.nombre ?? ''}</TableCell>
                 <TableCell>
-                   <button onClick={() => handleRowClick(doc.id)} className="text-left hover:underline focus:outline-none focus:ring-2 focus:ring-ring rounded">
-                    {doc.name}
-                  </button>
+                  <Badge className={cn('border', getStatusClass(d.estado))}>{d.estado}</Badge>
                 </TableCell>
-                <TableCell className="text-muted-foreground">{doc.code}</TableCell>
-                <TableCell className="text-muted-foreground">{doc.description}</TableCell>
-                <TableCell>{doc.sendDate}</TableCell>
-                <TableCell>
-                  <Badge className={cn("border", getStatusClass(doc.status))}>
-                    {doc.status}
-                  </Badge>
-                </TableCell>
-                <TableCell className="text-muted-foreground">{doc.statusDescription}</TableCell>
+                <TableCell>{d.diasTranscurridos ?? 0}</TableCell>
+                <TableCell className="text-muted-foreground">{d.descripcionEstado ?? ''}</TableCell>
               </TableRow>
             ))}
+            {filtered.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={5} className="text-center py-4 text-sm text-muted-foreground">
+                  No hay documentos.
+                </TableCell>
+              </TableRow>
+            )}
           </TableBody>
         </Table>
       </CardContent>
@@ -184,4 +162,3 @@ export function SupervisionTable({ documents, title, description }: SupervisionT
   );
 }
 
-    
