@@ -15,14 +15,6 @@ export type SupervisionDoc = {
   descripcionEstado?: string | null;
 };
 
-const mapEstado = (nombre?: string | null): DocEstado => {
-  const n = (nombre ?? '').toLowerCase();
-  if (n.includes('progreso')) return 'En Progreso';
-  if (n.includes('complet')) return 'Completado';
-  if (n.includes('rechaz')) return 'Rechazado';
-  return 'Pendiente';
-};
-
 const toSupervisionDoc = (d: any): SupervisionDoc => ({
   id: Number(d.id),
   titulo: d.titulo ?? '',
@@ -30,7 +22,7 @@ const toSupervisionDoc = (d: any): SupervisionDoc => ({
   codigo: d.codigo ?? null,
   version: d.version ?? null,
   addDate: d.add_date ?? d.addDate,
-  estado: mapEstado(d?.estado_firma?.nombre),
+  estado: (d?.estado_firma?.nombre ?? '') as DocEstado,
   empresa: d.empresa ?? null,
   diasTranscurridos: d.diasTranscurridos ?? undefined,
   descripcionEstado: d.descripcionEstado ?? null,
@@ -62,7 +54,7 @@ export async function createCuadroFirma(
     const resp = (responsables ?? metaObj?.responsables) as any;
     if (resp != null) body.append('responsables', typeof resp === 'object' ? JSON.stringify(resp) : (resp as any));
   }
-  const { data } = await api.post('/documents/cuadro-firmas', body);
+  const { data } = await api.post('/documents/cuadro-firmas', body, { timeout: 60000 });
   return unwrapOne<any>(data);
 }
 
