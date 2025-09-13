@@ -1,76 +1,56 @@
-export type ApiEnvelope<T> = T | { status: number; data: T };
+export type Paginated<T> = {
+  items: T[];
+  meta?: {
+    totalPages?: number;
+    totalCount?: number;
+    page?: number;
+    limit?: number;
+    lastPage?: number;
+    hasNextPage?: boolean;
+    hasPrevPage?: boolean;
+  };
+};
 
-type AnyList<T> =
-  | T[]
-  | ApiEnvelope<T[]>
-  | { items?: T[] }
-  | { rows?: T[] }
-  | null
-  | undefined;
-
-/** Devuelve el "payload real" desde un sobre {status,data} o desde el valor directo */
-export function unwrap<T>(input: ApiEnvelope<T>): T {
-  if (input && typeof input === 'object' && 'status' in input && 'data' in input) {
-    // @ts-ignore
-    return (input as any).data as T;
+/** Devuelve un array pase lo que pase */
+export function unwrapArray<T = unknown>(payload: any): T[] {
+  if (Array.isArray(payload)) return payload as T[];
+  if (payload && typeof payload === 'object') {
+    if (Array.isArray(payload.data)) return payload.data as T[];
+    if (Array.isArray(payload.result)) return payload.result as T[];
+    // Caso {status, data:{items|documentos:[...]}}
+    const d = payload.data ?? payload.result ?? payload.body;
+    if (d && Array.isArray(d.items)) return d.items as T[];
+    if (d && Array.isArray(d.documentos)) return d.documentos as T[];
   }
-  return input as T;
-}
-
-/** Convierte diferentes formas de listas a [] consistente */
-export function toArray<T>(input: AnyList<T>): T[] {
-  if (Array.isArray(input)) return input;
-  if (!input) return [];
-  // si vino como {status,data}
-  const unwrapped = 'status' in (input as any) && 'data' in (input as any) ? unwrap(input as any) : input;
-  if (Array.isArray(unwrapped)) return unwrapped;
-  if (Array.isArray((unwrapped as any)?.items)) return (unwrapped as any).items;
-  if (Array.isArray((unwrapped as any)?.rows)) return (unwrapped as any).rows;
   return [];
 }
 
-/**
- * Normaliza respuestas "especiales" del backend:
- * - 200 + {status:200,data:T} -> T
- * - 200 + {status:400,data:string} en endpoints de lista -> []
- * - 200 + {status:400,data:any} para endpoints NO lista -> lanza error
- */
-export function normalizeList<T>(input: any): T[] {
-  // Caso directo array / formas comunes
-  const arr = toArray<T>(input);
-  if (arr.length) return arr;
-
-  // Caso sobre {status,data}
-  if (input && typeof input === 'object' && 'status' in input && 'data' in input) {
-    const env = input as { status: number; data: unknown };
-    if (env.status >= 400) {
-      // Si data es string tipo "No hay ..." tratamos como lista vacía (no es error fatal)
-      if (typeof env.data === 'string') return [];
-      // si no, re-lanzar para manejar arriba (toast, etc.)
-      const err: any = new Error(typeof env.data === 'string' ? env.data : 'Error de negocio');
-      err.isApiError = true;
-      err.status = env.status;
-      err.payload = env.data;
-      throw err;
-    }
-    // status ok, devolver data como lista si aplica
-    return toArray<T>(env.data as any);
+/** Devuelve un objeto (o {} si no hay) */
+export function unwrapOne<T = unknown>(payload: any): T {
+  if (payload && typeof payload === 'object') {
+    const d = payload.data ?? payload.result ?? payload.body ?? payload;
+    if (d && !Array.isArray(d)) return d as T;
   }
-
-  return [];
+  return {} as T;
 }
 
-export function normalizeOne<T>(input: any): T {
-  if (input && typeof input === 'object' && 'status' in input && 'data' in input) {
-    const env = input as { status: number; data: unknown };
-    if (env.status >= 400) {
-      const err: any = new Error(typeof env.data === 'string' ? env.data : 'Error de negocio');
-      err.isApiError = true;
-      err.status = env.status;
-      err.payload = env.data;
-      throw err;
-    }
-    return env.data as T;
-  }
-  return input as T;
+/** Extrae paginación estandarizando nombres */
+export function unwrapPaginated<T = unknown>(payload: any): Paginated<T> {
+  const items = unwrapArray<T>(payload);
+  const raw = (payload?.data ?? payload?.result ?? payload) as any;
+  const meta =
+    raw?.meta ?? {
+      totalPages: raw?.totalPages,
+      totalCount: raw?.totalCount,
+      page: raw?.page,
+      limit: raw?.limit,
+      lastPage: raw?.lastPage,
+      hasNextPage: raw?.hasNextPage,
+      hasPrevPage: raw?.hasPrevPage,
+    };
+  return { items, meta };
 }
+
+/** Azúcar: normaliza lista/uno aceptando cualquier envoltura */
+export const normalizeList = unwrapArray;
+export const normalizeOne = unwrapOne;
