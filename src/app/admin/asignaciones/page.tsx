@@ -25,7 +25,13 @@ import {
 } from "@/components/ui/table";
 
 
-type Signatory = User & { responsibility: "REVISA" | "APRUEBA" | "ENTERADO" | null };
+type Signatory = Omit<User, 'id'> & { id: number; responsibility: 'REVISA' | 'APRUEBA' | 'ENTERADO' | null };
+
+const toNumericId = (raw: unknown): number | null => {
+  if (typeof raw === 'number' && Number.isFinite(raw)) return raw;
+  if (typeof raw === 'string' && raw.trim() !== '' && !Number.isNaN(Number(raw))) return Number(raw);
+  return null;
+};
 
 const getInitials = (name: string) => {
   const parts = name.trim().split(/\s+/);
@@ -69,29 +75,36 @@ export default function AsignacionesPage() {
 
   const filteredUsers = useMemo(() => {
     const term = searchTerm.toLowerCase();
-    const base = users.filter(
-      (u) =>
+    const base = users.filter((u) => {
+      const nid = toNumericId((u as any).id ?? (u as any).userId ?? (u as any).uid);
+      return (
+        nid != null &&
         (u.name.toLowerCase().includes(term) ||
           u.position.toLowerCase().includes(term) ||
           u.department.toLowerCase().includes(term)) &&
-        !signatories.some((s) => s.id === u.id)
-    );
+        !signatories.some((s) => s.id === nid)
+      );
+    });
     base.sort((a, b) => a.name.localeCompare(b.name));
     return term ? base : base.slice(0, 5);
   }, [users, searchTerm, signatories]);
 
   const addSignatory = (user: User) => {
-    setSignatories((prev) =>
-      [...prev, { ...user, responsibility: null }].sort((a, b) => a.name.localeCompare(b.name))
-    );
-    setSearchTerm("");
+    const nid = toNumericId((user as any).id ?? (user as any).userId ?? (user as any).uid);
+    if (nid == null) {
+      toast({ variant: 'destructive', title: 'Usuario sin ID', description: `No se pudo usar a ${user.name}` });
+      return;
+    }
+    const asSign: Signatory = { ...user, id: nid, responsibility: null };
+    setSignatories((prev) => [...prev, asSign].sort((a, b) => a.name.localeCompare(b.name)));
+    setSearchTerm('');
   };
 
-  const removeSignatory = (userId: string) => {
+  const removeSignatory = (userId: number) => {
     setSignatories((prev) => prev.filter((s) => s.id !== userId));
   };
 
-  const handleResponsibilityChange = (userId: string, value: "REVISA" | "APRUEBA" | "ENTERADO") => {
+  const handleResponsibilityChange = (userId: number, value: 'REVISA' | 'APRUEBA' | 'ENTERADO') => {
     setSignatories((prev) => prev.map((s) => (s.id === userId ? { ...s, responsibility: value } : s)));
   };
 
@@ -137,14 +150,14 @@ export default function AsignacionesPage() {
       const responsables: any = {
         ELABORA: [{ idUser: me.id }],
         REVISA: signatories
-          .filter((s) => s.responsibility === "REVISA")
-          .map((s) => ({ idUser: Number(s.id) })),
+          .filter((s) => s.responsibility === 'REVISA')
+          .map((s) => ({ idUser: s.id })),
         APRUEBA: signatories
-          .filter((s) => s.responsibility === "APRUEBA")
-          .map((s) => ({ idUser: Number(s.id) })),
+          .filter((s) => s.responsibility === 'APRUEBA')
+          .map((s) => ({ idUser: s.id })),
         ENTERADO: signatories
-          .filter((s) => s.responsibility === "ENTERADO")
-          .map((s) => ({ idUser: Number(s.id) })),
+          .filter((s) => s.responsibility === 'ENTERADO')
+          .map((s) => ({ idUser: s.id })),
       };
 
       await createCuadroFirma({ file: pdfFile, meta, responsables });

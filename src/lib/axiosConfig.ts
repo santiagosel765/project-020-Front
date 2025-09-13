@@ -14,7 +14,7 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV !== 'production') {
 export const api = axios.create({
   baseURL,
   withCredentials: true,
-  timeout: 60000,
+  timeout: 60000, // 60s
   headers: {
     Accept: 'application/json',
     'X-Requested-With': 'XMLHttpRequest',
