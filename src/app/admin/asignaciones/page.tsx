@@ -160,7 +160,22 @@ export default function AsignacionesPage() {
           .map((s) => ({ idUser: s.id })),
       };
 
-      await createCuadroFirma({ file: pdfFile, meta, responsables });
+      try {
+        await createCuadroFirma({ file: pdfFile, meta, responsables });
+      } catch (error: any) {
+        const status = error?.response?.status;
+        const msg = String(error?.response?.data?.message ?? '');
+        if (status === 409 || msg.toLowerCase().includes('código')) {
+          toast({
+            variant: 'destructive',
+            title: 'Código en uso',
+            description: 'Ya existe un documento con ese código. Cambia el código y vuelve a intentar.',
+          });
+          document.getElementById('code')?.focus();
+          return;
+        }
+        throw error;
+      }
       toast({ title: "Documento Enviado", description: "El documento se envió para firma." });
 
       setSignatories([]);
