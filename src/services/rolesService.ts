@@ -26,13 +26,13 @@ export async function restoreRole(id: number) {
   return normalizeOne<any>(data);
 }
 
-export async function getRolePages(id: number): Promise<number[]> {
+export async function getRolePages(id: string | number): Promise<number[]> {
   const { data } = await api.get(`/roles/${id}/paginas`);
   const one = normalizeOne<{ paginaIds?: number[] }>(data);
   return Array.isArray(one.paginaIds) ? one.paginaIds : [];
 }
 
-export async function setRolePages(id: number, paginaIds: number[]): Promise<number[]> {
+export async function setRolePages(id: string | number, paginaIds: number[]): Promise<number[]> {
   const { data } = await api.put(`/roles/${id}/paginas`, { paginaIds });
   const one = normalizeOne<{ paginaIds?: number[] }>(data);
   return Array.isArray(one.paginaIds) ? one.paginaIds : [];

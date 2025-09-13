@@ -102,4 +102,3 @@ export namespace Api {
   }
 }
 
-export type Api = typeof Api;

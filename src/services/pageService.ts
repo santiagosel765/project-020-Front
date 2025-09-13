@@ -1,14 +1,14 @@
-import type { Api } from "@/types/api";
 import {
   getPaginas,
   createPagina,
   updatePagina,
   deletePagina,
   restorePagina,
+  type PaginaUI,
 } from "./pagesService";
 import { getRolePages, setRolePages } from "./rolesService";
 
-export type Page = Api.Pagina;
+export type Page = PaginaUI;
 
 export {
   getPaginas as getPages,

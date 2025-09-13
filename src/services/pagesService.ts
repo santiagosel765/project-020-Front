@@ -1,24 +1,32 @@
 import api from '@/lib/axiosConfig';
 import { normalizeList, normalizeOne } from '@/lib/apiEnvelope';
 
-export async function getPaginas(params?: { all?: string | number }) {
+export interface PaginaUI {
+  id: number;
+  nombre: string;
+  url: string;
+  descripcion?: string;
+  createdAt?: string;
+  activo?: boolean;
+}
+export async function getPaginas(params?: any): Promise<PaginaUI[]> {
   const { data } = await api.get('/paginas', { params });
-  return normalizeList<any>(data);
+  return normalizeList<PaginaUI>(data);
 }
 
-export async function createPagina(body: any) {
+export async function createPagina(body: any): Promise<PaginaUI> {
   const { data } = await api.post('/paginas', body);
-  return normalizeOne<any>(data);
+  return normalizeOne<PaginaUI>(data);
 }
-export async function updatePagina(id: number, body: any) {
+export async function updatePagina(id: number, body: any): Promise<PaginaUI> {
   const { data } = await api.patch(`/paginas/${id}`, body);
-  return normalizeOne<any>(data);
+  return normalizeOne<PaginaUI>(data);
 }
-export async function deletePagina(id: number) {
+export async function deletePagina(id: number): Promise<PaginaUI> {
   const { data } = await api.delete(`/paginas/${id}`);
-  return normalizeOne<any>(data);
+  return normalizeOne<PaginaUI>(data);
 }
-export async function restorePagina(id: number) {
+export async function restorePagina(id: number): Promise<PaginaUI> {
   const { data } = await api.patch(`/paginas/${id}/restore`);
-  return normalizeOne<any>(data);
+  return normalizeOne<PaginaUI>(data);
 }
