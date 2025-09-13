@@ -1,4 +1,9 @@
-import type { Api } from "@/types/api";
-export type Role = Api.Rol;
+export interface Role {
+  id?: string;
+  nombre: string;
+  descripcion?: string;
+  activo?: boolean;
+  createdAt?: string;
+}
 
 export * from "./rolesService";

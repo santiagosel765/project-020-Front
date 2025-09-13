@@ -1,6 +1,6 @@
 import api from '@/lib/axiosConfig';
 import type { User } from '@/lib/data';
-import { unwrapArray, unwrapOne } from '@/lib/apiEnvelope';
+import { unwrapArray, unwrapOne, normalizeOne } from '@/lib/apiEnvelope';
 
 type ApiUser = {
   id: number;
@@ -66,4 +66,9 @@ export async function deleteUser(id: number): Promise<{ id: string }> {
   const { data } = await api.delete(`/users/${id}`);
   const deleted = unwrapOne<ApiUser>(data);
   return { id: String((deleted as any)?.id ?? id) };
+}
+
+export async function getMe(): Promise<any> {
+  const { data } = await api.get('/users/me');
+  return normalizeOne<any>(data);
 }

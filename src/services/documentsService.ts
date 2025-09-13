@@ -1,5 +1,5 @@
 import api from '@/lib/axiosConfig';
-import { unwrapArray, unwrapPaginated } from '@/lib/apiEnvelope';
+import { unwrapArray, unwrapPaginated, unwrapOne } from '@/lib/apiEnvelope';
 
 export type DocEstado = 'Pendiente' | 'En Progreso' | 'Rechazado' | 'Completado';
 export type SupervisionDoc = {
@@ -36,6 +36,44 @@ const toSupervisionDoc = (d: any): SupervisionDoc => ({
   descripcionEstado: d.descripcionEstado ?? null,
 });
 
+export async function createCuadroFirma(
+  payload:
+    | FormData
+    | {
+        file?: File | Blob;
+        responsables?: any;
+        titulo?: any;
+        descripcion?: any;
+        version?: any;
+        codigo?: any;
+        empresa_id?: any;
+        createdBy?: any;
+        meta?: Record<string, any>;
+      }
+): Promise<any> {
+  let body: FormData;
+  if (payload instanceof FormData) {
+    body = payload;
+  } else {
+    body = new FormData();
+    const { file, responsables, meta, ...rest } = payload ?? {};
+    if (file) body.append('file', file as any);
+    const metaObj: any = meta ?? rest;
+    Object.entries(metaObj).forEach(([k, v]) => {
+      if (v != null && k !== 'responsables') body.append(k, v as any);
+    });
+    const resp = (responsables ?? metaObj?.responsables) as any;
+    if (resp != null) {
+      body.append(
+        'responsables',
+        typeof resp === 'object' ? JSON.stringify(resp) : (resp as any)
+      );
+    }
+  }
+  const { data } = await api.post('/documents/cuadro-firmas', body);
+  return unwrapOne<any>(data);
+}
+
 export async function getDocumentSupervision(params?: Record<string, any>) {
   const { data } = await api.get('/documents/cuadro-firmas/documentos/supervision', { params });
   // Soporta:
@@ -45,9 +83,11 @@ export async function getDocumentSupervision(params?: Record<string, any>) {
   return { items: docs, meta: pag.meta };
 }
 
-export async function getDocsByUser(userId: number, params?: Record<string, any>) {
+export async function getDocumentsByUser(userId: number, params?: Record<string, any>) {
   const { data } = await api.get(`/documents/cuadro-firmas/by-user/${userId}`, { params });
   // Si viene {status:400, data:"No hay ..."} => devolver []
   const arr = unwrapArray<any>(data);
   return arr.map(toSupervisionDoc);
 }
+
+export { getDocumentsByUser as getDocsByUser };
