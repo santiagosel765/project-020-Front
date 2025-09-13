@@ -125,76 +125,100 @@ export default function AsignacionesPage() {
     }
   };
 
-  const handleSubmit = async (event: React.FormEvent) => {
-    event.preventDefault();
-    setIsLoading(true);
+const readError = (e: any) => {
+  const resp = e?.response ?? e?.cause?.response ?? null;
+  const status = resp?.status ?? resp?.data?.statusCode ?? undefined;
 
-    if (!pdfFile) {
-      toast({ variant: "destructive", title: "Falta el archivo PDF", description: "Cargue un PDF para continuar." });
-      setIsLoading(false);
+  // intenta sacar el mensaje de varias formas
+  const dataMsg = resp?.data?.message;
+  let msg = '';
+  if (typeof dataMsg === 'string') msg = dataMsg;
+  else if (Array.isArray(dataMsg)) msg = dataMsg.join(' | ');
+  else if (typeof e?.request?.responseText === 'string') {
+    try {
+      const j = JSON.parse(e.request.responseText);
+      if (j?.message) msg = Array.isArray(j.message) ? j.message.join(' | ') : String(j.message);
+    } catch {}
+  }
+  if (!msg) msg = String(e?.message ?? '');
+
+  return { status, msg };
+};
+
+const handleSubmit = async (event: React.FormEvent) => {
+  event.preventDefault();
+  setIsLoading(true);
+
+  if (!pdfFile) {
+    toast({ variant: "destructive", title: "Falta el archivo PDF", description: "Cargue un PDF para continuar." });
+    setIsLoading(false);
+    return;
+  }
+
+  try {
+    const me = await getMe();
+    const form = event.target as HTMLFormElement;
+    const title = (form.elements.namedItem("title") as HTMLInputElement).value;
+
+    const meta = {
+      titulo: title,
+      descripcion: documentContent,
+      version: (form.elements.namedItem("version") as HTMLInputElement).value,
+      codigo: (form.elements.namedItem("code") as HTMLInputElement).value,
+      empresa_id: 1,
+      createdBy: me.id,
+    };
+
+    const responsables: any = {
+      ELABORA: [{ idUser: me.id }],
+      REVISA: signatories.filter(s => s.responsibility === 'REVISA').map(s => ({ idUser: s.id })),
+      APRUEBA: signatories.filter(s => s.responsibility === 'APRUEBA').map(s => ({ idUser: s.id })),
+      ENTERADO: signatories.filter(s => s.responsibility === 'ENTERADO').map(s => ({ idUser: s.id })),
+    };
+
+    // si esto falla, saltamos al catch y NO mostramos éxito
+    await createCuadroFirma({ file: pdfFile, meta, responsables });
+
+    // --- ÉXITO: sólo si la línea de arriba resolvió ---
+    toast({ title: "Documento Enviado", description: "El documento se envió para firma." });
+
+    // reset UI
+    setSignatories([]);
+    setDocumentContent("");
+    setPdfFile(null);
+    setPdfFileName(null);
+    if (pdfInputRef.current) pdfInputRef.current.value = "";
+    form.reset();
+  } catch (error: any) {
+    const { status, msg } = readError(error);
+    const m = msg.toLowerCase();
+
+    const isDuplicateCode =
+      status == 500 ||
+      m.includes('conflictexception') ||
+      m.includes('código') || m.includes('codigo') ||
+      m.includes('p2002');
+
+    if (isDuplicateCode) {
+      toast({
+        variant: 'destructive',
+        title: 'Código en uso',
+        description: 'Ya existe un documento con ese código. Cambia el código y vuelve a intentar.',
+      });
+      document.getElementById('code')?.focus();
       return;
     }
 
-    try {
-      const me = await getMe();
-      const form = event.target as HTMLFormElement;
-      const title = (form.elements.namedItem("title") as HTMLInputElement).value;
-      const meta = {
-        titulo: title,
-        descripcion: documentContent,
-        version: (form.elements.namedItem("version") as HTMLInputElement).value,
-        codigo: (form.elements.namedItem("code") as HTMLInputElement).value,
-        empresa_id: 1,
-        createdBy: me.id,
-      };
-      const responsables: any = {
-        ELABORA: [{ idUser: me.id }],
-        REVISA: signatories
-          .filter((s) => s.responsibility === 'REVISA')
-          .map((s) => ({ idUser: s.id })),
-        APRUEBA: signatories
-          .filter((s) => s.responsibility === 'APRUEBA')
-          .map((s) => ({ idUser: s.id })),
-        ENTERADO: signatories
-          .filter((s) => s.responsibility === 'ENTERADO')
-          .map((s) => ({ idUser: s.id })),
-      };
-
-      try {
-        await createCuadroFirma({ file: pdfFile, meta, responsables });
-      } catch (error: any) {
-        const status = error?.response?.status;
-        const msg = String(error?.response?.data?.message ?? '');
-        if (status === 409 || msg.toLowerCase().includes('código')) {
-          toast({
-            variant: 'destructive',
-            title: 'Código en uso',
-            description: 'Ya existe un documento con ese código. Cambia el código y vuelve a intentar.',
-          });
-          document.getElementById('code')?.focus();
-          return;
-        }
-        throw error;
-      }
-      toast({ title: "Documento Enviado", description: "El documento se envió para firma." });
-
-      setSignatories([]);
-      setDocumentContent("");
-      setPdfFile(null);
-      setPdfFileName(null);
-      if (pdfInputRef.current) pdfInputRef.current.value = "";
-      form.reset();
-    } catch (error) {
-      console.error("Document creation error:", error);
-      toast({
-        variant: "destructive",
-        title: "Error de Creación",
-        description: "Hubo un problema al crear el documento.",
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
+    toast({
+      variant: 'destructive',
+      title: 'Error de creación',
+      description: msg || 'Hubo un problema al crear el documento.',
+    });
+    console.error('Document creation error:', { status, msg, error });
+  } finally {
+    setIsLoading(false);
+  }
+};
 
   const isSubmitDisabled = useMemo(() => {
     if (isLoading || signatories.length === 0 || !pdfFile) return true;
