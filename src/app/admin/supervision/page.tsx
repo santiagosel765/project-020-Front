@@ -2,21 +2,20 @@
 
 import React, { useState, useEffect } from 'react';
 import { SupervisionTable } from "@/components/supervision-table";
-import { Document } from "@/lib/data";
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
-import { getSupervisionDocs } from '@/services/documentsService';
+import { getDocumentSupervision, type SupervisionDoc } from '@/services/documentsService';
 
 export default function SupervisionPage() {
-    const [documents, setDocuments] = useState<Document[]>([]);
+    const [documents, setDocuments] = useState<SupervisionDoc[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const { toast } = useToast();
 
     useEffect(() => {
         const fetchData = async () => {
             try {
-                const data = await getSupervisionDocs();
-                setDocuments(data as Document[]);
+                const { items } = await getDocumentSupervision();
+                setDocuments(Array.isArray(items) ? items : []);
             } catch (error) {
                 toast({
                     variant: 'destructive',

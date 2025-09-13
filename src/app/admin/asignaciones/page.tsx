@@ -9,7 +9,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import { Upload, Search, Loader2 } from "lucide-react";
-import { getUsers, getMe, type User as ApiUser } from "@/services/usersService";
+import { getUsers, getMe } from "@/services/usersService";
+import type { User } from "@/lib/data";
 import { createCuadroFirma } from "@/services/documentsService";
 import { useToast } from "@/hooks/use-toast";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -24,23 +25,7 @@ import {
 } from "@/components/ui/table";
 
 
-type UIUser = {
-  id: string;
-  name: string;
-  position: string;
-  department: string;
-  avatar?: string;
-};
-
-const toUIUser = (u: ApiUser): UIUser => ({
-  id: String(u.id ?? crypto.randomUUID()),
-  name: (u as any).nombre ?? "",
-  position: "—",
-  department: "—",
-  avatar: undefined,
-});
-
-type Signatory = UIUser & { responsibility: "REVISA" | "APRUEBA" | "ENTERADO" | null };
+type Signatory = User & { responsibility: "REVISA" | "APRUEBA" | "ENTERADO" | null };
 
 const getInitials = (name: string) => {
   const parts = name.trim().split(/\s+/);
@@ -52,7 +37,7 @@ export default function AsignacionesPage() {
   const { toast } = useToast();
 
   const [searchTerm, setSearchTerm] = useState("");
-  const [users, setUsers] = useState<UIUser[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
   const [signatories, setSignatories] = useState<Signatory[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [documentContent, setDocumentContent] = useState("");
@@ -65,8 +50,9 @@ export default function AsignacionesPage() {
     let mounted = true;
     (async () => {
       try {
-        const apiUsers = await getUsers();
-        if (mounted) setUsers(apiUsers.map(toUIUser));
+        const data = await getUsers();
+        const list = Array.isArray(data) ? data : [];
+        if (mounted) setUsers(list);
       } catch (err) {
         console.error(err);
         toast({
@@ -94,7 +80,7 @@ export default function AsignacionesPage() {
     return term ? base : base.slice(0, 5);
   }, [users, searchTerm, signatories]);
 
-  const addSignatory = (user: UIUser) => {
+  const addSignatory = (user: User) => {
     setSignatories((prev) =>
       [...prev, { ...user, responsibility: null }].sort((a, b) => a.name.localeCompare(b.name))
     );
