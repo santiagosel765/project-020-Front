@@ -45,7 +45,7 @@ export interface Document {
   lastStatusChangeDate: string;
   businessDays: number;
   status: 'Completado' | 'Rechazado' | 'Pendiente' | 'En Progreso';
-  assignedUsers: DocumentUser[];
+  assignedUsers?: DocumentUser[];
   filePath?: string;
 }
 

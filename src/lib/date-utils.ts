@@ -22,10 +22,38 @@ const isHoliday = (date: Date): boolean => {
     return guatemalanHolidays.includes(dateString);
 };
 
-export const parseDate = (dateString: string): Date => {
-    const [day, month, year] = dateString.split('/');
-    return new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
-};
+export function parseDate(input?: string | Date | number | null): Date {
+  if (input == null) return new Date(0);
+
+  if (input instanceof Date) return input;
+
+  if (typeof input === 'number' && Number.isFinite(input)) {
+    // si parece ser segundos, multiplica
+    return new Date(input > 1e12 ? input : input * 1000);
+  }
+
+  let s = String(input).trim();
+  if (!s) return new Date(0);
+
+  const iso = Date.parse(s);
+  if (!Number.isNaN(iso)) return new Date(iso);
+
+  if (s.includes('T')) s = s.split('T')[0];
+
+  let m = s.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})$/);
+  if (m) {
+    const [, y, mo, d] = m;
+    return new Date(Number(y), Number(mo) - 1, Number(d));
+  }
+
+  m = s.match(/^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{4})$/);
+  if (m) {
+    const [, d, mo, y] = m;
+    return new Date(Number(y), Number(mo) - 1, Number(d));
+  }
+
+  return new Date(0);
+}
 
 export const calculateBusinessDays = (startDate: Date, endDate: Date): number => {
     let count = 0;
