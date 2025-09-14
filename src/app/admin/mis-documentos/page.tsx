@@ -5,30 +5,39 @@ import { DocumentsTable } from "@/components/documents-table";
 import type { Document } from "@/lib/data";
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
-import { getDocumentsByUser, type SupervisionDoc } from "@/services/documentsService";
+import {
+  getDocumentsByUser,
+  getFirmantesByCuadroId,
+  type AsignacionDTO,
+} from "@/services/documentsService";
 import { getMe } from "@/services/usersService";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { initials } from "@/lib/avatar";
+import { Button } from "@/components/ui/button";
 
-function toUiDocument(d: SupervisionDoc): Document {
-  const add = d.addDate ?? '';
-  const onlyDate = add ? String(add).split('T')[0] : '';
-
+function toUiDocument(a: AsignacionDTO): Document {
+  const cf = a.cuadro_firma;
+  const add = cf.add_date ?? "";
+  const onlyDate = add ? String(add).split("T")[0] : "";
+  const assignedUsers = (cf.firmantesResumen ?? []).map((f) => ({
+    id: String(f.id),
+    name: f.nombre,
+    avatar: f.urlFoto ?? undefined,
+    responsibility: f.responsabilidad,
+    department: "",
+    employeeCode: "",
+  }));
   const anyDoc: any = {
-    id: String(d.id ?? ''),
-    code: d.codigo ?? '',
-    name: d.titulo ?? '',
-    description: d.descripcion ?? '',
+    id: String(cf.id ?? ""),
+    code: cf.codigo ?? "",
+    name: cf.titulo ?? "",
+    description: cf.descripcion ?? "",
     sendDate: onlyDate,
-    status: d.estado,
-    daysElapsed: d.diasTranscurridos ?? 0,
-    company: d.empresa?.nombre ?? '',
-    note: d.descripcionEstado ?? '',
-    assignedCount: 1,
-    assigned: [], 
+    status: (cf.estado_firma?.nombre ?? "") as Document["status"],
+    businessDays: cf.diasTranscurridos ?? 0,
+    assignedUsers,
   };
-
-  anyDoc.state = anyDoc.status;
-  anyDoc.diasTranscurridos = anyDoc.daysElapsed;
-
   return anyDoc as Document;
 }
 
@@ -38,14 +47,30 @@ export default function MisDocumentosPage() {
   const [page, setPage] = useState(1);
   const limit = 10;
   const [meta, setMeta] = useState<any>({});
+  const [searchInput, setSearchInput] = useState("");
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<Document["status"] | "Todos">("Todos");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
+  const [firmantes, setFirmantes] = useState<any[]>([]);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [modalLoading, setModalLoading] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
+    const handler = setTimeout(() => setSearch(searchInput), 300);
+    return () => clearTimeout(handler);
+  }, [searchInput]);
+
+  useEffect(() => {
     const fetchDocuments = async () => {
+      setIsLoading(true);
       try {
         const me = await getMe();
-        const { items, meta } = await getDocumentsByUser(Number(me.id), { page, limit });
-        setDocuments(items.map(toUiDocument));
+        const params: any = { page, limit, sort: sortOrder };
+        if (search) params.search = search;
+        if (statusFilter !== "Todos") params.estado = statusFilter;
+        const { asignaciones, meta } = await getDocumentsByUser(Number(me.id), params);
+        setDocuments(asignaciones.map(toUiDocument));
         setMeta(meta);
       } catch (error) {
         toast({
@@ -58,7 +83,20 @@ export default function MisDocumentosPage() {
       }
     };
     fetchDocuments();
-  }, [toast, page]);
+  }, [toast, page, search, statusFilter, sortOrder]);
+
+  const handleAsignadosClick = async (doc: Document) => {
+    setModalOpen(true);
+    setModalLoading(true);
+    try {
+      const data = await getFirmantesByCuadroId(Number(doc.id));
+      setFirmantes(data);
+    } catch {
+      setFirmantes([]);
+    } finally {
+      setModalLoading(false);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -78,7 +116,67 @@ export default function MisDocumentosPage() {
         documents={documents}
         title="Mis Documentos"
         description="Documentos asignados a usted para revisar y firmar."
+        searchTerm={searchInput}
+        onSearchChange={setSearchInput}
+        statusFilter={statusFilter}
+        onStatusFilterChange={(s) => {
+          setStatusFilter(s);
+          setPage(1);
+        }}
+        sortOrder={sortOrder}
+        onSortOrderChange={(o) => {
+          setSortOrder(o);
+          setPage(1);
+        }}
+        onAsignadosClick={handleAsignadosClick}
       />
+      <div className="flex justify-end items-center gap-2 mt-4">
+        <Button
+          variant="outline"
+          disabled={!meta?.hasPrevPage}
+          onClick={() => setPage((p) => Math.max(1, p - 1))}
+        >
+          Anterior
+        </Button>
+        <span>
+          {meta?.page} / {meta?.lastPage || 1}
+        </span>
+        <Button
+          variant="outline"
+          disabled={!meta?.hasNextPage}
+          onClick={() => setPage((p) => p + 1)}
+        >
+          Siguiente
+        </Button>
+      </div>
+      <Dialog open={modalOpen} onOpenChange={setModalOpen}>
+        <DialogContent className="sm:max-w-[425px] glassmorphism">
+          <DialogHeader>
+            <DialogTitle>Firmantes Asignados ({firmantes.length})</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4 max-h-[60vh] overflow-y-auto">
+            {modalLoading ? (
+              <Skeleton className="h-6 w-full" />
+            ) : (
+              firmantes.map((f: any) => (
+                <div key={f.id} className="flex items-center gap-4">
+                  <Avatar title={`${f.nombre} • ${f.responsabilidad}`}>
+                    <AvatarImage src={f.url_foto ?? f.urlFoto ?? undefined} />
+                    <AvatarFallback>{initials(f.nombre)}</AvatarFallback>
+                  </Avatar>
+                  <div>
+                    <p className="font-semibold">{f.nombre}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {f.responsabilidad} – {f.codigo_empleado ?? f.codigo}
+                    </p>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
+
