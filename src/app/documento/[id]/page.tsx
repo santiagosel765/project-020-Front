@@ -7,32 +7,63 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Download, Loader2, Sparkles } from 'lucide-react';
 import { SignersPanel } from '@/components/document-detail/signers-panel';
-import { getDocumentDetail, type DocumentDetail } from '@/services/documentsService';
+import {
+  getCuadroFirmaDetalle,
+  getFirmantes,
+  type CuadroFirmaDetalle,
+  type SignerFull,
+  type Signer,
+} from '@/services/documentsService';
 import { useToast } from '@/hooks/use-toast';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { summarizeDocument, SummarizeDocumentOutput } from '@/ai/flows/summarize-document';
-import { useSession } from '@/lib/session';
+import { useAuth } from '@/store/auth';
+import { fullName, initials } from '@/lib/avatar';
+import { SignDialog } from '@/components/sign-dialog';
 
 export default function DocumentDetailPage() {
   const params = useParams<{ id: string }>();
   const { toast } = useToast();
-  const { me } = useSession();
-  const [detail, setDetail] = useState<DocumentDetail | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { currentUser } = useAuth();
+  const [detalle, setDetalle] = useState<CuadroFirmaDetalle | null>(null);
+  const [firmantes, setFirmantes] = useState<SignerFull[]>([]);
+  const [loading, setLoading] = useState(false);
   const [pdfError, setPdfError] = useState(false);
+  const [signOpen, setSignOpen] = useState(false);
   const [rejectOpen, setRejectOpen] = useState(false);
   const [rejectReason, setRejectReason] = useState('');
   const [summary, setSummary] = useState<SummarizeDocumentOutput | null>(null);
   const [isSummarizing, setIsSummarizing] = useState(false);
 
-  const load = async () => {
-    if (!params?.id) return;
+  const fetchDetalle = async (id: number) => {
     setLoading(true);
     setPdfError(false);
     try {
-      const data = await getDocumentDetail(Number(params.id));
-      setDetail(data);
+      const det = await getCuadroFirmaDetalle(id, 3600);
+      const fs = await getFirmantes(id);
+      const mapped: SignerFull[] = fs.map((f) => ({
+        user: {
+          id: Number(f.user.id),
+          nombre: fullName(f.user),
+          posicion: f.user.posicion?.nombre ?? undefined,
+          gerencia: f.user.gerencia?.nombre ?? undefined,
+        },
+        responsabilidad: {
+          id: Number(f.responsabilidad_firma.id),
+          nombre: f.responsabilidad_firma.nombre,
+        },
+        estaFirmado: f.estaFirmado,
+      }));
+      setDetalle(det);
+      setFirmantes(mapped);
     } catch (e) {
       toast({ variant: 'destructive', title: 'Error', description: 'No se pudo cargar el documento.' });
     } finally {
@@ -41,13 +72,13 @@ export default function DocumentDetailPage() {
   };
 
   useEffect(() => {
-    load();
+    if (params?.id) fetchDetalle(Number(params.id));
   }, [params?.id]);
 
   const handleDownload = () => {
-    if (!detail?.urlDocumento) return;
+    if (!detalle?.urlDocumento) return;
     const a = document.createElement('a');
-    a.href = detail.urlDocumento;
+    a.href = detalle.urlDocumento;
     a.download = '';
     a.target = '_blank';
     a.rel = 'noopener noreferrer';
@@ -55,7 +86,7 @@ export default function DocumentDetailPage() {
   };
 
   const handleSign = () => {
-    toast({ title: 'Firmar', description: 'Funcionalidad no implementada.' });
+    setSignOpen(true);
   };
 
   const handleReject = () => {
@@ -64,10 +95,10 @@ export default function DocumentDetailPage() {
   };
 
   const handleSummarize = async () => {
-    if (!detail) return;
+    if (!detalle) return;
     setIsSummarizing(true);
     try {
-      const text = `Título: ${detail.titulo}\n\nDescripción: ${detail.descripcion ?? ''}`;
+      const text = `Título: ${detalle.titulo}\n\nDescripción: ${detalle.descripcion ?? ''}`;
       const result = await summarizeDocument({ documentText: text });
       setSummary(result);
     } catch {
@@ -77,7 +108,21 @@ export default function DocumentDetailPage() {
     }
   };
 
-  const currentSigner = detail?.firmantes.find((f) => String(f.id) === String(me?.id));
+  const progress = firmantes.length
+    ? (firmantes.filter((f) => f.estaFirmado).length / firmantes.length) * 100
+    : 0;
+  const signersPanel: Signer[] = firmantes.map((f) => ({
+    id: f.user.id,
+    nombre: f.user.nombre,
+    iniciales: initials(f.user.nombre),
+    responsabilidad: f.responsabilidad.nombre,
+    puesto: f.user.posicion,
+    gerencia: f.user.gerencia,
+    estaFirmado: f.estaFirmado,
+  }));
+  const hasPending = firmantes.some(
+    (f) => f.user.id === currentUser?.id && !f.estaFirmado,
+  );
 
   if (loading) {
     return (
@@ -100,7 +145,7 @@ export default function DocumentDetailPage() {
     );
   }
 
-  if (!detail) {
+  if (!detalle) {
     return (
       <div className="flex flex-col h-screen">
         <GeneralHeader />
@@ -113,18 +158,19 @@ export default function DocumentDetailPage() {
     <div className="flex flex-col h-screen">
       <GeneralHeader />
       <main className="flex-1 p-4 md:p-6 overflow-auto">
-        <h1 className="text-2xl font-semibold">{detail.titulo}</h1>
-        {detail.descripcion && <p className="text-muted-foreground">{detail.descripcion}</p>}
+        <h1 className="text-2xl font-semibold">{detalle.titulo}</h1>
+        {detalle.descripcion && <p className="text-muted-foreground">{detalle.descripcion}</p>}
         <div className="mt-4 grid grid-cols-12 gap-4">
           <div className="col-span-12 md:col-span-8">
             {pdfError ? (
               <div className="w-full h-[70vh] rounded-xl bg-muted flex flex-col items-center justify-center">
                 <p className="mb-4 text-sm text-muted-foreground">No se pudo cargar el PDF.</p>
-                <Button onClick={load}>Reintentar</Button>
+                <Button onClick={() => detalle && fetchDetalle(detalle.id)}>Reintentar</Button>
               </div>
             ) : (
               <iframe
-                src={detail.urlCuadroFirmasPDF}
+                key={detalle.urlCuadroFirmasPDF}
+                src={detalle.urlCuadroFirmasPDF}
                 className="w-full h-[70vh] rounded-xl bg-muted"
                 referrerPolicy="no-referrer"
                 onError={() => setPdfError(true)}
@@ -132,35 +178,45 @@ export default function DocumentDetailPage() {
             )}
           </div>
           <div className="col-span-12 md:col-span-4 space-y-4">
-            <SignersPanel firmantes={detail.firmantes} progress={detail.progress} />
+            <SignersPanel firmantes={signersPanel} progress={progress} />
             <Button onClick={handleDownload} variant="outline">
               <Download className="mr-2 h-4 w-4" /> Descargar PDF
             </Button>
-            {currentSigner && !currentSigner.estaFirmado && (
-              <div className="flex gap-2">
-                <Button onClick={handleSign} className="flex-1">Firmar</Button>
-                <Dialog open={rejectOpen} onOpenChange={setRejectOpen}>
-                  <Button variant="destructive" className="flex-1" onClick={() => setRejectOpen(true)}>
-                    Rechazar
-                  </Button>
-                  <DialogContent aria-describedby="reject-desc">
-                    <DialogHeader>
-                      <DialogTitle>Motivo del rechazo</DialogTitle>
-                      <DialogDescription id="reject-desc">
-                        Describa el motivo del rechazo del documento.
-                      </DialogDescription>
-                    </DialogHeader>
-                    <Textarea value={rejectReason} onChange={(e) => setRejectReason(e.target.value)} />
-                    <DialogFooter>
-                      <Button variant="secondary" onClick={() => setRejectOpen(false)}>
-                        Cancelar
-                      </Button>
-                      <Button onClick={handleReject}>Enviar</Button>
-                    </DialogFooter>
-                  </DialogContent>
-                </Dialog>
-              </div>
-            )}
+            <div className="flex gap-2">
+              <Button
+                onClick={handleSign}
+                className="flex-1"
+                disabled={!hasPending}
+                title={!hasPending ? 'No tienes firmas pendientes' : undefined}
+              >
+                Firmar
+              </Button>
+              <Dialog open={rejectOpen} onOpenChange={setRejectOpen}>
+                <Button
+                  variant="destructive"
+                  className="flex-1"
+                  onClick={() => setRejectOpen(true)}
+                  disabled={!hasPending}
+                >
+                  Rechazar
+                </Button>
+                <DialogContent aria-describedby="reject-desc">
+                  <DialogHeader>
+                    <DialogTitle>Motivo del rechazo</DialogTitle>
+                    <DialogDescription id="reject-desc">
+                      Describa el motivo del rechazo del documento.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <Textarea value={rejectReason} onChange={(e) => setRejectReason(e.target.value)} />
+                  <DialogFooter>
+                    <Button variant="secondary" onClick={() => setRejectOpen(false)}>
+                      Cancelar
+                    </Button>
+                    <Button onClick={handleReject}>Enviar</Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+            </div>
             <div className="pt-4 space-y-2">
               <div className="flex items-center gap-2">
                 <Sparkles className="h-4 w-4 text-primary" />
@@ -179,6 +235,18 @@ export default function DocumentDetailPage() {
           </div>
         </div>
       </main>
+      {detalle && currentUser && (
+        <SignDialog
+          open={signOpen}
+          onClose={() => setSignOpen(false)}
+          cuadroFirmaId={detalle.id}
+          firmantes={firmantes}
+          currentUserId={currentUser.id}
+          onSigned={async () => {
+            await fetchDetalle(detalle.id);
+          }}
+        />
+      )}
     </div>
   );
 }

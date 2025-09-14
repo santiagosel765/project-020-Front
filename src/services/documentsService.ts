@@ -98,6 +98,19 @@ export type SignerSummary = {
   responsabilidad_firma: { id: number; nombre: string };
 };
 
+export type SignerPending = {
+  userId: number;
+  responsabilidadId: number;
+  nombreResponsabilidad: 'Elabora' | 'Revisa' | 'Aprueba' | 'Enterado' | string;
+  yaFirmo: boolean;
+};
+
+export type SignerFull = {
+  user: { id: number; nombre: string; posicion?: string; gerencia?: string };
+  responsabilidad: { id: number; nombre: string };
+  estaFirmado: boolean;
+};
+
 export type AsignacionDTO = {
   cuadro_firma: CuadroFirmaResumen;
   usuarioAsignado: any;
@@ -220,6 +233,33 @@ export async function getFirmantes(cuadroId: number): Promise<SignerSummary[]> {
   return unwrapArray<SignerSummary>(data?.data ?? data?.firmantes ?? data);
 }
 
+export type CuadroFirmaDetalle = {
+  id: number;
+  titulo: string;
+  descripcion?: string | null;
+  version?: string | null;
+  codigo?: string | null;
+  urlCuadroFirmasPDF: string;
+  urlDocumento: string;
+};
+
+export async function getCuadroFirmaDetalle(id: number, expiresIn?: number): Promise<CuadroFirmaDetalle> {
+  const { data } = await api.get(`/documents/cuadro-firmas/${id}`, {
+    params: expiresIn ? { expiresIn } : undefined,
+    headers: { 'Cache-Control': 'no-store' },
+  });
+  const x = unwrapOne<any>(data?.data ?? data);
+  return {
+    id: Number(x.id ?? 0),
+    titulo: x.titulo ?? '',
+    descripcion: x.descripcion ?? null,
+    version: x.version ?? null,
+    codigo: x.codigo ?? null,
+    urlCuadroFirmasPDF: x.urlCuadroFirmasPDF ?? '',
+    urlDocumento: x.urlDocumento ?? '',
+  };
+}
+
 export async function getDocumentDetail(id: number): Promise<DocumentDetail> {
   const { data } = await api.get(`/documents/cuadro-firmas/${id}`, {
     headers: { 'Cache-Control': 'no-store' },
@@ -262,4 +302,33 @@ export async function getDocumentDetail(id: number): Promise<DocumentDetail> {
 }
 
 export { getDocumentsByUser as getDocsByUser };
+
+export async function signDocument(payload: {
+  cuadroFirmaId: number;
+  userId: number;
+  nombreUsuario: string;
+  responsabilidadId: number;
+  nombreResponsabilidad: string;
+  file: File;
+}): Promise<{ status: number; message?: string }> {
+  const form = new FormData();
+  form.append('cuadroFirmaId', String(payload.cuadroFirmaId));
+  form.append('userId', String(payload.userId));
+  form.append('nombreUsuario', payload.nombreUsuario);
+  form.append('responsabilidadId', String(payload.responsabilidadId));
+  form.append('nombreResponsabilidad', payload.nombreResponsabilidad);
+  form.append('file', payload.file);
+
+  try {
+    const res = await api.post('/documents/cuadro-firmas/firmar', form);
+    return { status: res.status, message: (res.data as any)?.message };
+  } catch (e: any) {
+    if (e.status === 403) {
+      const err: any = new Error('Usuario no autorizado');
+      err.status = 403;
+      throw err;
+    }
+    throw e;
+  }
+}
 
