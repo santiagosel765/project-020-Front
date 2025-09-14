@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { SupervisionTable } from "@/components/supervision-table";
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
-import { getDocumentSupervision, type SupervisionDoc } from '@/services/documentsService';
+import { getDocumentSupervision, type DocumentoRow, type SupervisionDoc, type DocEstado } from '@/services/documentsService';
 
 export default function SupervisionPage() {
     const [documents, setDocuments] = useState<SupervisionDoc[]>([]);
@@ -14,8 +14,20 @@ export default function SupervisionPage() {
     useEffect(() => {
         const fetchData = async () => {
             try {
-                const { items } = await getDocumentSupervision();
-                setDocuments(Array.isArray(items) ? items : []);
+                const { documentos } = await getDocumentSupervision();
+                const mapped: SupervisionDoc[] = (documentos ?? []).map((d: DocumentoRow) => ({
+                    id: d.id,
+                    titulo: d.titulo,
+                    descripcion: d.descripcion,
+                    codigo: undefined,
+                    version: undefined,
+                    addDate: d.add_date,
+                    estado: d.estado?.nombre as DocEstado,
+                    empresa: d.empresa,
+                    diasTranscurridos: d.diasTranscurridos,
+                    descripcionEstado: d.descripcionEstado,
+                }));
+                setDocuments(mapped);
             } catch (error) {
                 toast({
                     variant: 'destructive',
