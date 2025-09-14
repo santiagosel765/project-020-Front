@@ -138,36 +138,38 @@ export default function DocumentoDetallePage() {
         if (!id) return;
         setIsLoadingDoc(true);
         try {
-            const { data: doc } = await api.get<Document>(`/documents/${id}`);
+            const { data: doc } = await api.get<Document>(`/documents/cuadro-firmas/${id}`);
             setDocument(doc);
-            setPdfSrc(doc.filePath || `/files/prueba.pdf`);
 
-            const getStatusChangeDateForUser = (user: User) => {
-                const docUser = doc.assignedUsers.find((u: User) => u.id === user.id);
-                return docUser?.statusChangeDate || doc.sendDate;
-            };
+            const fileName = doc?.filePath?.split('/').pop()?.replace(/\.pdf$/i, '');
+            if (fileName) {
+                try {
+                  const { data: urlData } = await api.get(`/documents/cuadro-firmas/documento-url`, { params: { fileName } });
+                  setPdfSrc((urlData as any)?.url ?? urlData);
+                } catch (e) {
+                  console.error('pdf url error', e);
+                }
+            }
 
-            const initialSignatories: Signatory[] = doc.assignedUsers
-              .map((user: User, index: number) => ({
-                ...user,
-                status: (index % 3 === 0
-                  ? 'FIRMADO'
-                  : index % 3 === 1
-                  ? 'RECHAZADO'
-                  : 'PENDIENTE') as SignatoryStatus,
-                responsibility: (index % 3 === 0
-                  ? 'APRUEBA'
-                  : index % 3 === 1
-                  ? 'REVISA'
-                  : 'ENTERADO') as Signatory['responsibility'],
-                rejectionReason:
-                  index % 3 === 1
-                    ? 'El presupuesto excede lo aprobado para este trimestre.'
-                    : undefined,
-                statusChangeDate: getStatusChangeDateForUser(user),
-              }))
-              .sort((a: User, b: User) => a.name.localeCompare(b.name));
-            setSignatories(initialSignatories);
+            try {
+              const { data: firmData } = await api.get(`/documents/cuadro-firmas/firmantes/${id}`);
+              const list: any[] = firmData?.data ?? firmData ?? [];
+              const mapped = list.map((u: any) => ({
+                id: Number(u.idUser ?? u.userId ?? u.id ?? 0),
+                name: u.nombre ?? u.name ?? '',
+                avatar: u.avatar ?? u.foto ?? '',
+                position: u.puesto ?? u.position ?? '',
+                department: u.gerencia ?? u.department ?? '',
+                responsibility: (u.nombreResponsabilidad ?? u.responsabilidad ?? '') as Signatory['responsibility'],
+                status: (u.estado ?? u.estadoFirma ?? 'PENDIENTE') as SignatoryStatus,
+                rejectionReason: u.observaciones ?? u.rejectionReason,
+                statusChangeDate: u.fechaCambio ?? u.statusChangeDate ?? doc.sendDate,
+              })) as unknown as Signatory[];
+              setSignatories(mapped.sort((a, b) => a.name.localeCompare(b.name)));
+            } catch (e) {
+              console.error('firmantes error', e);
+              setSignatories([]);
+            }
         } catch (error) {
             setDocument(null);
             toast({
@@ -188,7 +190,8 @@ export default function DocumentoDetallePage() {
     if (!isClient || !currentUserId || userRole === 'supervisor' || !document) {
       return false;
     }
-    return document.assignedUsers.some(user => user.id === currentUserId);
+    const assigned = document.assignedUsers ?? [];
+    return assigned.some((user: any) => user.id === currentUserId);
   }, [isClient, userRole, currentUserId, document]);
 
 
@@ -250,8 +253,21 @@ export default function DocumentoDetallePage() {
     }
     setIsSigning(true);
     try {
-        const signature = signatureCanvasRef.current.getTrimmedCanvas().toDataURL('image/png');
-        await api.post(`/sign/${id}/draw`, { draw: signature });
+        const canvas = signatureCanvasRef.current.getTrimmedCanvas();
+        const blob: Blob = await new Promise((resolve) => canvas.toBlob((b) => resolve(b!), 'image/png'));
+        const formData = new FormData();
+        formData.append('file', blob, 'signature.png');
+        formData.append('cuadroFirmaId', String(id));
+        formData.append('userId', String(me?.id ?? ''));
+        formData.append('nombreUsuario', (me as any)?.name ?? '');
+        const current = signatories.find((s) => String(s.id) === String(me?.id));
+        if (current) {
+          const respId = (current as any).responsabilidadId ?? (current as any).responsibilityId;
+          if (respId != null) formData.append('responsabilidadId', String(respId));
+          formData.append('nombreResponsabilidad', current.responsibility);
+        }
+        await api.post('/documents/cuadro-firmas/firmar', formData);
+        const signature = canvas.toDataURL('image/png');
         setUserSignature(signature);
         setIsSignedByCurrentUser(true);
         toast({
@@ -291,7 +307,20 @@ export default function DocumentoDetallePage() {
     }, 1500);
   };
 
-  const handleDownload = () => {
+  const loadPdfUrl = async () => {
+    if (!document?.filePath) return;
+    const fileName = document.filePath.split('/').pop()?.replace(/\.pdf$/i, '');
+    if (!fileName) return;
+    try {
+      const { data } = await api.get(`/documents/cuadro-firmas/documento-url`, { params: { fileName } });
+      setPdfSrc((data as any)?.url ?? data);
+    } catch (e) {
+      console.error('refresh pdf', e);
+    }
+  };
+
+  const handleDownload = async () => {
+    await loadPdfUrl();
     if (!pdfSrc) return;
     const link = window.document.createElement('a');
     link.href = pdfSrc;
