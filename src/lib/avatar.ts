@@ -21,6 +21,21 @@ export function fullName(u?: {
   return parts.join(' ').replace(/\s+/g, ' ').trim();
 }
 
+export function initialsFromFullName(
+  first?: string | null,
+  second?: string | null,
+  third?: string | null,
+  last?: string | null,
+  secondLast?: string | null,
+  married?: string | null,
+) {
+  const parts = [first, second, third, last, secondLast, married].filter(Boolean) as string[];
+  return parts
+    .slice(0, 2)
+    .map((p) => p[0]!.toUpperCase())
+    .join('') || '??';
+}
+
 export function initialsFromUser(u: Parameters<typeof fullName>[0]) {
   const name = fullName(u);
   const ini = name

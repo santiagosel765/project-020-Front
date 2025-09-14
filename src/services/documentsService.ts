@@ -1,6 +1,6 @@
 import api from '@/lib/axiosConfig';
 import { unwrapArray, unwrapPaginated, unwrapOne } from '@/lib/apiEnvelope';
-import { initials } from '@/lib/avatar';
+import { initials, fullName, initialsFromFullName } from '@/lib/avatar';
 
 export type DocEstado = 'Pendiente' | 'En Progreso' | 'Rechazado' | 'Completado';
 export type SupervisionDoc = {
@@ -54,6 +54,30 @@ export type CuadroFirmaResumen = {
   empresa: { id: number; nombre: string };
   diasTranscurridos?: number;
   firmantesResumen: FirmanteResumen[];
+};
+
+export type Signer = {
+  id: number;
+  nombre: string;
+  iniciales: string;
+  responsabilidad: string;
+  puesto?: string | null;
+  gerencia?: string | null;
+  estaFirmado: boolean;
+  diasTranscurridos?: number;
+};
+
+export type DocumentDetail = {
+  id: number;
+  titulo: string;
+  descripcion?: string | null;
+  version?: string | null;
+  codigo?: string | null;
+  progress: number;
+  diasTranscurridosDocumento: number;
+  urlCuadroFirmasPDF: string;
+  urlDocumento: string;
+  firmantes: Signer[];
 };
 
 export type SignerSummary = {
@@ -194,6 +218,47 @@ export async function getDocumentsByUser(
 export async function getFirmantes(cuadroId: number): Promise<SignerSummary[]> {
   const { data } = await api.get(`/documents/cuadro-firmas/firmantes/${cuadroId}`);
   return unwrapArray<SignerSummary>(data?.data ?? data?.firmantes ?? data);
+}
+
+export async function getDocumentDetail(id: number): Promise<DocumentDetail> {
+  const { data } = await api.get(`/documents/cuadro-firmas/${id}`, {
+    headers: { 'Cache-Control': 'no-store' },
+  });
+  const x = unwrapOne<any>(data?.data ?? data);
+  const firmantes: Signer[] = Array.isArray(x.cuadro_firma_user)
+    ? x.cuadro_firma_user.map((f: any) => {
+        const u = f.user ?? {};
+        return {
+          id: Number(u.id ?? 0),
+          nombre: fullName(u),
+          iniciales: initialsFromFullName(
+            u.primer_nombre,
+            u.segundo_name,
+            u.tercer_nombre,
+            u.primer_apellido,
+            u.segundo_apellido,
+            u.apellido_casada,
+          ),
+          responsabilidad: f.responsabilidad_firma?.nombre ?? '',
+          puesto: u.posicion?.nombre ?? null,
+          gerencia: u.gerencia?.nombre ?? null,
+          estaFirmado: Boolean(f.estaFirmado),
+          diasTranscurridos: f.diasTranscurridos ?? undefined,
+        } as Signer;
+      })
+    : [];
+  return {
+    id: Number(x.id ?? 0),
+    titulo: x.titulo ?? '',
+    descripcion: x.descripcion ?? null,
+    version: x.version ?? null,
+    codigo: x.codigo ?? null,
+    progress: Number(x.progress ?? 0),
+    diasTranscurridosDocumento: Number(x.diasTranscurridosDocumento ?? 0),
+    urlCuadroFirmasPDF: x.urlCuadroFirmasPDF ?? '',
+    urlDocumento: x.urlDocumento ?? '',
+    firmantes,
+  };
 }
 
 export { getDocumentsByUser as getDocsByUser };
