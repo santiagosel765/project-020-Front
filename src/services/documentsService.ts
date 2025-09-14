@@ -15,6 +15,46 @@ export type SupervisionDoc = {
   descripcionEstado?: string | null;
 };
 
+export type FirmanteResumen = {
+  id: number;
+  nombre: string;
+  iniciales: string;
+  urlFoto?: string | null;
+  responsabilidad: string;
+};
+
+export type CuadroFirmaResumen = {
+  id: number;
+  titulo: string;
+  descripcion?: string;
+  codigo?: string;
+  version?: string;
+  nombre_pdf?: string;
+  add_date?: string;
+  estado_firma: { id: number; nombre: string };
+  empresa: { id: number; nombre: string };
+  diasTranscurridos?: number;
+  firmantesResumen: FirmanteResumen[];
+};
+
+export type AsignacionDTO = {
+  cuadro_firma: CuadroFirmaResumen;
+  usuarioAsignado: any;
+  usuarioCreador: { correo_institucional: string; codigo_empleado: string };
+};
+
+export type ByUserResponse = {
+  asignaciones: AsignacionDTO[];
+  meta: {
+    totalCount: number;
+    page: number;
+    limit: number;
+    lastPage: number;
+    hasNextPage: boolean;
+    hasPrevPage: boolean;
+  };
+};
+
 const toSupervisionDoc = (d: any): SupervisionDoc => {
   const x = d?.cuadro_firma ?? d ?? {};
   return {
@@ -60,21 +100,31 @@ export async function getDocumentSupervision(params?: Record<string, any>) {
   return { items: src.map(toSupervisionDoc), meta: pag.meta };
 }
 
-export async function getDocumentsByUser(userId: number, params?: Record<string, any>) {
+export async function getDocumentsByUser(
+  userId: number,
+  params?: Record<string, any>,
+): Promise<ByUserResponse> {
   const { data } = await api.get(`/documents/cuadro-firmas/by-user/${userId}`, { params });
   const pag = unwrapPaginated<any>(data);
   const asignaciones = pag.items.length
     ? pag.items
     : unwrapArray<any>(data?.data?.asignaciones ?? data?.asignaciones ?? []);
-  const docs = asignaciones.map((a: any) => {
-    const cf = a?.cuadro_firma ?? {};
-    return {
-      ...cf,
-      id: cf?.id ?? a?.id,
-      descripcionEstado: cf?.descripcionEstado ?? a?.descripcionEstado ?? null,
-    };
-  });
-  return { items: docs.map(toSupervisionDoc), meta: pag.meta };
+  return {
+    asignaciones,
+    meta: (pag.meta as ByUserResponse["meta"]) || {
+      totalCount: 0,
+      page: 1,
+      limit: 0,
+      lastPage: 1,
+      hasNextPage: false,
+      hasPrevPage: false,
+    },
+  };
+}
+
+export async function getFirmantesByCuadroId(id: number) {
+  const { data } = await api.get(`/documents/cuadro-firmas/firmantes/${id}`);
+  return unwrapArray<any>(data?.data ?? data?.firmantes ?? data);
 }
 
 export { getDocumentsByUser as getDocsByUser };

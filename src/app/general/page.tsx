@@ -6,29 +6,32 @@ import { DocumentsTable } from "@/components/documents-table";
 import { Document } from "@/lib/data";
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
-import { getDocumentsByUser, type SupervisionDoc } from "@/services/documentsService";
+import { getDocumentsByUser, type AsignacionDTO } from "@/services/documentsService";
 import { getMe } from "@/services/usersService";
 
 export default function GeneralPage() {
     const [documents, setDocuments] = useState<Document[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const { toast } = useToast();
+    const [searchTerm, setSearchTerm] = useState("");
+    const [statusFilter, setStatusFilter] = useState<Document["status"] | "Todos">("Todos");
+    const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
 
     useEffect(() => {
         const fetchDocuments = async () => {
             try {
                 const me = await getMe();
-                const { items } = await getDocumentsByUser(Number(me.id), { page: 1, limit: 20 });
-                const mapped: Document[] = items.map((d: SupervisionDoc) => ({
-                    id: String(d.id),
-                    code: d.codigo ?? '',
-                    name: d.titulo ?? '',
-                    description: d.descripcion ?? '',
-                    sendDate: d.addDate ?? '',
-                    lastStatusChangeDate: d.addDate ?? '',
-                    businessDays: d.diasTranscurridos ?? 0,
-                    status: d.estado,
-                    assignedUsers: [],
+                const { asignaciones } = await getDocumentsByUser(Number(me.id), { page: 1, limit: 20 });
+                const mapped: Document[] = asignaciones.map((a: AsignacionDTO) => ({
+                    id: String(a.cuadro_firma.id),
+                    code: a.cuadro_firma.codigo ?? '',
+                    name: a.cuadro_firma.titulo ?? '',
+                    description: a.cuadro_firma.descripcion ?? '',
+                    sendDate: a.cuadro_firma.add_date ?? '',
+                    lastStatusChangeDate: a.cuadro_firma.add_date ?? '',
+                    businessDays: a.cuadro_firma.diasTranscurridos ?? 0,
+                    status: (a.cuadro_firma.estado_firma?.nombre ?? '') as Document['status'],
+                    assignedUsers: [] as any,
                 }));
                 setDocuments(mapped);
             } catch (error) {
@@ -58,10 +61,16 @@ export default function GeneralPage() {
 
     return (
         <div className="h-full">
-            <DocumentsTable 
-                documents={documents} 
+            <DocumentsTable
+                documents={documents}
                 title="Mis Documentos"
                 description="Documentos asignados a usted para revisar y firmar."
+                searchTerm={searchTerm}
+                onSearchChange={setSearchTerm}
+                statusFilter={statusFilter}
+                onStatusFilterChange={setStatusFilter}
+                sortOrder={sortOrder}
+                onSortOrderChange={setSortOrder}
             />
         </div>
     );

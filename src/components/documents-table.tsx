@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React from "react";
 import {
   Card,
   CardContent,
@@ -19,27 +19,24 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import { Document, User } from "@/lib/data";
+import { Document, DocumentUser } from "@/lib/data";
 import { Search, ArrowUpDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "./ui/button";
 import { useRouter } from "next/navigation";
-import {
-  calculateBusinessDays,
-  parseDate as parseDateUtil,
-} from "@/lib/date-utils";
+import { initials } from "@/lib/avatar";
 
 interface DocumentsTableProps {
   documents: Document[];
   title: string;
   description: string;
+  searchTerm: string;
+  onSearchChange: (value: string) => void;
+  statusFilter: Document["status"] | "Todos";
+  onStatusFilterChange: (value: Document["status"] | "Todos") => void;
+  sortOrder: "asc" | "desc";
+  onSortOrderChange: (value: "asc" | "desc") => void;
+  onAsignadosClick?: (doc: Document) => void;
 }
 
 const getStatusClass = (status: Document["status"]): string => {
@@ -81,24 +78,16 @@ const getButtonStatusClass = (
   return currentFilter === status ? `${baseClass} ${activeClass}` : baseClass;
 };
 
-const getInitials = (name?: string) => {
-  const safe = (name ?? "").trim();
-  if (!safe) return "";
-  const names = safe.split(/\s+/);
-  if (names.length > 2) return `${names[0][0]}${names[2][0]}`.toUpperCase();
-  if (names.length > 1) return `${names[0][0]}${names[1][0]}`.toUpperCase();
-  return names[0] ? names[0][0].toUpperCase() : "";
-};
-
-const AvatarGroup: React.FC<{ users?: User[] }> = ({ users = [] }) => (
+const AvatarGroup: React.FC<{ users?: DocumentUser[] }> = ({ users = [] }) => (
   <div className="flex -space-x-2 overflow-hidden">
     {users.slice(0, 3).map((user) => (
       <Avatar
         key={user.id}
         className="inline-block h-8 w-8 rounded-full ring-2 ring-background"
+        title={`${user.name} • ${user.responsibility ?? ''}`}
       >
         <AvatarImage src={user.avatar} data-ai-hint="person avatar" />
-        <AvatarFallback>{getInitials(user.name)}</AvatarFallback>
+        <AvatarFallback>{initials(user.name)}</AvatarFallback>
       </Avatar>
     ))}
     {users.length > 3 && (
@@ -109,105 +98,22 @@ const AvatarGroup: React.FC<{ users?: User[] }> = ({ users = [] }) => (
   </div>
 );
 
-/** Parser robusto: soporta ISO, yyyy-mm-dd y dd/mm/yyyy. Devuelve epoch ms. */
-const parseDateAny = (value?: string) => {
-  if (!value) return 0;
-
-  // 1) ISO u otros que Date.parse entienda:
-  const t = Date.parse(value);
-  if (!Number.isNaN(t)) return t;
-
-  // 2) dd/mm/yyyy
-  const s = value.split("/");
-  if (s.length === 3) {
-    const [dd, mm, yyyy] = s;
-    const d = new Date(Number(yyyy), Number(mm) - 1, Number(dd));
-    return d.getTime();
-  }
-
-  // 3) yyyy-mm-dd
-  const s2 = value.split("-");
-  if (s2.length === 3) {
-    const [yyyy, mm, dd] = s2;
-    const d = new Date(Number(yyyy), Number(mm) - 1, Number(dd));
-    return d.getTime();
-  }
-
-  return 0;
-};
-
 export function DocumentsTable({
   documents,
   title,
   description,
+  searchTerm,
+  onSearchChange,
+  statusFilter,
+  onStatusFilterChange,
+  sortOrder,
+  onSortOrderChange,
+  onAsignadosClick,
 }: DocumentsTableProps) {
   const router = useRouter();
-  const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] =
-    useState<Document["status"] | "Todos">("Todos");
-  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
-
-  const statusCounts = useMemo(() => {
-    const counts: Record<string, number> = {
-      Todos: documents?.length ?? 0,
-      Completado: 0,
-      "En Progreso": 0,
-      Rechazado: 0,
-      Pendiente: 0,
-    };
-    (documents ?? []).forEach((doc) => {
-      counts[doc.status] = (counts[doc.status] || 0) + 1;
-    });
-    return counts;
-  }, [documents]);
-
-  const filteredDocuments = useMemo(() => {
-    const src = Array.isArray(documents) ? documents : [];
-
-    let filtered = src
-      .map((doc) => {
-        // Fecha base segura
-        const baseDateStr = doc.lastStatusChangeDate || doc.sendDate || "";
-
-        // Intentamos usar util si retorna Date; si no, caemos a parseDateAny
-        let startDate: Date;
-        try {
-          const maybe = parseDateUtil(baseDateStr) as any;
-          startDate =
-            maybe instanceof Date
-              ? maybe
-              : new Date(parseDateAny(baseDateStr));
-        } catch {
-          startDate = new Date(parseDateAny(baseDateStr));
-        }
-
-        const endDate = new Date();
-        const businessDays = calculateBusinessDays(startDate, endDate);
-        return { ...doc, businessDays };
-      })
-      .filter((doc) => {
-        const name = (doc.name ?? "").toLowerCase();
-        const desc = (doc.description ?? "").toLowerCase();
-        const term = (searchTerm ?? "").toLowerCase();
-        return (
-          (name.includes(term) || desc.includes(term)) &&
-          (statusFilter === "Todos" || doc.status === statusFilter)
-        );
-      });
-
-    if (sortOrder) {
-      filtered.sort((a, b) => {
-        const dateA = parseDateAny(a.sendDate);
-        const dateB = parseDateAny(b.sendDate);
-        return sortOrder === "asc" ? dateA - dateB : dateB - dateA;
-      });
-    }
-
-    return filtered;
-  }, [documents, searchTerm, statusFilter, sortOrder]);
 
   const handleSort = () => {
-    setSortOrder((prev) => (prev === "asc" ? "desc" : "asc"));
+    onSortOrderChange(sortOrder === "asc" ? "desc" : "asc");
   };
 
   const statusButtons: (Document["status"] | "Todos")[] = [
@@ -236,7 +142,7 @@ export function DocumentsTable({
               placeholder="Buscar por nombre o descripción..."
               className="pl-8"
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(e) => onSearchChange(e.target.value)}
             />
           </div>
         </div>
@@ -244,7 +150,7 @@ export function DocumentsTable({
           {statusButtons.map((status) => (
             <Button
               key={status}
-              onClick={() => setStatusFilter(status)}
+              onClick={() => onStatusFilterChange(status)}
               className={cn(
                 getButtonStatusClass(status, statusFilter),
                 "h-8 px-2.5 py-1.5",
@@ -252,9 +158,6 @@ export function DocumentsTable({
               variant="outline"
             >
               {status}
-              <span className="ml-2 text-xs opacity-75">
-                ({statusCounts[status as keyof typeof statusCounts]})
-              </span>
             </Button>
           ))}
         </div>
@@ -280,8 +183,8 @@ export function DocumentsTable({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredDocuments.map((doc) => {
-              const users = doc.assignedUsers ?? []; // 👈 safe fallback
+            {(documents ?? []).map((doc) => {
+              const users = doc.assignedUsers ?? [];
               return (
                 <TableRow key={doc.id}>
                   <TableCell className="font-medium">
@@ -307,47 +210,15 @@ export function DocumentsTable({
                     {doc.businessDays}
                   </TableCell>
                   <TableCell>
-                    <Dialog>
-                      <DialogTrigger asChild>
-                        <div
-                          className="cursor-pointer"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <AvatarGroup users={users} />
-                        </div>
-                      </DialogTrigger>
-                      <DialogContent className="sm:max-w-[425px] glassmorphism">
-                        <DialogHeader>
-                          <DialogTitle>
-                            Firmantes Asignados ({users.length})
-                          </DialogTitle>
-                        </DialogHeader>
-                        <div className="space-y-4 py-4 max-h-[60vh] overflow-y-auto">
-                          {users.map((user) => (
-                            <div
-                              key={user.id}
-                              className="flex items-center gap-4"
-                            >
-                              <Avatar>
-                                <AvatarImage
-                                  src={user.avatar}
-                                  data-ai-hint="person avatar"
-                                />
-                                <AvatarFallback>
-                                  {getInitials(user.name)}
-                                </AvatarFallback>
-                              </Avatar>
-                              <div>
-                                <p className="font-semibold">{user.name}</p>
-                                <p className="text-sm text-muted-foreground">
-                                  {user.department} - {user.employeeCode}
-                                </p>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </DialogContent>
-                    </Dialog>
+                    <button
+                      className="cursor-pointer"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onAsignadosClick?.(doc);
+                      }}
+                    >
+                      <AvatarGroup users={users} />
+                    </button>
                   </TableCell>
                 </TableRow>
               );
@@ -358,3 +229,4 @@ export function DocumentsTable({
     </Card>
   );
 }
+
