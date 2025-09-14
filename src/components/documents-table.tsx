@@ -24,7 +24,7 @@ import { Search, ArrowUpDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "./ui/button";
 import { useRouter } from "next/navigation";
-import { initials } from "@/lib/avatar";
+import { initialsFromUser } from "@/lib/avatar";
 
 interface DocumentsTableProps {
   documents: Document[];
@@ -80,14 +80,16 @@ const getButtonStatusClass = (
 
 const AvatarGroup: React.FC<{ users?: DocumentUser[] }> = ({ users = [] }) => (
   <div className="flex -space-x-2 overflow-hidden">
-    {users.slice(0, 3).map((user) => (
+    {users.slice(0, 3).map((user, idx) => (
       <Avatar
-        key={user.id}
+        key={`${user.id}-${user.responsibility ?? ''}-${idx}`}
         className="inline-block h-8 w-8 rounded-full ring-2 ring-background"
         title={`${user.name} • ${user.responsibility ?? ''}`}
       >
         <AvatarImage src={user.avatar} data-ai-hint="person avatar" />
-        <AvatarFallback>{initials(user.name)}</AvatarFallback>
+        <AvatarFallback>
+          {initialsFromUser({ primer_nombre: user.name })}
+        </AvatarFallback>
       </Avatar>
     ))}
     {users.length > 3 && (

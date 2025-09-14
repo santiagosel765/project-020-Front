@@ -37,6 +37,24 @@ export type CuadroFirmaResumen = {
   firmantesResumen: FirmanteResumen[];
 };
 
+export type SignerSummary = {
+  estaFirmado: boolean;
+  user: {
+    id: number;
+    primer_nombre: string | null;
+    segundo_name?: string | null;
+    tercer_nombre?: string | null;
+    primer_apellido: string | null;
+    segundo_apellido?: string | null;
+    apellido_casada?: string | null;
+    correo_institucional: string;
+    codigo_empleado?: string | null;
+    posicion?: { nombre?: string | null } | null;
+    gerencia?: { nombre?: string | null } | null;
+  };
+  responsabilidad_firma: { id: number; nombre: string };
+};
+
 export type AsignacionDTO = {
   cuadro_firma: CuadroFirmaResumen;
   usuarioAsignado: any;
@@ -122,9 +140,9 @@ export async function getDocumentsByUser(
   };
 }
 
-export async function getFirmantesByCuadroId(id: number) {
-  const { data } = await api.get(`/documents/cuadro-firmas/firmantes/${id}`);
-  return unwrapArray<any>(data?.data ?? data?.firmantes ?? data);
+export async function getFirmantes(cuadroId: number): Promise<SignerSummary[]> {
+  const { data } = await api.get(`/documents/cuadro-firmas/firmantes/${cuadroId}`);
+  return unwrapArray<SignerSummary>(data?.data ?? data?.firmantes ?? data);
 }
 
 export { getDocumentsByUser as getDocsByUser };
