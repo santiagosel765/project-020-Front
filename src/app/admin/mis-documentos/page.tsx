@@ -9,16 +9,21 @@ import { getDocumentsByUser, type SupervisionDoc } from "@/services/documentsSer
 import { getMe } from "@/services/usersService";
 
 function toUiDocument(d: SupervisionDoc): Document {
+  const add = d.addDate ?? '';
+  const onlyDate = add ? String(add).split('T')[0] : '';
+
   const anyDoc: any = {
-    id: String(d.id),
-    code: d.codigo ?? "",
-    name: d.titulo ?? "",
-    description: d.descripcion ?? "",
-    sendDate: d.addDate ?? "",
-    status: d.estado,            
+    id: String(d.id ?? ''),
+    code: d.codigo ?? '',
+    name: d.titulo ?? '',
+    description: d.descripcion ?? '',
+    sendDate: onlyDate,
+    status: d.estado,
     daysElapsed: d.diasTranscurridos ?? 0,
-    company: d.empresa?.nombre ?? "",
-    note: d.descripcionEstado ?? "",
+    company: d.empresa?.nombre ?? '',
+    note: d.descripcionEstado ?? '',
+    assignedCount: 1,
+    assigned: [], 
   };
 
   anyDoc.state = anyDoc.status;

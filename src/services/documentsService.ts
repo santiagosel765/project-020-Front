@@ -15,18 +15,21 @@ export type SupervisionDoc = {
   descripcionEstado?: string | null;
 };
 
-const toSupervisionDoc = (d: any): SupervisionDoc => ({
-  id: Number(d.id),
-  titulo: d.titulo ?? '',
-  descripcion: d.descripcion ?? null,
-  codigo: d.codigo ?? null,
-  version: d.version ?? null,
-  addDate: d.add_date ?? d.addDate,
-  estado: (d?.estado_firma?.nombre ?? '') as DocEstado,
-  empresa: d.empresa ?? null,
-  diasTranscurridos: d.diasTranscurridos ?? undefined,
-  descripcionEstado: d.descripcionEstado ?? null,
-});
+const toSupervisionDoc = (d: any): SupervisionDoc => {
+  const x = d?.cuadro_firma ?? d ?? {};
+  return {
+    id: Number(x.id ?? 0),
+    titulo: x.titulo ?? '',
+    descripcion: x.descripcion ?? null,
+    codigo: x.codigo ?? null,
+    version: x.version ?? null,
+    addDate: x.add_date ?? x.addDate ?? null,
+    estado: (x?.estado_firma?.nombre ?? '') as DocEstado,
+    empresa: x.empresa ?? null,
+    diasTranscurridos: x.diasTranscurridos ?? undefined,
+    descripcionEstado: x.descripcionEstado ?? null,
+  };
+};
 
 export async function createCuadroFirma(
   payload:
@@ -67,8 +70,19 @@ export async function getDocumentSupervision(params?: Record<string, any>) {
 
 export async function getDocumentsByUser(userId: number, params?: Record<string, any>) {
   const { data } = await api.get(`/documents/cuadro-firmas/by-user/${userId}`, { params });
-  const arr = unwrapArray<any>(data?.data ?? data);
-  return arr.map(toSupervisionDoc);
+
+  const asignaciones = (data?.data?.asignaciones ?? data?.asignaciones ?? []) as any[];
+
+  const docs = asignaciones.map((a) => {
+    const cf = a?.cuadro_firma ?? {};
+    return {
+      ...cf,
+      id: cf?.id ?? a?.id,
+      descripcionEstado: cf?.descripcionEstado ?? a?.descripcionEstado ?? null,
+    };
+  });
+
+  return docs.map(toSupervisionDoc);
 }
 
 export { getDocumentsByUser as getDocsByUser };
