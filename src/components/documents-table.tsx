@@ -37,6 +37,8 @@ interface DocumentsTableProps {
   sortOrder: "asc" | "desc";
   onSortOrderChange: (value: "asc" | "desc") => void;
   onAsignadosClick?: (doc: Document) => void;
+  statusCounts?: Record<Document["status"] | "Todos", number>;
+  dataSource?: "byUser" | "supervision";
 }
 
 const getStatusClass = (status: Document["status"]): string => {
@@ -111,6 +113,8 @@ export function DocumentsTable({
   sortOrder,
   onSortOrderChange,
   onAsignadosClick,
+  statusCounts,
+  dataSource = "byUser",
 }: DocumentsTableProps) {
   const router = useRouter();
 
@@ -160,6 +164,11 @@ export function DocumentsTable({
               variant="outline"
             >
               {status}
+              {statusCounts && (
+                <span className="ml-2 text-xs opacity-75">
+                  ({statusCounts[status] ?? 0})
+                </span>
+              )}
             </Button>
           ))}
         </div>

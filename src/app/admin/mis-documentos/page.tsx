@@ -11,15 +11,8 @@ import {
   type AsignacionDTO,
 } from "@/services/documentsService";
 import { getMe } from "@/services/usersService";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import {
-  initialsFromUser,
-  fullName,
-  subtitleFromUser,
-} from "@/lib/avatar";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { SignersModal } from "@/components/signers-modal";
 
 function toUiDocument(a: AsignacionDTO): Document {
   const cf = a.cuadro_firma;
@@ -162,40 +155,12 @@ export default function MisDocumentosPage() {
           Siguiente
         </Button>
       </div>
-      <Dialog open={modalOpen} onOpenChange={setModalOpen}>
-        <DialogContent className="sm:max-w-[425px] glassmorphism" aria-describedby={undefined}>
-          <DialogHeader>
-            <DialogTitle>Firmantes Asignados ({firmantes.length})</DialogTitle>
-          </DialogHeader>
-          <ul className="space-y-4 py-4 max-h-[60vh] overflow-y-auto">
-            {modalLoading ? (
-              <li className="text-sm text-muted-foreground">Cargando firmantes...</li>
-            ) : (
-              firmantes.map((f, idx) => (
-                <li
-                  key={`${f.user.id}-${f.responsabilidad_firma.id}-${idx}`}
-                  className="flex items-center gap-4"
-                >
-                  <Avatar>
-                    <AvatarFallback>{initialsFromUser(f.user)}</AvatarFallback>
-                  </Avatar>
-                  <div className="flex flex-col">
-                    <span className="font-medium">
-                      {fullName(f.user) || f.user.correo_institucional}
-                    </span>
-                    <span className="text-sm text-muted-foreground">
-                      {subtitleFromUser(f.user)}
-                    </span>
-                  </div>
-                  <Badge variant="outline" className="ml-auto">
-                    {f.responsabilidad_firma?.nombre ?? '—'}
-                  </Badge>
-                </li>
-              ))
-            )}
-          </ul>
-        </DialogContent>
-      </Dialog>
+      <SignersModal
+        open={modalOpen}
+        onOpenChange={setModalOpen}
+        firmantes={firmantes}
+        loading={modalLoading}
+      />
     </div>
   );
 }

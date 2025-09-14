@@ -1,5 +1,6 @@
 import api from '@/lib/axiosConfig';
 import { unwrapArray, unwrapPaginated, unwrapOne } from '@/lib/apiEnvelope';
+import { initials } from '@/lib/avatar';
 
 export type DocEstado = 'Pendiente' | 'En Progreso' | 'Rechazado' | 'Completado';
 export type SupervisionDoc = {
@@ -13,6 +14,24 @@ export type SupervisionDoc = {
   empresa?: { id: number; nombre: string } | null;
   diasTranscurridos?: number;
   descripcionEstado?: string | null;
+};
+
+export type DocumentoRow = {
+  id: number;
+  titulo: string;
+  descripcion: string;
+  add_date: string;
+  estado: { id: number; nombre: string };
+  empresa: { id: number; nombre: string };
+  diasTranscurridos?: number;
+  descripcionEstado?: string;
+  firmantesResumen?: Array<{
+    id: number;
+    nombre: string;
+    iniciales: string;
+    urlFoto: string | null;
+    responsabilidad: string;
+  }>;
 };
 
 export type FirmanteResumen = {
@@ -73,6 +92,34 @@ export type ByUserResponse = {
   };
 };
 
+const toDocumentoRow = (d: any): DocumentoRow => {
+  const x = d?.cuadro_firma ?? d ?? {};
+  const firmantes = Array.isArray(x.firmantesResumen)
+    ? x.firmantesResumen.map((f: any) => ({
+        id: Number(f.id ?? 0),
+        nombre: f.nombre ?? '',
+        iniciales: f.iniciales ?? initials(f.nombre ?? ''),
+        urlFoto: f.urlFoto ?? null,
+        responsabilidad: f.responsabilidad ?? '',
+      }))
+    : undefined;
+  return {
+    id: Number(x.id ?? 0),
+    titulo: x.titulo ?? '',
+    descripcion: x.descripcion ?? '',
+    add_date: x.add_date ?? x.addDate ?? '',
+    estado:
+      x.estado_firma ?? x.estado ?? ({ id: 0, nombre: '' } as {
+        id: number;
+        nombre: string;
+      }),
+    empresa: x.empresa ?? ({ id: 0, nombre: '' } as { id: number; nombre: string }),
+    diasTranscurridos: x.diasTranscurridos ?? undefined,
+    descripcionEstado: x.descripcionEstado ?? undefined,
+    firmantesResumen: firmantes,
+  };
+};
+
 const toSupervisionDoc = (d: any): SupervisionDoc => {
   const x = d?.cuadro_firma ?? d ?? {};
   return {
@@ -82,7 +129,7 @@ const toSupervisionDoc = (d: any): SupervisionDoc => {
     codigo: x.codigo ?? null,
     version: x.version ?? null,
     addDate: x.add_date ?? x.addDate ?? null,
-    estado: (x?.estado_firma?.nombre ?? '') as DocEstado,
+    estado: (x?.estado_firma?.nombre ?? x?.estado?.nombre ?? '') as DocEstado,
     empresa: x.empresa ?? null,
     diasTranscurridos: x.diasTranscurridos ?? undefined,
     descripcionEstado: x.descripcionEstado ?? null,
@@ -112,10 +159,14 @@ export async function updateDocumentoAsignacion(
 }
 
 export async function getDocumentSupervision(params?: Record<string, any>) {
-  const { data } = await api.get('/documents/cuadro-firmas/documentos/supervision', { params });
+  const { data } = await api.get('/documents/cuadro-firmas/documentos/supervision', {
+    params,
+  });
   const pag = unwrapPaginated<any>(data);
-  const src = pag.items.length ? pag.items : unwrapArray<any>(data?.data ?? data?.documentos ?? data);
-  return { items: src.map(toSupervisionDoc), meta: pag.meta };
+  const src = pag.items.length
+    ? pag.items
+    : unwrapArray<any>(data?.data ?? data?.documentos ?? data);
+  return { documentos: src.map(toDocumentoRow), meta: pag.meta };
 }
 
 export async function getDocumentsByUser(
