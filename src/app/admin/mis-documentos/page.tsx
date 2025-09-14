@@ -7,14 +7,19 @@ import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   getDocumentsByUser,
-  getFirmantesByCuadroId,
+  getFirmantes,
   type AsignacionDTO,
 } from "@/services/documentsService";
 import { getMe } from "@/services/usersService";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { initials } from "@/lib/avatar";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import {
+  initialsFromUser,
+  fullName,
+  subtitleFromUser,
+} from "@/lib/avatar";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 
 function toUiDocument(a: AsignacionDTO): Document {
   const cf = a.cuadro_firma;
@@ -69,9 +74,12 @@ export default function MisDocumentosPage() {
         const params: any = { page, limit, sort: sortOrder };
         if (search) params.search = search;
         if (statusFilter !== "Todos") params.estado = statusFilter;
-        const { asignaciones, meta } = await getDocumentsByUser(Number(me.id), params);
+        const { asignaciones, meta: metaResp } = await getDocumentsByUser(Number(me.id), params);
         setDocuments(asignaciones.map(toUiDocument));
-        setMeta(meta);
+        setMeta({
+          ...metaResp,
+          totalPages: (metaResp as any).totalPages ?? metaResp.lastPage ?? 1,
+        });
       } catch (error) {
         toast({
           variant: "destructive",
@@ -89,9 +97,14 @@ export default function MisDocumentosPage() {
     setModalOpen(true);
     setModalLoading(true);
     try {
-      const data = await getFirmantesByCuadroId(Number(doc.id));
+      const data = await getFirmantes(Number(doc.id));
       setFirmantes(data);
     } catch {
+      toast({
+        variant: "destructive",
+        title: "Error al cargar firmantes",
+        description: "No se pudieron obtener los firmantes.",
+      });
       setFirmantes([]);
     } finally {
       setModalLoading(false);
@@ -130,50 +143,57 @@ export default function MisDocumentosPage() {
         }}
         onAsignadosClick={handleAsignadosClick}
       />
-      <div className="flex justify-end items-center gap-2 mt-4">
+      <div className="flex items-center justify-between mt-4">
         <Button
-          variant="outline"
-          disabled={!meta?.hasPrevPage}
+          variant="ghost"
+          disabled={page <= 1}
           onClick={() => setPage((p) => Math.max(1, p - 1))}
         >
           Anterior
         </Button>
-        <span>
-          {meta?.page} / {meta?.lastPage || 1}
+        <span className="text-sm text-muted-foreground">
+          Página {page} de {meta?.totalPages ?? 1}
         </span>
         <Button
-          variant="outline"
-          disabled={!meta?.hasNextPage}
+          variant="ghost"
+          disabled={page >= (meta?.totalPages ?? 1)}
           onClick={() => setPage((p) => p + 1)}
         >
           Siguiente
         </Button>
       </div>
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
-        <DialogContent className="sm:max-w-[425px] glassmorphism">
+        <DialogContent className="sm:max-w-[425px] glassmorphism" aria-describedby={undefined}>
           <DialogHeader>
             <DialogTitle>Firmantes Asignados ({firmantes.length})</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4 py-4 max-h-[60vh] overflow-y-auto">
+          <ul className="space-y-4 py-4 max-h-[60vh] overflow-y-auto">
             {modalLoading ? (
-              <Skeleton className="h-6 w-full" />
+              <li className="text-sm text-muted-foreground">Cargando firmantes...</li>
             ) : (
-              firmantes.map((f: any) => (
-                <div key={f.id} className="flex items-center gap-4">
-                  <Avatar title={`${f.nombre} • ${f.responsabilidad}`}>
-                    <AvatarImage src={f.url_foto ?? f.urlFoto ?? undefined} />
-                    <AvatarFallback>{initials(f.nombre)}</AvatarFallback>
+              firmantes.map((f, idx) => (
+                <li
+                  key={`${f.user.id}-${f.responsabilidad_firma.id}-${idx}`}
+                  className="flex items-center gap-4"
+                >
+                  <Avatar>
+                    <AvatarFallback>{initialsFromUser(f.user)}</AvatarFallback>
                   </Avatar>
-                  <div>
-                    <p className="font-semibold">{f.nombre}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {f.responsabilidad} – {f.codigo_empleado ?? f.codigo}
-                    </p>
+                  <div className="flex flex-col">
+                    <span className="font-medium">
+                      {fullName(f.user) || f.user.correo_institucional}
+                    </span>
+                    <span className="text-sm text-muted-foreground">
+                      {subtitleFromUser(f.user)}
+                    </span>
                   </div>
-                </div>
+                  <Badge variant="outline" className="ml-auto">
+                    {f.responsabilidad_firma?.nombre ?? '—'}
+                  </Badge>
+                </li>
               ))
             )}
-          </div>
+          </ul>
         </DialogContent>
       </Dialog>
     </div>
