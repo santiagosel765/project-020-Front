@@ -12,6 +12,7 @@ import { Upload, Search, Loader2 } from "lucide-react";
 import { getUsers, getMe } from "@/services/usersService";
 import type { User } from "@/lib/data";
 import { createCuadroFirma } from "@/services/documentsService";
+import { buildResponsables } from "@/lib/responsables";
 import { useToast } from "@/hooks/use-toast";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -153,14 +154,18 @@ const handleSubmit = async (event: React.FormEvent) => {
       createdBy: me.id,
     };
 
-    const responsables: any = {
-      ELABORA: [{ idUser: me.id }],
-      REVISA: signatories.filter((s) => s.responsibility === 'REVISA').map((s) => ({ idUser: s.id })),
-      APRUEBA: signatories.filter((s) => s.responsibility === 'APRUEBA').map((s) => ({ idUser: s.id })),
-      ENTERADO: signatories.filter((s) => s.responsibility === 'ENTERADO').map((s) => ({ idUser: s.id })),
-    };
+    const responsables = buildResponsables({
+      elaboraUserId: me.id,
+      revisaUserIds: signatories.filter((s) => s.responsibility === 'REVISA').map((s) => s.id),
+      apruebaUserIds: signatories.filter((s) => s.responsibility === 'APRUEBA').map((s) => s.id),
+    });
 
-    await createCuadroFirma({ file: pdfFile, meta, responsables });
+    const formData = new FormData();
+    formData.append('file', pdfFile);
+    formData.append('responsables', JSON.stringify(responsables));
+    Object.entries(meta).forEach(([k, v]) => formData.append(k, v as any));
+
+    await createCuadroFirma(formData);
     created = true;
   } catch (error: any) {
     const status = error?.response?.status;

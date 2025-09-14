@@ -9,13 +9,17 @@ import { getDocumentSupervision, type SupervisionDoc } from '@/services/document
 export default function DocumentosPage() {
   const [documents, setDocuments] = useState<SupervisionDoc[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const limit = 10;
+  const [meta, setMeta] = useState<any>({});
   const { toast } = useToast();
 
   useEffect(() => {
     const fetchDocuments = async () => {
       try {
-        const { items } = await getDocumentSupervision();
+        const { items, meta } = await getDocumentSupervision({ page, limit });
         setDocuments(Array.isArray(items) ? items : []);
+        setMeta(meta);
       } catch (error) {
         toast({
           variant: 'destructive',
@@ -27,7 +31,7 @@ export default function DocumentosPage() {
       }
     };
     fetchDocuments();
-  }, [toast]);
+  }, [toast, page]);
 
   if (isLoading) {
     return (

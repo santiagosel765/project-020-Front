@@ -6,7 +6,8 @@ import { DocumentsTable } from "@/components/documents-table";
 import { Document } from "@/lib/data";
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
-import api from "@/lib/axiosConfig";
+import { getDocumentsByUser, type SupervisionDoc } from "@/services/documentsService";
+import { getMe } from "@/services/usersService";
 
 export default function GeneralPage() {
     const [documents, setDocuments] = useState<Document[]>([]);
@@ -16,10 +17,20 @@ export default function GeneralPage() {
     useEffect(() => {
         const fetchDocuments = async () => {
             try {
-                const { data } = await api.get<Document[]>('/documents');
-                // In a real app, this would be filtered for the current user
-                const userDocuments = data.filter((doc: Document) => doc.id !== 'DOC001');
-                setDocuments(userDocuments);
+                const me = await getMe();
+                const { items } = await getDocumentsByUser(Number(me.id), { page: 1, limit: 20 });
+                const mapped: Document[] = items.map((d: SupervisionDoc) => ({
+                    id: String(d.id),
+                    code: d.codigo ?? '',
+                    name: d.titulo ?? '',
+                    description: d.descripcion ?? '',
+                    sendDate: d.addDate ?? '',
+                    lastStatusChangeDate: d.addDate ?? '',
+                    businessDays: d.diasTranscurridos ?? 0,
+                    status: d.estado,
+                    assignedUsers: [],
+                }));
+                setDocuments(mapped);
             } catch (error) {
                 toast({
                     variant: 'destructive',

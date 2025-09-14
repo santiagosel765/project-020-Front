@@ -31,33 +31,25 @@ const toSupervisionDoc = (d: any): SupervisionDoc => {
   };
 };
 
-export async function createCuadroFirma(
-  payload:
-    | FormData
-    | {
-        file?: File | Blob;
-        responsables?: any;
-        titulo?: any;
-        descripcion?: any;
-        version?: any;
-        codigo?: any;
-        empresa_id?: any;
-        createdBy?: any;
-        meta?: Record<string, any>;
-      }
-) {
-  let body = payload instanceof FormData ? payload : new FormData();
-  if (!(payload instanceof FormData)) {
-    const { file, responsables, meta, ...rest } = payload ?? {};
-    if (file) body.append('file', file as any);
-    const metaObj: any = meta ?? rest;
-    Object.entries(metaObj).forEach(([k, v]) => {
-      if (v != null && k !== 'responsables') body.append(k, v as any);
-    });
-    const resp = (responsables ?? metaObj?.responsables) as any;
-    if (resp != null) body.append('responsables', typeof resp === 'object' ? JSON.stringify(resp) : (resp as any));
-  }
+export async function createCuadroFirma(body: FormData) {
   const { data } = await api.post('/documents/cuadro-firmas', body, { timeout: 60000 });
+  return unwrapOne<any>(data);
+}
+
+export async function updateCuadroFirma(id: number, payload: Record<string, any>) {
+  const { data } = await api.patch(`/documents/cuadro-firmas/${id}`, payload);
+  return unwrapOne<any>(data);
+}
+
+export async function updateDocumentoAsignacion(
+  id: number,
+  payload: { file: File | Blob; idUser?: number | string; observaciones?: string },
+) {
+  const body = new FormData();
+  if (payload.file) body.append('file', payload.file as any);
+  if (payload.idUser != null) body.append('idUser', String(payload.idUser));
+  if (payload.observaciones) body.append('observaciones', payload.observaciones);
+  const { data } = await api.patch(`/documents/cuadro-firmas/documento/${id}`, body);
   return unwrapOne<any>(data);
 }
 
@@ -70,10 +62,11 @@ export async function getDocumentSupervision(params?: Record<string, any>) {
 
 export async function getDocumentsByUser(userId: number, params?: Record<string, any>) {
   const { data } = await api.get(`/documents/cuadro-firmas/by-user/${userId}`, { params });
-
-  const asignaciones = (data?.data?.asignaciones ?? data?.asignaciones ?? []) as any[];
-
-  const docs = asignaciones.map((a) => {
+  const pag = unwrapPaginated<any>(data);
+  const asignaciones = pag.items.length
+    ? pag.items
+    : unwrapArray<any>(data?.data?.asignaciones ?? data?.asignaciones ?? []);
+  const docs = asignaciones.map((a: any) => {
     const cf = a?.cuadro_firma ?? {};
     return {
       ...cf,
@@ -81,8 +74,8 @@ export async function getDocumentsByUser(userId: number, params?: Record<string,
       descripcionEstado: cf?.descripcionEstado ?? a?.descripcionEstado ?? null,
     };
   });
-
-  return docs.map(toSupervisionDoc);
+  return { items: docs.map(toSupervisionDoc), meta: pag.meta };
 }
 
 export { getDocumentsByUser as getDocsByUser };
+

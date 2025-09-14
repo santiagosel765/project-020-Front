@@ -35,15 +35,18 @@ function toUiDocument(d: SupervisionDoc): Document {
 export default function MisDocumentosPage() {
   const [documents, setDocuments] = useState<Document[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const limit = 10;
+  const [meta, setMeta] = useState<any>({});
   const { toast } = useToast();
 
   useEffect(() => {
     const fetchDocuments = async () => {
       try {
         const me = await getMe();
-        const raw = await getDocumentsByUser(Number(me.id));
-        const items = Array.isArray(raw) ? raw : [];
+        const { items, meta } = await getDocumentsByUser(Number(me.id), { page, limit });
         setDocuments(items.map(toUiDocument));
+        setMeta(meta);
       } catch (error) {
         toast({
           variant: "destructive",
@@ -55,7 +58,7 @@ export default function MisDocumentosPage() {
       }
     };
     fetchDocuments();
-  }, [toast]);
+  }, [toast, page]);
 
   if (isLoading) {
     return (
