@@ -1,4 +1,4 @@
-import api from '@/lib/axiosConfig';
+import { api } from '@/lib/api';
 import { normalizeList, normalizeOne } from '@/lib/apiEnvelope';
 
 export interface PaginaUI {

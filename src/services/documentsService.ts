@@ -1,4 +1,4 @@
-import api from '@/lib/axiosConfig';
+import { api } from '@/lib/api';
 import { unwrapArray, unwrapPaginated, unwrapOne } from '@/lib/apiEnvelope';
 import { initials, fullName, initialsFromFullName } from '@/lib/avatar';
 
@@ -196,7 +196,7 @@ export async function updateDocumentoAsignacion(
 }
 
 export async function getDocumentSupervision(params?: Record<string, any>) {
-  const { data } = await api.get('/documents/cuadro-firmas/documentos/supervision', {
+  const { data } = await api.get<any>('/documents/cuadro-firmas/documentos/supervision', {
     params,
   });
   const pag = unwrapPaginated<any>(data);
@@ -210,7 +210,7 @@ export async function getDocumentsByUser(
   userId: number,
   params?: Record<string, any>,
 ): Promise<ByUserResponse> {
-  const { data } = await api.get(`/documents/cuadro-firmas/by-user/${userId}`, { params });
+  const { data } = await api.get<any>(`/documents/cuadro-firmas/by-user/${userId}`, { params });
   const pag = unwrapPaginated<any>(data);
   const asignaciones = pag.items.length
     ? pag.items
@@ -229,7 +229,7 @@ export async function getDocumentsByUser(
 }
 
 export async function getFirmantes(cuadroId: number): Promise<SignerSummary[]> {
-  const { data } = await api.get(`/documents/cuadro-firmas/firmantes/${cuadroId}`);
+  const { data } = await api.get<any>(`/documents/cuadro-firmas/firmantes/${cuadroId}`);
   return unwrapArray<SignerSummary>(data?.data ?? data?.firmantes ?? data);
 }
 
@@ -244,7 +244,7 @@ export type CuadroFirmaDetalle = {
 };
 
 export async function getCuadroFirmaDetalle(id: number, expiresIn?: number): Promise<CuadroFirmaDetalle> {
-  const { data } = await api.get(`/documents/cuadro-firmas/${id}`, {
+  const { data } = await api.get<any>(`/documents/cuadro-firmas/${id}`, {
     params: expiresIn ? { expiresIn } : undefined,
     headers: { 'Cache-Control': 'no-store' },
   });
@@ -261,7 +261,7 @@ export async function getCuadroFirmaDetalle(id: number, expiresIn?: number): Pro
 }
 
 export async function getDocumentDetail(id: number): Promise<DocumentDetail> {
-  const { data } = await api.get(`/documents/cuadro-firmas/${id}`, {
+  const { data } = await api.get<any>(`/documents/cuadro-firmas/${id}`, {
     headers: { 'Cache-Control': 'no-store' },
   });
   const x = unwrapOne<any>(data?.data ?? data);

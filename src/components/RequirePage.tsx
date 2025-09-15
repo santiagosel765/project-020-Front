@@ -10,18 +10,18 @@ interface Props {
 }
 
 export function RequirePage({ url, children }: Props) {
-  const { me, loading } = useSession();
+  const { me, isLoading } = useSession();
   const router = useRouter();
 
-  const allowed = me?.pages?.some((p) => p.url === url);
+  const allowed = me?.pages?.some((p: { path: string }) => p.path === url);
 
   useEffect(() => {
-    if (!loading && !allowed) {
+    if (!isLoading && !allowed) {
       router.replace('/403');
     }
-  }, [loading, allowed, router]);
+  }, [isLoading, allowed, router]);
 
-  if (loading || !allowed) return null;
+  if (isLoading || !allowed) return null;
 
   return <>{children}</>;
 }

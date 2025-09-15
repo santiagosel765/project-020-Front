@@ -28,7 +28,7 @@ import type { Point, Area } from 'react-easy-crop';
 import getCroppedImg from '@/lib/crop-image';
 import { Slider } from './ui/slider';
 import { useSession } from '@/lib/session';
-import { updateMySignature } from '@/services/api/users';
+import { api } from '@/lib/api';
 
 const SettingsDialogContext = React.createContext({
     setOpen: (open: boolean) => {}
@@ -63,7 +63,7 @@ export function SettingsDialog({ children }: { children: React.ReactNode }) {
   const [mounted, setMounted] = useState(false);
   const [theme, setTheme] = useState('light');
   const [userRole, setUserRole] = useState<string | null>(null);
-    const { me, refreshMe } = useSession();
+    const { roles, signatureUrl, refresh } = useSession();
   const { toast } = useToast();
   
   const [currentSignature, setCurrentSignature] = useState<string | null>(null);
@@ -86,7 +86,6 @@ export function SettingsDialog({ children }: { children: React.ReactNode }) {
     const storedTheme = localStorage.getItem('theme') || 'light';
     setTheme(storedTheme);
     document.documentElement.classList.toggle('dark', storedTheme === 'dark');
-    const roles: string[] = me?.roles ?? [];
     const role = roles.includes('ADMIN')
       ? 'admin'
       : roles.includes('SUPERVISOR')
@@ -94,8 +93,8 @@ export function SettingsDialog({ children }: { children: React.ReactNode }) {
         : 'general';
     setUserRole(role);
     
-    if (me?.signatureUrl) {
-      setCurrentSignature(me.signatureUrl);
+    if (signatureUrl) {
+      setCurrentSignature(signatureUrl);
     } else {
       const savedSignature = localStorage.getItem('userSignature');
       if (savedSignature) {
@@ -107,7 +106,7 @@ export function SettingsDialog({ children }: { children: React.ReactNode }) {
         setAvatarImage(savedAvatar);
     }
 
-  }, [me]);
+  }, [roles, signatureUrl]);
 
   const handleThemeChange = (isDark: boolean) => {
     const newTheme = isDark ? 'dark' : 'light';
@@ -117,34 +116,30 @@ export function SettingsDialog({ children }: { children: React.ReactNode }) {
   };
 
   const handleSaveSignature = async () => {
-    if (signatureCanvasRef.current) {
-      if (signatureCanvasRef.current.isEmpty()) {
-        toast({
-          variant: 'destructive',
-          title: 'Lienzo Vacío',
-          description: 'Por favor, dibuje su firma antes de guardar.',
-        });
-        return;
-      }
-      const dataUrl = signatureCanvasRef.current.toDataURL('image/png');
-      const blob = await fetch(dataUrl).then((r) => r.blob());
-      try {
-        const { data } = await updateMySignature(blob);
-        const url = (data as any)?.url ?? (data as any)?.signatureUrl ?? data;
-        setCurrentSignature(url);
-        localStorage.setItem('userSignature', url);
-        toast({
-          title: 'Firma Guardada',
-          description: 'Su nueva firma ha sido guardada exitosamente.',
-        });
-        await refreshMe();
-      } catch {
-        toast({
-          variant: 'destructive',
-          title: 'Error',
-          description: 'No se pudo guardar la firma.',
-        });
-      }
+    if (!signatureCanvasRef.current) return;
+    if (signatureCanvasRef.current.isEmpty()) {
+      toast({
+        variant: 'destructive',
+        title: 'Lienzo Vacío',
+        description: 'Por favor, dibuje su firma antes de guardar.',
+      });
+      return;
+    }
+    const dataUrl = signatureCanvasRef.current.toDataURL('image/png');
+    try {
+      await api.patch('/users/me/signature', { dataUrl });
+      setCurrentSignature(dataUrl);
+      toast({
+        title: 'Firma Guardada',
+        description: 'Su nueva firma ha sido guardada exitosamente.',
+      });
+      await refresh();
+    } catch {
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'No se pudo guardar la firma.',
+      });
     }
   };
 
@@ -160,15 +155,17 @@ export function SettingsDialog({ children }: { children: React.ReactNode }) {
     const file = event.target.files?.[0];
     if (file) {
       try {
-        const { data } = await updateMySignature(file);
-        const url = (data as any)?.url ?? (data as any)?.signatureUrl ?? data;
-        setCurrentSignature(url);
-        localStorage.setItem('userSignature', url);
+        const fd = new FormData();
+        fd.append('file', file);
+        await api.patch('/users/me/signature', fd, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        });
+        setCurrentSignature(URL.createObjectURL(file));
         toast({
           title: 'Firma Actualizada',
           description: 'Su firma ha sido actualizada desde el archivo.',
         });
-        await refreshMe();
+        await refresh();
       } catch {
         toast({
           variant: 'destructive',
@@ -194,7 +191,7 @@ export function SettingsDialog({ children }: { children: React.ReactNode }) {
 
   const onCropComplete = useCallback((croppedArea: Area, croppedAreaPixels: Area) => {
     setCroppedAreaPixels(croppedAreaPixels);
-  }, [me]);
+  }, []);
 
   const showCroppedImage = useCallback(async () => {
     try {
@@ -294,11 +291,7 @@ export function SettingsDialog({ children }: { children: React.ReactNode }) {
                 <div className='space-y-2'>
                     <Label className='text-sm'>Firma Actual</Label>
                     <div className='w-full h-32 rounded-lg border border-dashed flex items-center justify-center bg-muted/50'>
-                       {currentSignature ? (
-                            <Image src={currentSignature} alt="Firma actual" width={200} height={100} style={{objectFit: 'contain'}} />
-                       ) : (
-                            <p className='text-sm text-muted-foreground'>No hay firma guardada</p>
-                       )}
+                       <Image src={signatureUrl ?? currentSignature ?? '/placeholder-signature.png'} alt="Firma actual" width={200} height={100} style={{objectFit: 'contain'}} />
                     </div>
                 </div>
                 <Tabs defaultValue="draw">

@@ -11,22 +11,22 @@ interface AuthGuardProps {
 
 export function AuthGuard({ children, roles }: AuthGuardProps) {
   const router = useRouter();
-  const { me, loading } = useSession();
+  const { me, isLoading } = useSession();
 
   useEffect(() => {
-    if (loading) return;
+    if (isLoading) return;
     if (!me) {
       router.replace('/');
       return;
     }
-    if (roles && !(me.roles ?? []).some((r) => roles.includes(r))) {
+    if (roles && !(me.roles ?? []).some((r: string) => roles.includes(r))) {
       router.replace('/');
     }
-  }, [loading, me, roles, router]);
+  }, [isLoading, me, roles, router]);
 
-  if (loading) return null;
+  if (isLoading) return null;
   if (!me) return null;
-  if (roles && !(me.roles ?? []).some((r) => roles.includes(r))) return null;
+  if (roles && !(me.roles ?? []).some((r: string) => roles.includes(r))) return null;
 
   return <>{children}</>;
 }

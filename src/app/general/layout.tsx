@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { AuthGuard } from "@/components/auth-guard";
 import { useSession } from "@/lib/session";
+import { useToast } from "@/hooks/use-toast";
 
 export default function GeneralLayout({
   children,
@@ -13,17 +14,29 @@ export default function GeneralLayout({
 }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { me, loading } = useSession();
+  const { me, isLoading, error } = useSession();
+  const { toast } = useToast();
 
   useEffect(() => {
-    if (loading) return;
+    if (isLoading) return;
     const roles: string[] = me?.roles ?? [];
     if (roles.includes('ADMIN')) {
       router.replace('/admin/asignaciones');
     } else if (roles.includes('SUPERVISOR')) {
       router.replace('/admin/supervision');
     }
-  }, [loading, me, router]);
+  }, [isLoading, me, router]);
+
+  useEffect(() => {
+    if (error) {
+      const status = (error as any)?.status;
+      if (status === 401) {
+        router.replace('/');
+      } else {
+        toast({ variant: 'destructive', title: 'Error', description: 'No se pudo cargar la sesión' });
+      }
+    }
+  }, [error, router, toast]);
 
   const isDocumentDetailPage = pathname.startsWith('/documento/');
 

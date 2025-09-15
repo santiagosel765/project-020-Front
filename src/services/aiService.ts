@@ -1,4 +1,4 @@
-import api from '@/lib/axiosConfig';
+import { api } from '@/lib/api';
 import { normalizeOne } from '@/lib/apiEnvelope';
 
 export async function pingAI() {

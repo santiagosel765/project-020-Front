@@ -24,7 +24,7 @@ const formSchema = z.object({
 export function LoginForm() {
   const router = useRouter();
   const { toast } = useToast();
-  const { refreshMe } = useSession();
+  const { refresh } = useSession();
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [showPassword, setShowPassword] = React.useState(false);
 
@@ -39,7 +39,7 @@ export function LoginForm() {
       await authLogin(values.email, values.password);
       toast({ title: "Inicio de sesión exitoso" });
 
-      const me = await refreshMe();
+      const me = await refresh();
 
       const preferred = [
         '/admin/asignaciones',
@@ -52,7 +52,7 @@ export function LoginForm() {
         '/admin/supervision',
       ];
 
-      const allowed = me?.pages?.map(p => p.url) ?? [];
+      const allowed = me?.pages?.map((p: { path: string }) => p.path) ?? [];
       const dest = preferred.find(p => allowed.includes(p)) || '/general';
 
       router.push(dest);

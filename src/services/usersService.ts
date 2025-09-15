@@ -1,4 +1,4 @@
-import api from '@/lib/axiosConfig';
+import { api } from '@/lib/api';
 import type { User } from '@/lib/data';
 import { unwrapArray, unwrapOne, normalizeOne } from '@/lib/apiEnvelope';
 
