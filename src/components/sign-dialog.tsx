@@ -41,7 +41,7 @@ export function SignDialog({
   onSigned,
 }: SignDialogProps) {
   const { toast } = useToast();
-  const { me, refreshMe } = useSession();
+  const { signatureUrl, refresh } = useSession();
   const pendientes = useMemo(
     () => firmantes.filter((f) => f.user.id === currentUserId && !f.estaFirmado),
     [firmantes, currentUserId],
@@ -52,7 +52,7 @@ export function SignDialog({
   const [loading, setLoading] = useState(false);
   const signatureCanvasRef = useRef<SignatureCanvas>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [currentSignature, setCurrentSignature] = useState<string | null>(me?.signatureUrl ?? null);
+  const [currentSignature, setCurrentSignature] = useState<string | null>(signatureUrl);
 
   useEffect(() => {
     if (open) {
@@ -61,8 +61,8 @@ export function SignDialog({
   }, [open, pendientes]);
 
   useEffect(() => {
-    setCurrentSignature(me?.signatureUrl ?? null);
-  }, [me]);
+    setCurrentSignature(signatureUrl);
+  }, [signatureUrl]);
 
   const hasSignature = !!currentSignature;
 
@@ -83,7 +83,7 @@ export function SignDialog({
       const url = (data as any)?.url ?? (data as any)?.signatureUrl ?? data;
       setCurrentSignature(url);
       toast({ title: 'Firma Guardada' });
-      await refreshMe();
+      await refresh();
     } catch {
       toast({
         variant: 'destructive',
@@ -101,7 +101,7 @@ export function SignDialog({
         const url = (data as any)?.url ?? (data as any)?.signatureUrl ?? data;
         setCurrentSignature(url);
         toast({ title: 'Firma Actualizada' });
-        await refreshMe();
+        await refresh();
       } catch {
         toast({
           variant: 'destructive',
@@ -124,7 +124,7 @@ export function SignDialog({
         nombreUsuario: resp.user.nombre,
         responsabilidadId: resp.responsabilidad.id,
         nombreResponsabilidad: resp.responsabilidad.nombre,
-        useStoredSignature: true,
+        useStoredSignature: true, // TODO: si el backend requiere archivo de firma, adjuntarlo usando signatureUrl
       });
       await onSigned();
       onClose();

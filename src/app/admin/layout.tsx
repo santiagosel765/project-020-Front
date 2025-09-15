@@ -3,6 +3,7 @@
 import React, { useEffect } from 'react';
 import { AuthGuard } from '@/components/auth-guard';
 import { useSession } from '@/lib/session';
+import { useToast } from '@/hooks/use-toast';
 import {
   SidebarProvider,
   Sidebar,
@@ -11,24 +12,25 @@ import {
   SidebarMenu,
   SidebarMenuItem,
   SidebarMenuButton,
+  SidebarMenuSkeleton,
   SidebarInset,
   SidebarTrigger,
   SidebarFooter,
 } from '@/components/ui/sidebar';
 import {
-  FilePlus2,
-  FolderKanban,
-  ShieldCheck,
-  Users,
   LogOut,
   Settings,
   Bell,
   Menu,
   FileText,
   PanelLeft,
+  FilePlus2,
+  FolderKanban,
+  Users,
   Key,
   FileIcon,
   ShieldIcon,
+  ShieldCheck,
 } from 'lucide-react';
 import { usePathname, useRouter } from 'next/navigation';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -49,21 +51,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const router = useRouter();
   const isMobile = useIsMobile();
 
-  const { me, loading, signOut } = useSession();
-
-  const isAdmin =
-    me?.roles?.includes('ADMIN') ||
-    me?.pages?.some((p) => p.url?.startsWith('/admin'));
-
-  const isSupervisor =
-    !isAdmin &&
-    (me?.roles?.includes('SUPERVISOR') ||
-      me?.pages?.some((p) => p.url === '/admin/supervision'));
+  const { me, isLoading, error, pages, signOut, isAdmin, isSupervisor } = useSession();
+  const { toast } = useToast();
 
   const userRole: 'admin' | 'supervisor' | null = isAdmin ? 'admin' : isSupervisor ? 'supervisor' : null;
 
   useEffect(() => {
-    if (loading) return;
+    if (isLoading) return;
     if (!me) {
       router.replace('/');
       return;
@@ -71,26 +65,43 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     if (userRole === 'supervisor' && pathname !== '/admin/supervision') {
       router.replace('/admin/supervision');
     }
-  }, [loading, me, userRole, pathname, router]);
+  }, [isLoading, me, userRole, pathname, router]);
 
-  const allMenuItems = [
-    { href: "/admin/asignaciones", label: "Asignaciones", icon: FilePlus2 },
-    { href: "/admin/documentos", label: "Documentos", icon: FolderKanban },
-    { href: "/admin/mis-documentos", label: "Mis Documentos", icon: FileText },
-    { href: "/admin/usuarios", label: "Usuarios", icon: Users },
-    { href: "/admin/roles", label: "Roles", icon: Key },
-    { href: "/admin/page", label: "Páginas", icon: FileIcon },
-    { href: "/admin/permission", label: "Permisos", icon: ShieldIcon },
-    { href: "/admin/supervision", label: "Supervisión", icon: ShieldCheck },
-  ];
+  useEffect(() => {
+    if (error) {
+      const status = (error as any)?.status;
+      if (status === 401) {
+        router.replace('/');
+      } else {
+        toast({ variant: 'destructive', title: 'Error', description: 'No se pudo cargar la sesión' });
+      }
+    }
+  }, [error, router, toast]);
 
-  const menuItems = allMenuItems.filter((item) =>
-    me?.pages?.some((p) => p.url === item.href)
-  );
+  const iconMap: Record<string, any> = {
+    FilePlus2,
+    FolderKanban,
+    FileText,
+    Users,
+    Key,
+    FileIcon,
+    ShieldIcon,
+    ShieldCheck,
+  };
+
+  const adminPages = pages.filter((p: any) => p.path.startsWith('/admin'));
+  const routes = adminPages
+    .sort((a: any, b: any) => (a.order ?? a.id) - (b.order ?? b.id))
+    .map((p: any) => ({
+      key: p.id,
+      label: p.name,
+      href: p.path,
+      Icon: p.icon && iconMap[p.icon] ? iconMap[p.icon] : FileText,
+    }));
 
   const getPageTitle = () => {
     if (userRole === 'supervisor') return 'Supervisión';
-    return allMenuItems.find(item => pathname.startsWith(item.href))?.label || 'Dashboard';
+    return routes.find((r: any) => pathname.startsWith(r.href))?.label || 'Dashboard';
   };
 
   const handleLogout = async (e: React.MouseEvent) => {
@@ -155,7 +166,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     </header>
   );
 
-  if (loading || !userRole) return null;
+  if (isLoading || !userRole) return null;
 
   return (
     <AuthGuard roles={['ADMIN', 'SUPERVISOR']}>
@@ -179,18 +190,24 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             </SidebarHeader>
             <SidebarContent className="p-2">
               <SidebarMenu>
-                {menuItems.map((item) => (
-                  <SidebarMenuItem key={item.href}>
-                    <SidebarMenuButton
-                      onClick={() => router.push(item.href)}
-                      isActive={pathname.startsWith(item.href)}
-                      tooltip={item.label}
-                    >
-                      <item.icon />
-                      <span>{item.label}</span>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                ))}
+                {isLoading && routes.length === 0 ? (
+                  Array.from({ length: 5 }).map((_, i) => (
+                    <SidebarMenuSkeleton key={i} showIcon />
+                  ))
+                ) : (
+                  routes.map((item: any) => (
+                    <SidebarMenuItem key={item.key}>
+                      <SidebarMenuButton
+                        onClick={() => router.push(item.href)}
+                        isActive={pathname.startsWith(item.href)}
+                        tooltip={item.label}
+                      >
+                        <item.Icon />
+                        <span>{item.label}</span>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  ))
+                )}
               </SidebarMenu>
             </SidebarContent>
             <SidebarFooter>

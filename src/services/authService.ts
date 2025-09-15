@@ -1,4 +1,4 @@
-import api from '@/lib/axiosConfig';
+import { api } from '@/lib/api';
 import { setToken, clearToken } from '@/lib/tokenStore';
 
 export async function login(email: string, password: string) {
