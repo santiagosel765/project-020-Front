@@ -309,7 +309,8 @@ export async function signDocument(payload: {
   nombreUsuario: string;
   responsabilidadId: number;
   nombreResponsabilidad: string;
-  file: File;
+  file?: File;
+  useStoredSignature?: boolean;
 }): Promise<{ status: number; message?: string }> {
   const form = new FormData();
   form.append('cuadroFirmaId', String(payload.cuadroFirmaId));
@@ -317,7 +318,11 @@ export async function signDocument(payload: {
   form.append('nombreUsuario', payload.nombreUsuario);
   form.append('responsabilidadId', String(payload.responsabilidadId));
   form.append('nombreResponsabilidad', payload.nombreResponsabilidad);
-  form.append('file', payload.file);
+  if (payload.useStoredSignature) {
+    form.append('useStoredSignature', 'true');
+  } else if (payload.file) {
+    form.append('file', payload.file);
+  }
 
   try {
     const res = await api.post('/documents/cuadro-firmas/firmar', form);
