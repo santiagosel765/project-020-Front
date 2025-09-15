@@ -28,6 +28,7 @@ import type { Point, Area } from 'react-easy-crop';
 import getCroppedImg from '@/lib/crop-image';
 import { Slider } from './ui/slider';
 import { useSession } from '@/lib/session';
+import { updateMySignature } from '@/services/api/users';
 
 const SettingsDialogContext = React.createContext({
     setOpen: (open: boolean) => {}
@@ -62,7 +63,7 @@ export function SettingsDialog({ children }: { children: React.ReactNode }) {
   const [mounted, setMounted] = useState(false);
   const [theme, setTheme] = useState('light');
   const [userRole, setUserRole] = useState<string | null>(null);
-  const { me } = useSession();
+    const { me, refreshMe } = useSession();
   const { toast } = useToast();
   
   const [currentSignature, setCurrentSignature] = useState<string | null>(null);
@@ -93,9 +94,13 @@ export function SettingsDialog({ children }: { children: React.ReactNode }) {
         : 'general';
     setUserRole(role);
     
-    const savedSignature = localStorage.getItem('userSignature');
-    if(savedSignature) {
-      setCurrentSignature(savedSignature);
+    if (me?.signatureUrl) {
+      setCurrentSignature(me.signatureUrl);
+    } else {
+      const savedSignature = localStorage.getItem('userSignature');
+      if (savedSignature) {
+        setCurrentSignature(savedSignature);
+      }
     }
     const savedAvatar = localStorage.getItem('userAvatar');
     if(savedAvatar) {
@@ -111,23 +116,35 @@ export function SettingsDialog({ children }: { children: React.ReactNode }) {
     document.documentElement.classList.toggle('dark', isDark);
   };
 
-  const handleSaveSignature = () => {
+  const handleSaveSignature = async () => {
     if (signatureCanvasRef.current) {
-        if(signatureCanvasRef.current.isEmpty()){
-            toast({
-                variant: 'destructive',
-                title: 'Lienzo Vacío',
-                description: 'Por favor, dibuje su firma antes de guardar.'
-            });
-            return;
-        }
-        const signatureDataUrl = signatureCanvasRef.current.toDataURL('image/png');
-        setCurrentSignature(signatureDataUrl);
-        localStorage.setItem('userSignature', signatureDataUrl);
+      if (signatureCanvasRef.current.isEmpty()) {
         toast({
-            title: 'Firma Guardada',
-            description: 'Su nueva firma ha sido guardada exitosamente.',
+          variant: 'destructive',
+          title: 'Lienzo Vacío',
+          description: 'Por favor, dibuje su firma antes de guardar.',
         });
+        return;
+      }
+      const dataUrl = signatureCanvasRef.current.toDataURL('image/png');
+      const blob = await fetch(dataUrl).then((r) => r.blob());
+      try {
+        const { data } = await updateMySignature(blob);
+        const url = (data as any)?.url ?? (data as any)?.signatureUrl ?? data;
+        setCurrentSignature(url);
+        localStorage.setItem('userSignature', url);
+        toast({
+          title: 'Firma Guardada',
+          description: 'Su nueva firma ha sido guardada exitosamente.',
+        });
+        await refreshMe();
+      } catch {
+        toast({
+          variant: 'destructive',
+          title: 'Error',
+          description: 'No se pudo guardar la firma.',
+        });
+      }
     }
   };
 
@@ -139,20 +156,26 @@ export function SettingsDialog({ children }: { children: React.ReactNode }) {
     signatureUploadRef.current?.click();
   };
   
-  const handleSignatureFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleSignatureFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const dataUrl = e.target?.result as string;
-        setCurrentSignature(dataUrl);
-        localStorage.setItem('userSignature', dataUrl);
+      try {
+        const { data } = await updateMySignature(file);
+        const url = (data as any)?.url ?? (data as any)?.signatureUrl ?? data;
+        setCurrentSignature(url);
+        localStorage.setItem('userSignature', url);
         toast({
-            title: 'Firma Actualizada',
-            description: 'Su firma ha sido actualizada desde el archivo.',
+          title: 'Firma Actualizada',
+          description: 'Su firma ha sido actualizada desde el archivo.',
         });
-      };
-      reader.readAsDataURL(file);
+        await refreshMe();
+      } catch {
+        toast({
+          variant: 'destructive',
+          title: 'Error',
+          description: 'No se pudo actualizar la firma.',
+        });
+      }
     }
   };
 

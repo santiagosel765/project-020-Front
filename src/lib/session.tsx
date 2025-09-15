@@ -5,7 +5,14 @@ import { api } from './axiosConfig';
 import { clearToken } from './tokenStore';
 
 interface Page { url: string }
-interface Me { pages: Page[]; roles?: string[]; id?: string; email?: string }
+interface Me {
+  pages: Page[];
+  roles?: string[];
+  id?: string;
+  email?: string;
+  signatureUrl?: string | null;
+  hasSignature?: boolean;
+}
 
 interface SessionValue {
   me: Me | null;

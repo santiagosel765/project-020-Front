@@ -1,12 +1,27 @@
 "use client";
 
-import { useEffect, useMemo, useState } from 'react';
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import Image from 'next/image';
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { signDocument, SignerFull } from '@/services/documentsService';
-import { Loader2 } from 'lucide-react';
+import { Loader2, PenLine, Upload, Trash2 } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { SignaturePad } from './signature-pad';
+import type SignatureCanvas from 'react-signature-canvas';
+import { Input } from '@/components/ui/input';
+import { updateMySignature } from '@/services/api/users';
+import { useSession } from '@/lib/session';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Badge } from '@/components/ui/badge';
+import { initials } from '@/lib/avatar';
 
 export type SignDialogProps = {
   open: boolean;
@@ -15,7 +30,6 @@ export type SignDialogProps = {
   firmantes: SignerFull[];
   currentUserId: number;
   onSigned: () => Promise<void>;
-  defaultSignatureFile?: File | null;
 };
 
 export function SignDialog({
@@ -25,9 +39,9 @@ export function SignDialog({
   firmantes,
   currentUserId,
   onSigned,
-  defaultSignatureFile,
 }: SignDialogProps) {
   const { toast } = useToast();
+  const { me, refreshMe } = useSession();
   const pendientes = useMemo(
     () => firmantes.filter((f) => f.user.id === currentUserId && !f.estaFirmado),
     [firmantes, currentUserId],
@@ -35,18 +49,71 @@ export function SignDialog({
   const [responsabilidadId, setResponsabilidadId] = useState<number | undefined>(
     pendientes[0]?.responsabilidad.id,
   );
-  const [file, setFile] = useState<File | null>(defaultSignatureFile ?? null);
   const [loading, setLoading] = useState(false);
+  const signatureCanvasRef = useRef<SignatureCanvas>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [currentSignature, setCurrentSignature] = useState<string | null>(me?.signatureUrl ?? null);
 
   useEffect(() => {
     if (open) {
       setResponsabilidadId(pendientes[0]?.responsabilidad.id);
-      setFile(defaultSignatureFile ?? null);
     }
-  }, [open, pendientes, defaultSignatureFile]);
+  }, [open, pendientes]);
+
+  useEffect(() => {
+    setCurrentSignature(me?.signatureUrl ?? null);
+  }, [me]);
+
+  const hasSignature = !!currentSignature;
+
+  const handleSaveSignature = async () => {
+    if (!signatureCanvasRef.current) return;
+    if (signatureCanvasRef.current.isEmpty()) {
+      toast({
+        variant: 'destructive',
+        title: 'Lienzo Vacío',
+        description: 'Por favor, dibuje su firma antes de guardar.',
+      });
+      return;
+    }
+    const dataUrl = signatureCanvasRef.current.toDataURL('image/png');
+    const blob = await fetch(dataUrl).then((r) => r.blob());
+    try {
+      const { data } = await updateMySignature(blob);
+      const url = (data as any)?.url ?? (data as any)?.signatureUrl ?? data;
+      setCurrentSignature(url);
+      toast({ title: 'Firma Guardada' });
+      await refreshMe();
+    } catch {
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'No se pudo guardar la firma.',
+      });
+    }
+  };
+
+  const handleSignatureFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      try {
+        const { data } = await updateMySignature(file);
+        const url = (data as any)?.url ?? (data as any)?.signatureUrl ?? data;
+        setCurrentSignature(url);
+        toast({ title: 'Firma Actualizada' });
+        await refreshMe();
+      } catch {
+        toast({
+          variant: 'destructive',
+          title: 'Error',
+          description: 'No se pudo actualizar la firma.',
+        });
+      }
+    }
+  };
 
   const handleSubmit = async () => {
-    if (!responsabilidadId || !file) return;
+    if (!responsabilidadId || !hasSignature) return;
     const resp = pendientes.find((p) => p.responsabilidad.id === responsabilidadId);
     if (!resp) return;
     setLoading(true);
@@ -57,16 +124,30 @@ export function SignDialog({
         nombreUsuario: resp.user.nombre,
         responsabilidadId: resp.responsabilidad.id,
         nombreResponsabilidad: resp.responsabilidad.nombre,
-        file,
+        useStoredSignature: true,
       });
       await onSigned();
       onClose();
       toast({ title: 'Firma registrada' });
     } catch (e: any) {
-      if (e?.message === 'Usuario no autorizado' || e?.status === 403) {
-        toast({ variant: 'destructive', title: 'Error', description: 'No estás autorizado para firmar este documento.' });
+      if (e?.status === 403) {
+        toast({
+          variant: 'destructive',
+          title: 'No autorizado',
+          description: 'Su sesión no coincide con el usuario que intenta firmar.',
+        });
+      } else if (e?.status === 400) {
+        toast({
+          variant: 'destructive',
+          title: 'Error',
+          description: 'No cuenta con firma guardada. Cárguela o dibújela para continuar.',
+        });
       } else {
-        toast({ variant: 'destructive', title: 'Error', description: 'No se pudo firmar. Intenta de nuevo.' });
+        toast({
+          variant: 'destructive',
+          title: 'Error',
+          description: 'No se pudo firmar. Intenta de nuevo.',
+        });
       }
     } finally {
       setLoading(false);
@@ -83,11 +164,33 @@ export function SignDialog({
         </DialogHeader>
         {canSign ? (
           <div className="space-y-4 py-2">
-            {pendientes.length > 1 && (
+            <div className="max-h-40 overflow-y-auto border rounded p-2">
+              <ul className="space-y-2">
+                {firmantes.map((f) => (
+                  <li key={`${f.user.id}-${f.responsabilidad.id}`} className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Avatar className="h-8 w-8">
+                        <AvatarImage src={undefined} />
+                        <AvatarFallback>{initials(f.user.nombre)}</AvatarFallback>
+                      </Avatar>
+                      <div className="text-sm">
+                        <p className="font-medium">{f.user.nombre}</p>
+                        <p className="text-xs text-muted-foreground">{f.responsabilidad.nombre}</p>
+                      </div>
+                    </div>
+                    <Badge variant={f.estaFirmado ? 'default' : 'secondary'}>
+                      {f.estaFirmado ? 'Firmado' : 'Pendiente'}
+                    </Badge>
+                  </li>
+                ))}
+              </ul>
+            </div>
+            {pendientes.length > 0 && (
               <select
                 className="w-full border rounded p-2"
                 value={responsabilidadId}
                 onChange={(e) => setResponsabilidadId(Number(e.target.value))}
+                disabled
               >
                 {pendientes.map((p) => (
                   <option key={p.responsabilidad.id} value={p.responsabilidad.id}>
@@ -96,11 +199,52 @@ export function SignDialog({
                 ))}
               </select>
             )}
-            <Input
-              type="file"
-              accept="image/png,image/jpeg"
-              onChange={(e) => setFile(e.target.files?.[0] || null)}
-            />
+            {hasSignature ? (
+              <div className="space-y-2">
+                <p className="text-sm">Mi firma</p>
+                <div className="w-full h-32 border rounded flex items-center justify-center bg-muted/50">
+                  {currentSignature && (
+                    <Image
+                      src={currentSignature}
+                      alt="Firma"
+                      width={200}
+                      height={100}
+                      style={{ objectFit: 'contain' }}
+                    />
+                  )}
+                </div>
+              </div>
+            ) : (
+              <Tabs defaultValue="draw" className="w-full">
+                <TabsList className="grid w-full grid-cols-2">
+                  <TabsTrigger value="draw">
+                    <PenLine className="mr-2 h-4 w-4" /> Dibujar
+                  </TabsTrigger>
+                  <TabsTrigger value="upload">
+                    <Upload className="mr-2 h-4 w-4" /> Subir imagen
+                  </TabsTrigger>
+                </TabsList>
+                <TabsContent value="draw" className="space-y-2">
+                  <SignaturePad ref={signatureCanvasRef} />
+                  <div className="flex justify-end gap-2">
+                    <Button variant="ghost" size="sm" onClick={() => signatureCanvasRef.current?.clear()}>
+                      <Trash2 className="mr-2 h-4 w-4" /> Limpiar
+                    </Button>
+                    <Button size="sm" onClick={handleSaveSignature}>
+                      Guardar Firma
+                    </Button>
+                  </div>
+                </TabsContent>
+                <TabsContent value="upload">
+                  <Input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/png,image/jpeg"
+                    onChange={handleSignatureFileChange}
+                  />
+                </TabsContent>
+              </Tabs>
+            )}
           </div>
         ) : (
           <p className="py-4">No tienes firmas pendientes</p>
@@ -109,16 +253,12 @@ export function SignDialog({
           <Button variant="ghost" onClick={onClose} disabled={loading}>
             Cancelar
           </Button>
-          <Button
-            onClick={handleSubmit}
-            disabled={!canSign || !file || !responsabilidadId || loading}
-          >
+          <Button onClick={handleSubmit} disabled={!canSign || !hasSignature || !responsabilidadId || loading}>
             {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Firmar
+            Firmar con mi firma
           </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
   );
 }
-
