@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -15,7 +15,7 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Avatar, AvatarImage, AvatarFallback } from './ui/avatar';
-import { Upload, PenLine, Trash2, RotateCw, Crop } from 'lucide-react';
+import { Upload, PenLine, Trash2, Loader2 } from 'lucide-react';
 import { Separator } from './ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from '@/hooks/use-toast';
@@ -23,12 +23,10 @@ import { SignaturePad } from './signature-pad';
 import type SignatureCanvas from 'react-signature-canvas';
 import Image from 'next/image';
 import { Input } from './ui/input';
-import Cropper from 'react-easy-crop';
-import type { Point, Area } from 'react-easy-crop';
-import getCroppedImg from '@/lib/crop-image';
-import { Slider } from './ui/slider';
 import { useSession } from '@/lib/session';
 import { api } from '@/lib/api';
+import { updateMyAvatar } from '@/services/usersService';
+import { initials } from '@/lib/avatar';
 
 const SettingsDialogContext = React.createContext({
     setOpen: (open: boolean) => {}
@@ -63,21 +61,17 @@ export function SettingsDialog({ children }: { children: React.ReactNode }) {
   const [mounted, setMounted] = useState(false);
   const [theme, setTheme] = useState('light');
   const [userRole, setUserRole] = useState<string | null>(null);
-    const { roles, signatureUrl, refresh } = useSession();
+  const { roles, signatureUrl, refresh, avatarUrl, displayName } = useSession();
   const { toast } = useToast();
-  
+
   const [currentSignature, setCurrentSignature] = useState<string | null>(null);
   const signatureCanvasRef = useRef<SignatureCanvas>(null);
   const signatureUploadRef = useRef<HTMLInputElement>(null);
 
-  const [avatarImage, setAvatarImage] = useState<string | null>("https://placehold.co/100x100.png");
   const profileImageUploadRef = useRef<HTMLInputElement>(null);
-  const [imageToCrop, setImageToCrop] = useState<string | null>(null);
-  const [crop, setCrop] = useState<Point>({ x: 0, y: 0 });
-  const [zoom, setZoom] = useState(1);
-  const [rotation, setRotation] = useState(0);
-  const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area | null>(null);
-  const [isCropping, setIsCropping] = useState(false);
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [isSavingAvatar, setIsSavingAvatar] = useState(false);
   const { setOpen } = React.useContext(SettingsDialogContext);
 
 
@@ -92,7 +86,7 @@ export function SettingsDialog({ children }: { children: React.ReactNode }) {
         ? 'supervisor'
         : 'general';
     setUserRole(role);
-    
+
     if (signatureUrl) {
       setCurrentSignature(signatureUrl);
     } else {
@@ -101,12 +95,19 @@ export function SettingsDialog({ children }: { children: React.ReactNode }) {
         setCurrentSignature(savedSignature);
       }
     }
-    const savedAvatar = localStorage.getItem('userAvatar');
-    if(savedAvatar) {
-        setAvatarImage(savedAvatar);
-    }
 
-  }, [roles, signatureUrl]);
+    if (!avatarFile) {
+      setAvatarPreview(avatarUrl ?? null);
+    }
+  }, [roles, signatureUrl, avatarUrl, avatarFile]);
+
+  useEffect(() => {
+    return () => {
+      if (avatarPreview && avatarPreview.startsWith('blob:')) {
+        URL.revokeObjectURL(avatarPreview);
+      }
+    };
+  }, [avatarPreview]);
 
   const handleThemeChange = (isDark: boolean) => {
     const newTheme = isDark ? 'dark' : 'light';
@@ -180,46 +181,49 @@ export function SettingsDialog({ children }: { children: React.ReactNode }) {
     profileImageUploadRef.current?.click();
   };
 
-  const onFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files.length > 0) {
-      const file = e.target.files[0];
-      let imageDataUrl = await readFile(file);
-      setImageToCrop(imageDataUrl as string);
-      setIsCropping(true);
+  const handleAvatarFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0] ?? null;
+    if (file) {
+      const objectUrl = URL.createObjectURL(file);
+      setAvatarPreview(objectUrl);
+      setAvatarFile(file);
+    } else {
+      setAvatarFile(null);
+      setAvatarPreview(avatarUrl ?? null);
+    }
+    if (event.target) {
+      event.target.value = '';
     }
   };
 
-  const onCropComplete = useCallback((croppedArea: Area, croppedAreaPixels: Area) => {
-    setCroppedAreaPixels(croppedAreaPixels);
-  }, []);
+  const handleAvatarCancel = () => {
+    setAvatarFile(null);
+    setAvatarPreview(avatarUrl ?? null);
+    if (profileImageUploadRef.current) profileImageUploadRef.current.value = '';
+  };
 
-  const showCroppedImage = useCallback(async () => {
+  const handleAvatarSave = async () => {
+    if (!avatarFile) return;
+    setIsSavingAvatar(true);
     try {
-      if(imageToCrop && croppedAreaPixels){
-        const croppedImage = await getCroppedImg(
-          imageToCrop,
-          croppedAreaPixels,
-          rotation
-        );
-        setAvatarImage(croppedImage);
-        localStorage.setItem('userAvatar', croppedImage as string);
-        setIsCropping(false);
-        setRotation(0);
-        setZoom(1);
-        toast({
-            title: "Foto de perfil actualizada",
-            description: "Su foto de perfil ha sido recortada y guardada.",
-        })
-      }
-    } catch (e) {
-      console.error(e);
+      await updateMyAvatar(avatarFile);
       toast({
-          variant: "destructive",
-          title: "Error al recortar",
-          description: "No se pudo recortar la imagen. Inténtelo de nuevo.",
-      })
+        title: 'Foto de perfil actualizada',
+        description: 'Tu foto de perfil se actualizó correctamente.',
+      });
+      setAvatarFile(null);
+      if (profileImageUploadRef.current) profileImageUploadRef.current.value = '';
+      await refresh();
+    } catch {
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'No se pudo actualizar la foto de perfil.',
+      });
+    } finally {
+      setIsSavingAvatar(false);
     }
-  }, [imageToCrop, croppedAreaPixels, rotation, toast]);
+  };
 
 
   if (!mounted) {
@@ -244,23 +248,38 @@ export function SettingsDialog({ children }: { children: React.ReactNode }) {
         <div className="grid gap-6 py-4 flex-1 overflow-y-auto pr-6 pl-1 -mr-6">
           <div className="flex items-center gap-4">
             <Avatar className="h-20 w-20">
-              <AvatarImage src={avatarImage ?? undefined} alt="Profile" data-ai-hint="person avatar"/>
-              <AvatarFallback>{userRole ? userRole.substring(0,2).toUpperCase() : 'UG'}</AvatarFallback>
+              <AvatarImage src={avatarPreview ?? undefined} alt="Profile" data-ai-hint="person avatar" />
+              <AvatarFallback>{initials(displayName ?? userRole ?? 'UG')}</AvatarFallback>
             </Avatar>
             <div className="flex-grow space-y-2">
-                <Label>Foto de perfil</Label>
-                <p className="text-xs text-muted-foreground">Haga clic para cargar una nueva imagen. Se abrirá una herramienta de recorte.</p>
-                 <Input 
-                    type="file" 
-                    accept="image/*"
-                    ref={profileImageUploadRef} 
-                    className="hidden" 
-                    onChange={onFileChange}
-                  />
+              <Label>Foto de perfil</Label>
+              <p className="text-xs text-muted-foreground">
+                Selecciona una imagen para actualizar tu foto de perfil.
+              </p>
+              <Input
+                type="file"
+                accept="image/*"
+                ref={profileImageUploadRef}
+                className="hidden"
+                onChange={handleAvatarFileChange}
+              />
+              <div className="flex flex-wrap gap-2">
                 <Button variant="outline" onClick={handleProfileImageUploadClick}>
-                    <Upload className="mr-2 h-4 w-4" />
-                    Cambiar foto
+                  <Upload className="mr-2 h-4 w-4" />
+                  Cambiar foto
                 </Button>
+                {avatarFile && (
+                  <>
+                    <Button onClick={handleAvatarSave} disabled={isSavingAvatar}>
+                      {isSavingAvatar && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                      Guardar foto
+                    </Button>
+                    <Button type="button" variant="ghost" onClick={handleAvatarCancel}>
+                      Cancelar
+                    </Button>
+                  </>
+                )}
+              </div>
             </div>
           </div>
           <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
@@ -332,60 +351,6 @@ export function SettingsDialog({ children }: { children: React.ReactNode }) {
         </DialogFooter>
       </DialogContent>
     </SettingsDialogRoot>
-
-    <Dialog open={isCropping} onOpenChange={setIsCropping}>
-        <DialogContent className="max-w-xl h-[70vh] flex flex-col glassmorphism">
-            <DialogHeader>
-                <DialogTitle>Recortar Imagen de Perfil</DialogTitle>
-                <DialogDescription>
-                    Ajuste el zoom y la posición para recortar su imagen.
-                </DialogDescription>
-            </DialogHeader>
-            <div className="relative flex-grow">
-                 {imageToCrop && (
-                    <Cropper
-                        image={imageToCrop}
-                        crop={crop}
-                        zoom={zoom}
-                        rotation={rotation}
-                        aspect={1}
-                        onCropChange={setCrop}
-                        onZoomChange={setZoom}
-                        onRotationChange={setRotation}
-                        onCropComplete={onCropComplete}
-                        cropShape="round"
-                        showGrid={false}
-                    />
-                 )}
-            </div>
-            <div className="space-y-4 pt-4">
-                <div className="flex items-center gap-4">
-                    <Label>Zoom</Label>
-                    <Slider
-                        value={[zoom]}
-                        min={1}
-                        max={3}
-                        step={0.1}
-                        onValueChange={(val) => setZoom(val[0])}
-                    />
-                </div>
-                 <div className="flex items-center gap-4">
-                    <Label>Rotación</Label>
-                    <Slider
-                        value={[rotation]}
-                        min={0}
-                        max={360}
-                        step={1}
-                        onValueChange={(val) => setRotation(val[0])}
-                    />
-                </div>
-            </div>
-             <DialogFooter className="pt-6">
-                <Button variant="ghost" onClick={() => setIsCropping(false)}>Cancelar</Button>
-                <Button onClick={showCroppedImage}><Crop className="mr-2 h-4 w-4"/> Aplicar Recorte</Button>
-            </DialogFooter>
-        </DialogContent>
-    </Dialog>
     </>
   );
 }
@@ -393,13 +358,3 @@ export function SettingsDialog({ children }: { children: React.ReactNode }) {
 // We need to stop the propagation of the event from the DropdownMenuItem
 // to prevent the dropdown from closing when the dialog is opened.
 SettingsDialog.Trigger = SettingsDialogTrigger;
-
-function readFile(file: File): Promise<string | ArrayBuffer | null> {
-  return new Promise((resolve) => {
-    const reader = new FileReader();
-    reader.addEventListener('load', () => resolve(reader.result), false);
-    reader.readAsDataURL(file);
-  });
-}
-
-    
