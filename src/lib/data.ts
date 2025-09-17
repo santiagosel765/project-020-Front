@@ -18,6 +18,7 @@ export interface User {
   telefono: string;
   activo?: boolean;
   fotoPerfil?: string;
+  urlFoto?: string | null;
   /** Campos agregados para componentes de UI */
   name: string;
   position: string;
@@ -66,7 +67,8 @@ function mapUserFromApi(u: any): User {
     gerenciaId: u.gerencia_id,
     correoInstitucional: u.correo_institucional,
     telefono: u.telefono,
-    fotoPerfil: u.foto_perfil,
+    urlFoto: u.url_foto ?? u.urlFoto ?? u.foto_perfil ?? null,
+    fotoPerfil: u.url_foto ?? u.urlFoto ?? u.foto_perfil ?? '',
     name: '',
     position: '',
     department: '',
@@ -84,7 +86,7 @@ function mapUserFromApi(u: any): User {
     .join(' ');
   user.position = user.posicionId;
   user.department = user.gerenciaId;
-  user.avatar = user.fotoPerfil;
+  user.avatar = user.urlFoto ?? user.fotoPerfil;
   user.employeeCode = user.codigoEmpleado;
 
   return user;
@@ -103,7 +105,6 @@ function mapUserToApi(u: Partial<User>): Record<string, any> {
     ...(u.gerenciaId !== undefined && { gerencia_id: u.gerenciaId }),
     ...(u.correoInstitucional !== undefined && { correo_institucional: u.correoInstitucional }),
     ...(u.telefono !== undefined && { telefono: u.telefono }),
-    ...(u.fotoPerfil !== undefined && { foto_perfil: u.fotoPerfil }),
   };
 }
 

@@ -15,4 +15,5 @@ export type MeResponseDto = {
   roles: string[]
   signatureUrl: string | null
   hasSignature: boolean
+  urlFoto?: string | null
 }
