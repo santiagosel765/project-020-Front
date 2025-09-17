@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -24,13 +24,15 @@ import {
 } from "@/components/ui/form";
 import { Loader2 } from "lucide-react";
 import type { User } from "@/lib/data";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { initialsFromFullName } from "@/lib/avatar";
 
 type UserForm = Omit<User, "name" | "position" | "department">;
 
 interface UserFormModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (user: UserForm) => Promise<void> | void;
+  onSave: (user: UserForm, file?: File | null) => Promise<void> | void;
   user?: UserForm;
 }
 
@@ -47,7 +49,7 @@ const formSchema = z.object({
   gerenciaId: z.string().min(1, "La gerencia es requerida."),
   correoInstitucional: z.string().email("Debe ser un correo válido."),
   telefono: z.string().regex(/^\d{8}$/, "El teléfono debe tener 8 dígitos."),
-  fotoPerfil: z.string().optional(),
+  urlFoto: z.string().optional().nullable(),
 });
 
 const defaultUserValues: Omit<UserForm, "id"> = {
@@ -62,7 +64,7 @@ const defaultUserValues: Omit<UserForm, "id"> = {
   gerenciaId: "",
   correoInstitucional: "",
   telefono: "",
-  fotoPerfil: "",
+  urlFoto: null,
 };
 
 export function UserFormModal({
@@ -76,15 +78,62 @@ export function UserFormModal({
     defaultValues: user ? { ...user } : defaultUserValues,
   });
 
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   useEffect(() => {
     if (isOpen) {
-      form.reset(user ? { ...user } : defaultUserValues);
+      const url = user?.urlFoto ?? user?.fotoPerfil ?? null;
+      setPreviewUrl(url);
+      setSelectedFile(null);
+      form.reset(user ? { ...user, urlFoto: url } : defaultUserValues);
+      if (fileInputRef.current) fileInputRef.current.value = "";
     }
   }, [isOpen, user, form]);
 
+  useEffect(() => {
+    return () => {
+      if (previewUrl && previewUrl.startsWith("blob:")) {
+        URL.revokeObjectURL(previewUrl);
+      }
+    };
+  }, [previewUrl]);
+
   const onSubmit = async (data: UserForm) => {
-    await onSave(data);
+    const payload = { ...data, urlFoto: previewUrl ?? null };
+    await onSave(payload, selectedFile);
   };
+
+  const [watchPrimerNombre, watchSegundoNombre, watchTercerNombre, watchPrimerApellido, watchSegundoApellido, watchApellidoCasada] =
+    form.watch([
+      "primerNombre",
+      "segundoNombre",
+      "tercerNombre",
+      "primerApellido",
+      "segundoApellido",
+      "apellidoCasada",
+    ]);
+
+  const avatarFallback = useMemo(
+    () =>
+      initialsFromFullName(
+        watchPrimerNombre,
+        watchSegundoNombre,
+        watchTercerNombre,
+        watchPrimerApellido,
+        watchSegundoApellido,
+        watchApellidoCasada,
+      ),
+    [
+      watchPrimerNombre,
+      watchSegundoNombre,
+      watchTercerNombre,
+      watchPrimerApellido,
+      watchSegundoApellido,
+      watchApellidoCasada,
+    ],
+  );
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -111,33 +160,48 @@ export function UserFormModal({
                 {/* Foto de perfil con preview */}
                 <FormField
                   control={form.control}
-                  name="fotoPerfil"
+                  name="urlFoto"
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Foto de Perfil</FormLabel>
                       <FormControl>
                         <div className="flex flex-col items-center space-y-4">
-                          {field.value && (
-                            <img
-                              src={field.value}
-                              alt="Foto de perfil"
-                              className="w-32 h-32 rounded-full object-cover border"
-                            />
-                          )}
+                          <Avatar className="h-32 w-32">
+                            <AvatarImage src={previewUrl ?? undefined} alt="Foto de perfil" />
+                            <AvatarFallback>{avatarFallback}</AvatarFallback>
+                          </Avatar>
                           <Input
+                            ref={fileInputRef}
                             type="file"
                             accept="image/*"
                             onChange={(e) => {
-                              const file = e.target.files?.[0];
+                              const file = e.target.files?.[0] ?? null;
                               if (file) {
-                                const reader = new FileReader();
-                                reader.onloadend = () => {
-                                  field.onChange(reader.result as string);
-                                };
-                                reader.readAsDataURL(file);
+                                const objectUrl = URL.createObjectURL(file);
+                                setPreviewUrl(objectUrl);
+                                setSelectedFile(file);
+                                field.onChange(objectUrl);
+                              } else {
+                                setPreviewUrl(null);
+                                setSelectedFile(null);
+                                field.onChange(null);
                               }
                             }}
                           />
+                          {previewUrl && (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              onClick={() => {
+                                setPreviewUrl(null);
+                                setSelectedFile(null);
+                                if (fileInputRef.current) fileInputRef.current.value = "";
+                                field.onChange(null);
+                              }}
+                            >
+                              Quitar foto
+                            </Button>
+                          )}
                         </div>
                       </FormControl>
                       <FormMessage />

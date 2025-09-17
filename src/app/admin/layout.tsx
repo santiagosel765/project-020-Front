@@ -3,6 +3,7 @@
 import React, { useEffect } from 'react';
 import { AuthGuard } from '@/components/auth-guard';
 import { useSession } from '@/lib/session';
+import { initials } from '@/lib/avatar';
 import { useToast } from '@/hooks/use-toast';
 import {
   SidebarProvider,
@@ -51,7 +52,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const router = useRouter();
   const isMobile = useIsMobile();
 
-  const { me, isLoading, error, pages, signOut, isAdmin, isSupervisor } = useSession();
+  const { me, isLoading, error, pages, signOut, isAdmin, isSupervisor, avatarUrl, displayName, email } = useSession();
   const { toast } = useToast();
 
   const userRole: 'admin' | 'supervisor' | null = isAdmin ? 'admin' : isSupervisor ? 'supervisor' : null;
@@ -134,16 +135,16 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="relative h-10 w-10 rounded-full">
                 <Avatar className="h-10 w-10">
-                  <AvatarImage src="https://placehold.co/100x100.png" alt="Admin" data-ai-hint="person avatar" />
-                  <AvatarFallback>{userRole === 'admin' ? 'AD' : 'SP'}</AvatarFallback>
+                  <AvatarImage src={(avatarUrl as string | undefined) ?? (me?.urlFoto as string | undefined)} alt={displayName ?? 'Usuario'} data-ai-hint="person avatar" />
+                  <AvatarFallback>{initials(displayName ?? me?.nombre ?? (userRole ?? ''))}</AvatarFallback>
                 </Avatar>
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56">
               <DropdownMenuLabel>
-                <p>{userRole === 'admin' ? 'Admin' : 'Supervisor'}</p>
+                <p>{displayName ?? me?.nombre ?? (userRole === 'admin' ? 'Administrador' : 'Supervisor')}</p>
                 <p className="text-xs text-muted-foreground font-normal">
-                  {userRole === 'admin' ? 'admin@zignosign.com' : 'supervisor@zignosign.com'}
+                  {email ?? me?.correo ?? (userRole === 'admin' ? 'admin@zignosign.com' : 'supervisor@zignosign.com')}
                 </p>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />

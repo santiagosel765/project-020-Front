@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { UsersTable } from '@/components/users-table';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
-import { getUsers, createUser, updateUser, deleteUser } from '@/services/usersService';
+import { getUsers, createUser, updateUser, deleteUser, buildUserFormData } from '@/services/usersService';
 import type { User } from '@/lib/data';
 
 export default function UsuariosPage() {
@@ -35,16 +35,19 @@ export default function UsuariosPage() {
     })();
   }, [toast]);
 
-  const handleSaveUser = async (user: User) => {
+  const handleSaveUser = async ({ data, file }: { data: User; file?: File | null }) => {
     try {
-      if (!user.id) {
-        const created = await createUser(user as any);
+      const formData = buildUserFormData(data, file ?? null);
+      if (!data.id) {
+        const created = await createUser(formData);
         setUsers((prev) => [...prev, created].sort((a, b) => fullName(a).localeCompare(fullName(b))));
         toast({ title: 'Usuario Creado', description: 'El nuevo usuario ha sido agregado exitosamente.' });
       } else {
-        const updated = await updateUser(Number(user.id), user as any);
+        const updated = await updateUser(Number(data.id), formData);
         setUsers((prev) =>
-          prev.map((u) => (String(u.id) === String(updated.id) ? updated : u)).sort((a, b) => fullName(a).localeCompare(fullName(b))),
+          prev
+            .map((u) => (String(u.id) === String(updated.id) ? updated : u))
+            .sort((a, b) => fullName(a).localeCompare(fullName(b))),
         );
         toast({ title: 'Usuario Actualizado', description: 'Los datos del usuario han sido actualizados.' });
       }

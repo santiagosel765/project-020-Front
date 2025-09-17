@@ -6,15 +6,17 @@ import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { MoreHorizontal, Search, UserPlus, Edit, Trash2, FileUp, ChevronLeft, ChevronRight } from 'lucide-react';
+import { MoreHorizontal, Search, UserPlus, Edit, Trash2, FileUp, ChevronLeft, ChevronRight, KeyRound } from 'lucide-react';
 import { User } from '@/lib/data';
 import { UserFormModal } from './user-form-modal';
 import { useToast } from '@/hooks/use-toast';
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
+import { UserPasswordDialog } from './user-password-dialog';
+import { useSession } from '@/lib/session';
 
 interface UsersTableProps {
   users: User[];
-  onSaveUser: (user: User) => void;
+  onSaveUser: (payload: { data: User; file?: File | null }) => Promise<void> | void;
   onDeleteUser: (userId: string) => void;
 }
 
@@ -36,6 +38,8 @@ export function UsersTable({ users, onSaveUser, onDeleteUser }: UsersTableProps)
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [currentPage, setCurrentPage] = useState(1);
+  const { me } = useSession();
+  const [passwordDialogUser, setPasswordDialogUser] = useState<{ user: User; requireCurrent: boolean } | null>(null);
 
   const filteredUsers = useMemo(() =>
     users.filter(user =>
@@ -57,13 +61,18 @@ export function UsersTable({ users, onSaveUser, onDeleteUser }: UsersTableProps)
     setSelectedUser(undefined);
   };
 
-  const handleSaveUser = (user: User) => {
-    onSaveUser(user);
+  const handleSaveUser = async (user: User, file?: File | null) => {
+    await onSaveUser({ data: user, file });
     handleCloseModal();
   };
 
   const handleDeleteUser = (userId: string) => {
     onDeleteUser(userId);
+  };
+
+  const handleChangePassword = (user: User) => {
+    const isSelf = me?.id != null && String(me.id) === String(user.id ?? '');
+    setPasswordDialogUser({ user, requireCurrent: isSelf });
   };
 
   const handleBulkUploadClick = () => {
@@ -134,7 +143,7 @@ export function UsersTable({ users, onSaveUser, onDeleteUser }: UsersTableProps)
                 <TableRow key={user.id}>
                   <TableCell>
                     <Avatar className="h-9 w-9">
-                      <AvatarImage src={user.fotoPerfil || undefined} alt={getFullName(user)} />
+                      <AvatarImage src={user.urlFoto || user.fotoPerfil || user.avatar || undefined} alt={getFullName(user)} />
                       <AvatarFallback>{getInitials(user)}</AvatarFallback>
                     </Avatar>
                   </TableCell>
@@ -156,6 +165,10 @@ export function UsersTable({ users, onSaveUser, onDeleteUser }: UsersTableProps)
                         <DropdownMenuItem onClick={() => handleOpenModal(user)}>
                           <Edit className="mr-2 h-4 w-4" />
                           <span>Editar</span>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleChangePassword(user)}>
+                          <KeyRound className="mr-2 h-4 w-4" />
+                          <span>Cambiar contraseña</span>
                         </DropdownMenuItem>
                         <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => handleDeleteUser(user.id!)}>
                           <Trash2 className="mr-2 h-4 w-4" />
@@ -186,8 +199,17 @@ export function UsersTable({ users, onSaveUser, onDeleteUser }: UsersTableProps)
       <UserFormModal
         isOpen={isModalOpen}
         onClose={handleCloseModal}
-        onSave={(u) => handleSaveUser(u as User)}
+        onSave={(u, file) => handleSaveUser(u as User, file)}
         user={selectedUser}
+      />
+      <UserPasswordDialog
+        open={!!passwordDialogUser}
+        onOpenChange={(open) => {
+          if (!open) setPasswordDialogUser(null);
+        }}
+        userId={passwordDialogUser?.user.id}
+        userName={passwordDialogUser ? getFullName(passwordDialogUser.user) : undefined}
+        requireCurrent={passwordDialogUser?.requireCurrent ?? false}
       />
     </>
   );

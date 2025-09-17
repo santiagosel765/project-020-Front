@@ -16,6 +16,8 @@ type ApiUser = {
   gerencia_id?: number | null;
   telefono?: string | null;
   activo?: boolean | null;
+  url_foto?: string | null;
+  urlFoto?: string | null;
 };
 
 const toUiUser = (u: ApiUser): User => ({
@@ -32,6 +34,7 @@ const toUiUser = (u: ApiUser): User => ({
   gerenciaId: u.gerencia_id != null ? String(u.gerencia_id) : '',
   telefono: u.telefono ?? '',
   activo: u.activo ?? true,
+  urlFoto: u.url_foto ?? u.urlFoto ?? null,
   name: [
     u.primer_nombre,
     u.segundo_name,
@@ -44,21 +47,69 @@ const toUiUser = (u: ApiUser): User => ({
     .join(' '),
   position: '',
   department: '',
-  avatar: '',
+  avatar: u.url_foto ?? u.urlFoto ?? '',
 });
 
 export async function getUsers(): Promise<User[]> {
   const { data } = await api.get('/users');
-  return unwrapArray<ApiUser>(data).map(toUiUser);
+  return unwrapArray<ApiUser>(data)
+    .filter((u) => u.activo !== false)
+    .map(toUiUser);
 }
 
-export async function createUser(body: any): Promise<User> {
-  const { data } = await api.post('/users', body);
+const multipartConfig = { headers: { 'Content-Type': 'multipart/form-data' } } as const;
+
+const userFieldMap: Partial<Record<keyof User, string>> = {
+  primerNombre: 'primer_nombre',
+  segundoNombre: 'segundo_nombre',
+  tercerNombre: 'tercer_nombre',
+  primerApellido: 'primer_apellido',
+  segundoApellido: 'segundo_apellido',
+  apellidoCasada: 'apellido_casada',
+  codigoEmpleado: 'codigo_empleado',
+  posicionId: 'posicion_id',
+  gerenciaId: 'gerencia_id',
+  correoInstitucional: 'correo_institucional',
+  telefono: 'telefono',
+};
+
+export type UserFormPayload = Pick<
+  User,
+  | 'primerNombre'
+  | 'segundoNombre'
+  | 'tercerNombre'
+  | 'primerApellido'
+  | 'segundoApellido'
+  | 'apellidoCasada'
+  | 'codigoEmpleado'
+  | 'posicionId'
+  | 'gerenciaId'
+  | 'correoInstitucional'
+  | 'telefono'
+> & { urlFoto?: string | null };
+
+export function buildUserFormData(values: Partial<UserFormPayload>, file?: Blob | null) {
+  const fd = new FormData();
+  Object.entries(userFieldMap).forEach(([key, snake]) => {
+    const formKey = key as keyof UserFormPayload;
+    const value = values[formKey];
+    if (value !== undefined && value !== null && String(value).trim() !== '') {
+      fd.append(snake!, String(value));
+    }
+  });
+  if (file) {
+    fd.append('foto', file);
+  }
+  return fd;
+}
+
+export async function createUser(body: FormData): Promise<User> {
+  const { data } = await api.post('/users', body, multipartConfig);
   return toUiUser(unwrapOne<ApiUser>(data));
 }
 
-export async function updateUser(id: number, body: any): Promise<User> {
-  const { data } = await api.patch(`/users/${id}`, body);
+export async function updateUser(id: number, body: FormData): Promise<User> {
+  const { data } = await api.patch(`/users/${id}`, body, multipartConfig);
   return toUiUser(unwrapOne<ApiUser>(data));
 }
 
@@ -68,7 +119,24 @@ export async function deleteUser(id: number): Promise<{ id: string }> {
   return { id: String((deleted as any)?.id ?? id) };
 }
 
+export async function changeUserPassword(
+  id: number,
+  payload: { currentPassword?: string; newPassword: string },
+) {
+  await api.patch(`/users/${id}/password`, payload);
+}
+
 export async function getMe(): Promise<any> {
   const { data } = await api.get('/users/me');
+  const normalized = normalizeOne<any>(data);
+  if (!normalized) return normalized;
+  const urlFoto = normalized.urlFoto ?? normalized.url_foto ?? normalized.foto_perfil ?? null;
+  return { ...normalized, urlFoto };
+}
+
+export async function updateMyAvatar(file: Blob) {
+  const fd = new FormData();
+  fd.append('foto', file);
+  const { data } = await api.patch('/users/me', fd, multipartConfig);
   return normalizeOne<any>(data);
 }
