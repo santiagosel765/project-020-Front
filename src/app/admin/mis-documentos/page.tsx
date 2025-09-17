@@ -19,7 +19,33 @@ function toUiDocument(a: AsignacionDTO): Document {
   const cf = a.cuadro_firma;
   const add = cf.add_date ?? "";
   const onlyDate = add ? String(add).split("T")[0] : "";
-  const assignedUsers = (cf.firmantesResumen ?? []).map((f) => ({
+  // 1) Tomar firmantes desde firmantesResumen si existe;
+  // 2) Si no existe, derivar desde cuadro_firma_user.
+  const srcFirmantes =
+    Array.isArray((cf as any).firmantesResumen) && (cf as any).firmantesResumen.length
+      ? (cf as any).firmantesResumen
+      : Array.isArray((cf as any).cuadro_firma_user)
+      ? (cf as any).cuadro_firma_user.map((f: any) => {
+          const u = f.user ?? {};
+          const nombre = [
+            u.primer_nombre,
+            u.segundo_name,
+            u.tercer_nombre,
+            u.primer_apellido,
+            u.segundo_apellido,
+            u.apellido_casada,
+          ]
+            .filter(Boolean)
+            .join(" ");
+          return {
+            id: Number(u.id ?? f.user_id ?? 0),
+            nombre,
+            urlFoto: u.url_foto ?? u.urlFoto ?? u.foto_perfil ?? null,
+            responsabilidad: f.responsabilidad_firma?.nombre ?? "",
+          };
+        })
+      : [];
+  const assignedUsers = srcFirmantes.map((f: any) => ({
     id: String(f.id),
     name: f.nombre,
     avatar: f.urlFoto ?? undefined,

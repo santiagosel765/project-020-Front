@@ -139,6 +139,27 @@ const toDocumentoRow = (d: any): DocumentoRow => {
         urlFoto: f.urlFoto ?? null,
         responsabilidad: f.responsabilidad ?? '',
       }))
+    : Array.isArray(x.cuadro_firma_user)
+    ? x.cuadro_firma_user.map((f: any) => {
+        const u = f.user ?? {};
+        const nombre = [
+          u.primer_nombre,
+          u.segundo_name,
+          u.tercer_nombre,
+          u.primer_apellido,
+          u.segundo_apellido,
+          u.apellido_casada,
+        ]
+          .filter(Boolean)
+          .join(' ');
+        return {
+          id: Number(u.id ?? f.user_id ?? 0),
+          nombre,
+          iniciales: initials(nombre ?? ''),
+          urlFoto: u.url_foto ?? u.urlFoto ?? u.foto_perfil ?? null,
+          responsabilidad: f.responsabilidad_firma?.nombre ?? '',
+        };
+      })
     : undefined;
   return {
     id: Number(x.id ?? 0),
