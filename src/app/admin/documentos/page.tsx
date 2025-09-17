@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import {
   getDocumentSupervision,
   getFirmantes,
+  getSupervisionStats,
   type DocumentoRow,
   type SignerSummary,
 } from "@/services/documentsService";
@@ -101,33 +102,16 @@ export default function DocumentosPage() {
   useEffect(() => {
     const fetchCounts = async () => {
       try {
-        const statuses: Document["status"][] = [
-          "Pendiente",
-          "En Progreso",
-          "Rechazado",
-          "Completado",
-        ];
-        const res = await Promise.all(
-          statuses.map((st) =>
-            getDocumentSupervision({ page: 1, limit: 1, estado: st, search }),
-          ),
-        );
-        const c: Record<Document["status"] | "Todos", number> = {
-          Todos: 0,
-          Pendiente: 0,
-          "En Progreso": 0,
-          Rechazado: 0,
-          Completado: 0,
-        };
-        statuses.forEach((st, idx) => {
-          const total =
-            res[idx].meta?.totalCount ?? (res[idx].meta as any)?.total ?? 0;
-          c[st] = total;
-          c.Todos += total;
+        const resumen = await getSupervisionStats({ search });
+        setCounts({
+          Todos: resumen.Todos ?? 0,
+          Pendiente: resumen.Pendiente ?? 0,
+          "En Progreso": resumen["En Progreso"] ?? 0,
+          Rechazado: resumen.Rechazado ?? 0,
+          Completado: resumen.Completado ?? 0,
         });
-        setCounts(c);
       } catch {
-        /* ignore counts errors */
+        // silencio: si falla, dejamos los contadores en cero
       }
     };
     fetchCounts();

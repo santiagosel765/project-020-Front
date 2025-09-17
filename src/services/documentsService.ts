@@ -206,6 +206,14 @@ export async function getDocumentSupervision(params?: Record<string, any>) {
   return { documentos: src.map(toDocumentoRow), meta: pag.meta };
 }
 
+export async function getSupervisionStats(params?: { search?: string }) {
+  const { data } = await api.get('/documents/cuadro-firmas/documentos/supervision/stats', { params });
+  return (data?.data ?? data) as Record<
+    'Todos' | 'Pendiente' | 'En Progreso' | 'Rechazado' | 'Completado',
+    number
+  >;
+}
+
 export async function getDocumentsByUser(
   userId: number,
   params?: Record<string, any>,
@@ -226,6 +234,14 @@ export async function getDocumentsByUser(
       hasPrevPage: false,
     },
   };
+}
+
+export async function getByUserStats(userId: number, params?: { search?: string }) {
+  const { data } = await api.get(`/documents/cuadro-firmas/by-user/${userId}/stats`, { params });
+  return (data?.data ?? data) as Record<
+    'Todos' | 'Pendiente' | 'En Progreso' | 'Rechazado' | 'Completado',
+    number
+  >;
 }
 
 export async function getFirmantes(cuadroId: number): Promise<SignerSummary[]> {
