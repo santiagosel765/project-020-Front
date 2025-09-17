@@ -6,6 +6,7 @@ import type { Document } from "@/lib/data";
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
+  getByUserStats,
   getDocumentsByUser,
   getFirmantes,
   type AsignacionDTO,
@@ -52,6 +53,10 @@ export default function MisDocumentosPage() {
   const [firmantes, setFirmantes] = useState<any[]>([]);
   const [modalOpen, setModalOpen] = useState(false);
   const [modalLoading, setModalLoading] = useState(false);
+  const [userId, setUserId] = useState<number | null>(null);
+  const [counts, setCounts] = useState<
+    Record<Document["status"] | "Todos", number>
+  >({ Todos: 0, Pendiente: 0, "En Progreso": 0, Rechazado: 0, Completado: 0 });
   const { toast } = useToast();
 
   useEffect(() => {
@@ -69,6 +74,7 @@ export default function MisDocumentosPage() {
         if (statusFilter !== "Todos") params.estado = statusFilter;
         const { asignaciones, meta: metaResp } = await getDocumentsByUser(Number(me.id), params);
         setDocuments(asignaciones.map(toUiDocument));
+        setUserId(Number(me.id));
         setMeta({
           ...metaResp,
           totalPages: (metaResp as any).totalPages ?? metaResp.lastPage ?? 1,
@@ -85,6 +91,25 @@ export default function MisDocumentosPage() {
     };
     fetchDocuments();
   }, [toast, page, search, statusFilter, sortOrder]);
+
+  useEffect(() => {
+    if (userId == null) return;
+    const fetchCounts = async () => {
+      try {
+        const resumen = await getByUserStats(userId, { search });
+        setCounts({
+          Todos: resumen.Todos ?? 0,
+          Pendiente: resumen.Pendiente ?? 0,
+          "En Progreso": resumen["En Progreso"] ?? 0,
+          Rechazado: resumen.Rechazado ?? 0,
+          Completado: resumen.Completado ?? 0,
+        });
+      } catch {
+        /* ignore */
+      }
+    };
+    fetchCounts();
+  }, [userId, search]);
 
   const handleAsignadosClick = async (doc: Document) => {
     setModalOpen(true);
@@ -135,6 +160,7 @@ export default function MisDocumentosPage() {
           setPage(1);
         }}
         onAsignadosClick={handleAsignadosClick}
+        statusCounts={counts}
       />
       <div className="flex items-center justify-between mt-4">
         <Button
