@@ -1,11 +1,10 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { DocumentsTable } from "@/components/documents-table";
 import type { Document } from "@/lib/data";
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Button } from "@/components/ui/button";
 import {
   getDocumentSupervision,
   getFirmantes,
@@ -14,6 +13,7 @@ import {
   type SignerSummary,
 } from "@/services/documentsService";
 import { SignersModal } from "@/components/signers-modal";
+import { useServerPagination } from "@/hooks/useServerPagination";
 
 function toUiDocument(d: DocumentoRow): Document {
   const add = d.add_date ?? "";
@@ -25,15 +25,15 @@ function toUiDocument(d: DocumentoRow): Document {
         nombre: "",
         urlFoto: undefined,
         responsabilidad: "",
-      }))
-  ).map((f) => ({
-    id: String(f.id),
-    name: f.nombre,
-    avatar: (f.urlFoto ?? (f as any).avatar ?? null) ?? undefined,
-    responsibility: f.responsabilidad,
-    department: "",
-    employeeCode: "",
-  }));
+      })))
+    .map((f) => ({
+      id: String(f.id),
+      name: f.nombre,
+      avatar: (f.urlFoto ?? (f as any).avatar ?? null) ?? undefined,
+      responsibility: f.responsabilidad,
+      department: "",
+      employeeCode: "",
+    }));
   const anyDoc: any = {
     id: String(d.id ?? ""),
     code: "",
@@ -50,14 +50,10 @@ function toUiDocument(d: DocumentoRow): Document {
 export default function DocumentosPage() {
   const [documents, setDocuments] = useState<Document[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [page, setPage] = useState(1);
-  const limit = 10;
-  const [meta, setMeta] = useState<any>({});
+  const [total, setTotal] = useState(0);
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState<Document["status"] | "Todos">(
-    "Todos",
-  );
+  const [statusFilter, setStatusFilter] = useState<Document["status"] | "Todos">("Todos");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const [firmantes, setFirmantes] = useState<SignerSummary[]>([]);
   const [modalOpen, setModalOpen] = useState(false);
@@ -66,38 +62,41 @@ export default function DocumentosPage() {
     Record<Document["status"] | "Todos", number>
   >({ Todos: 0, Pendiente: 0, "En Progreso": 0, Rechazado: 0, Completado: 0 });
   const { toast } = useToast();
+  const { page, limit, setPage, setLimit, setFromMeta } = useServerPagination();
 
   useEffect(() => {
     const handler = setTimeout(() => setSearch(searchInput), 300);
     return () => clearTimeout(handler);
   }, [searchInput]);
 
-  useEffect(() => {
-    const fetchDocuments = async () => {
-      setIsLoading(true);
-      try {
-        const params: any = { page, limit, sort: sortOrder };
-        if (search) params.search = search;
-        if (statusFilter !== "Todos") params.estado = statusFilter;
-        const { documentos, meta: metaResp } = await getDocumentSupervision(params);
-        setDocuments(documentos.map(toUiDocument));
-        const m: any = metaResp || {};
-        setMeta({
-          ...m,
-          totalPages: m.totalPages ?? m.lastPage ?? 1,
-        });
-      } catch (error) {
-        toast({
-          variant: "destructive",
-          title: "Error al cargar documentos",
-          description: "No se pudieron obtener los datos de los documentos.",
-        });
-      } finally {
-        setIsLoading(false);
+  const fetchDocuments = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const params: Record<string, any> = { page, limit, sort: sortOrder };
+      if (search) params.search = search;
+      if (statusFilter !== "Todos") params.estado = statusFilter;
+      const { items, meta } = await getDocumentSupervision(params);
+      setTotal(meta.total ?? 0);
+      if (meta.pages > 0 && page > meta.pages) {
+        setFromMeta(meta);
+        return;
       }
-    };
+      setDocuments(items.map(toUiDocument));
+      setFromMeta(meta);
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Error al cargar documentos",
+        description: "No se pudieron obtener los datos de los documentos.",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  }, [limit, page, search, statusFilter, sortOrder, setFromMeta, toast]);
+
+  useEffect(() => {
     fetchDocuments();
-  }, [toast, page, search, statusFilter, sortOrder]);
+  }, [fetchDocuments]);
 
   useEffect(() => {
     const fetchCounts = async () => {
@@ -111,7 +110,7 @@ export default function DocumentosPage() {
           Completado: resumen.Completado ?? 0,
         });
       } catch {
-        // silencio: si falla, dejamos los contadores en cero
+        /* ignore */
       }
     };
     fetchCounts();
@@ -168,26 +167,12 @@ export default function DocumentosPage() {
         onAsignadosClick={handleAsignadosClick}
         statusCounts={counts}
         dataSource="supervision"
+        total={total}
+        page={page}
+        pageSize={limit}
+        onPageChange={setPage}
+        onPageSizeChange={setLimit}
       />
-      <div className="flex items-center justify-between mt-4">
-        <Button
-          variant="ghost"
-          disabled={page <= 1}
-          onClick={() => setPage((p) => Math.max(1, p - 1))}
-        >
-          Anterior
-        </Button>
-        <span className="text-sm text-muted-foreground">
-          Página {page} de {meta?.totalPages ?? 1}
-        </span>
-        <Button
-          variant="ghost"
-          disabled={page >= (meta?.totalPages ?? 1)}
-          onClick={() => setPage((p) => p + 1)}
-        >
-          Siguiente
-        </Button>
-      </div>
       <SignersModal
         open={modalOpen}
         onOpenChange={setModalOpen}
@@ -197,3 +182,4 @@ export default function DocumentosPage() {
     </div>
   );
 }
+

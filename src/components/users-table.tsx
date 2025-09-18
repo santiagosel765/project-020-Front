@@ -1,12 +1,12 @@
 "use client";
 
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { MoreHorizontal, Search, UserPlus, Edit, Trash2, FileUp, ChevronLeft, ChevronRight, KeyRound } from 'lucide-react';
+import { MoreHorizontal, Search, UserPlus, Edit, Trash2, FileUp, KeyRound } from 'lucide-react';
 import { User } from '@/lib/data';
 import { UserFormModal } from './user-form-modal';
 import { useToast } from '@/hooks/use-toast';
@@ -14,9 +14,17 @@ import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
 import { Badge } from './ui/badge';
 import { UserPasswordDialog } from './user-password-dialog';
 import { useSession } from '@/lib/session';
+import { PaginationBar } from './pagination/PaginationBar';
 
 interface UsersTableProps {
   users: User[];
+  total: number;
+  page: number;
+  pageSize: number;
+  onPageChange: (page: number) => void;
+  onPageSizeChange: (pageSize: number) => void;
+  searchTerm: string;
+  onSearchChange: (value: string) => void;
   onSaveUser: (payload: { data: User; file?: File | null }) => Promise<void> | void;
   onDeleteUser: (userId: string) => void;
 }
@@ -30,27 +38,24 @@ const getInitials = (u: User) => {
   return fullName[0] ? fullName[0][0].toUpperCase() : '';
 };
 
-const ITEMS_PER_PAGE = 10;
-
-export function UsersTable({ users, onSaveUser, onDeleteUser }: UsersTableProps) {
-  const [searchTerm, setSearchTerm] = useState('');
+export function UsersTable({
+  users,
+  total,
+  page,
+  pageSize,
+  onPageChange,
+  onPageSizeChange,
+  searchTerm,
+  onSearchChange,
+  onSaveUser,
+  onDeleteUser,
+}: UsersTableProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | undefined>(undefined);
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [currentPage, setCurrentPage] = useState(1);
   const { me } = useSession();
   const [passwordDialogUser, setPasswordDialogUser] = useState<{ user: User; requireCurrent: boolean } | null>(null);
-
-  const filteredUsers = useMemo(() =>
-    users.filter(user =>
-      getFullName(user).toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (user.correoInstitucional?.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      (user.codigoEmpleado?.toLowerCase().includes(searchTerm.toLowerCase()))
-    ), [users, searchTerm]);
-
-  const totalPages = Math.ceil(filteredUsers.length / ITEMS_PER_PAGE);
-  const paginatedUsers = filteredUsers.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
 
   const handleOpenModal = (user?: User) => {
     setSelectedUser(user);
@@ -97,7 +102,7 @@ export function UsersTable({ users, onSaveUser, onDeleteUser }: UsersTableProps)
         <CardHeader>
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div className="space-y-1.5">
-              <CardTitle>Gestión de Usuarios ({users.length})</CardTitle>
+              <CardTitle>Gestión de Usuarios ({total})</CardTitle>
               <CardDescription>Cree, edite y gestione los usuarios de la plataforma.</CardDescription>
             </div>
             <div className='flex items-center gap-2'>
@@ -107,7 +112,7 @@ export function UsersTable({ users, onSaveUser, onDeleteUser }: UsersTableProps)
                   placeholder="Buscar usuarios..."
                   className="pl-8"
                   value={searchTerm}
-                  onChange={e => { setSearchTerm(e.target.value); setCurrentPage(1); }}
+                  onChange={(e) => onSearchChange(e.target.value)}
                 />
               </div>
               <Input type="file" ref={fileInputRef} className="hidden" onChange={handleFileChange}
@@ -138,9 +143,9 @@ export function UsersTable({ users, onSaveUser, onDeleteUser }: UsersTableProps)
                 <TableHead className="hidden xl:table-cell">Correo</TableHead>
                 <TableHead>Acciones</TableHead>
               </TableRow>
-            </TableHeader>
-            <TableBody>
-              {paginatedUsers.map(user => (
+          </TableHeader>
+          <TableBody>
+              {users.map(user => (
                 <TableRow key={user.id}>
                   <TableCell>
                     <Avatar className="h-9 w-9">
@@ -206,18 +211,13 @@ export function UsersTable({ users, onSaveUser, onDeleteUser }: UsersTableProps)
             </TableBody>
           </Table>
         </CardContent>
-
-        <div className="flex items-center justify-end space-x-2 py-4 px-6 border-t">
-          <span className="text-sm text-muted-foreground">
-            Página {currentPage} de {totalPages}
-          </span>
-          <Button variant="outline" size="sm" onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))} disabled={currentPage === 1}>
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
-          <Button variant="outline" size="sm" onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))} disabled={currentPage === totalPages}>
-            <ChevronRight className="h-4 w-4" />
-          </Button>
-        </div>
+        <PaginationBar
+          total={total}
+          page={page}
+          pageSize={pageSize}
+          onPageChange={onPageChange}
+          onPageSizeChange={onPageSizeChange}
+        />
       </Card>
 
       <UserFormModal

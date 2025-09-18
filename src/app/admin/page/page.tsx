@@ -1,48 +1,73 @@
 "use client";
 
-import React, { useEffect, useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { PagesTable } from '@/components/pages-table';
-import { getPages, createPage, updatePage, deletePage, restorePage, type Page } from '@/services/pageService';
+import {
+  getPages,
+  createPage,
+  updatePage,
+  deletePage,
+  restorePage,
+  type Page,
+  type GetPagesParams,
+} from '@/services/pageService';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useServerPagination } from '@/hooks/useServerPagination';
 
 export default function PageAdminPage() {
   const [pages, setPages] = useState<Page[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [total, setTotal] = useState(0);
   const [showInactive, setShowInactive] = useState(false);
+  const [searchInput, setSearchInput] = useState('');
+  const [search, setSearch] = useState('');
   const { toast } = useToast();
+  const { page, limit, setPage, setLimit, setFromMeta } = useServerPagination();
 
   useEffect(() => {
-    const fetchPages = async () => {
-      setIsLoading(true);
-      try {
-        const data = await getPages(showInactive);
-        setPages(data);
-      } catch (error) {
-        toast({
-          variant: 'destructive',
-          title: 'Error al cargar páginas',
-          description: 'No se pudieron obtener las páginas.',
-        });
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    fetchPages();
-  }, [showInactive, toast]);
+    const handler = setTimeout(() => setSearch(searchInput), 300);
+    return () => clearTimeout(handler);
+  }, [searchInput]);
 
-  const handleSavePage = async (page: Partial<Page>) => {
+  const fetchPages = useCallback(async () => {
+    setIsLoading(true);
     try {
-      let saved: Page;
-      if (page.id) {
-        saved = await updatePage(page.id, page);
-        setPages(prev => prev.map(p => p.id === saved.id ? saved : p));
+      const params: GetPagesParams = { page, limit, search, showInactive };
+      const { items, meta } = await getPages(params);
+      setTotal(meta.total ?? 0);
+      if (meta.pages > 0 && page > meta.pages) {
+        setFromMeta(meta);
+        return;
+      }
+      setPages(items);
+      setFromMeta(meta);
+    } catch (error) {
+      toast({
+        variant: 'destructive',
+        title: 'Error al cargar páginas',
+        description: 'No se pudieron obtener las páginas.',
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  }, [limit, page, search, setFromMeta, showInactive, toast]);
+
+  useEffect(() => {
+    fetchPages();
+  }, [fetchPages]);
+
+  const handleSavePage = async (pageData: Partial<Page>) => {
+    try {
+      if (pageData.id) {
+        await updatePage(pageData.id, pageData);
         toast({ title: 'Página actualizada', description: 'La página ha sido actualizada.' });
       } else {
-        saved = await createPage(page as any);
-        setPages(prev => [...prev, saved]);
+        await createPage(pageData as any);
         toast({ title: 'Página creada', description: 'La nueva página ha sido agregada.' });
+        setPage(1);
       }
+      await fetchPages();
     } catch (error) {
       toast({
         variant: 'destructive',
@@ -56,8 +81,8 @@ export default function PageAdminPage() {
   const handleDeletePage = async (id: number) => {
     try {
       await deletePage(id);
-      setPages(prev => prev.map(p => p.id === id ? { ...p, activo: false } : p));
       toast({ variant: 'destructive', title: 'Página inactivada', description: 'La página ha sido marcada como inactiva.' });
+      await fetchPages();
     } catch (error) {
       toast({
         variant: 'destructive',
@@ -69,9 +94,9 @@ export default function PageAdminPage() {
 
   const handleRestorePage = async (id: number) => {
     try {
-      const restored = await restorePage(id);
-      setPages(prev => prev.map(p => p.id === id ? restored : p));
+      await restorePage(id);
       toast({ title: 'Página restaurada', description: 'La página ha sido activada nuevamente.' });
+      await fetchPages();
     } catch (error) {
       toast({
         variant: 'destructive',
@@ -100,8 +125,18 @@ export default function PageAdminPage() {
     <div className="h-full">
       <PagesTable
         pages={pages}
+        total={total}
+        page={page}
+        pageSize={limit}
+        onPageChange={setPage}
+        onPageSizeChange={setLimit}
+        searchTerm={searchInput}
+        onSearchChange={setSearchInput}
         showInactive={showInactive}
-        onToggleInactive={setShowInactive}
+        onToggleInactive={(checked) => {
+          setShowInactive(checked);
+          setPage(1);
+        }}
         onSavePage={handleSavePage}
         onDeletePage={handleDeletePage}
         onRestorePage={handleRestorePage}

@@ -5,10 +5,12 @@ import {
   deletePagina,
   restorePagina,
   type PaginaUI,
+  type GetPagesParams,
 } from "./pagesService";
 import { getRolePages, setRolePages } from "./rolesService";
 
 export type Page = PaginaUI;
+export type { GetPagesParams };
 
 export {
   getPaginas as getPages,

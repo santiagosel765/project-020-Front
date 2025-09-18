@@ -1,9 +1,2 @@
-export interface Role {
-  id?: string;
-  nombre: string;
-  descripcion?: string;
-  activo?: boolean;
-  createdAt?: string;
-}
-
+export type { Role, GetRolesParams } from "./rolesService";
 export * from "./rolesService";

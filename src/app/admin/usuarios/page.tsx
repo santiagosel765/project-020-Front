@@ -1,55 +1,80 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { UsersTable } from '@/components/users-table';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
-import { getUsers, createUser, updateUser, deleteUser, buildUserFormData } from '@/services/usersService';
+import {
+  getUsers,
+  createUser,
+  updateUser,
+  deleteUser,
+  buildUserFormData,
+  type GetUsersParams,
+} from '@/services/usersService';
 import type { User } from '@/lib/data';
+import { useServerPagination } from '@/hooks/useServerPagination';
 
 export default function UsuariosPage() {
   const [users, setUsers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [total, setTotal] = useState(0);
+  const [searchInput, setSearchInput] = useState('');
+  const [search, setSearch] = useState('');
   const { toast } = useToast();
-
-  const fullName = (u: User) =>
-    [u.primerNombre, u.segundoNombre, u.tercerNombre, u.primerApellido, u.segundoApellido, u.apellidoCasada]
-      .filter(Boolean)
-      .join(' ');
+  const { page, limit, setPage, setLimit, setFromMeta } = useServerPagination();
 
   useEffect(() => {
-    (async () => {
-      try {
-        const list = await getUsers();
-        const arr = Array.isArray(list) ? list : [];
-        setUsers(arr.sort((a, b) => fullName(a).localeCompare(fullName(b))));
-      } catch {
-        toast({
-          variant: 'destructive',
-          title: 'Error al cargar usuarios',
-          description: 'No se pudieron obtener los datos de los usuarios.',
-        });
-      } finally {
-        setIsLoading(false);
+    const handler = window.setTimeout(() => {
+      setSearch(searchInput.trim());
+      setPage(1);
+    }, 300);
+    return () => window.clearTimeout(handler);
+  }, [searchInput, setPage]);
+
+  const fetchUsers = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const params: GetUsersParams = { page, limit };
+      if (search) params.search = search;
+      const { items, meta } = await getUsers(params);
+      setTotal(meta.total ?? 0);
+      if (meta.pages > 0 && page > meta.pages) {
+        setFromMeta(meta);
+        return;
       }
-    })();
-  }, [toast]);
+      setUsers(items);
+      setFromMeta(meta);
+    } catch {
+      toast({
+        variant: 'destructive',
+        title: 'Error al cargar usuarios',
+        description: 'No se pudieron obtener los datos de los usuarios.',
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  }, [limit, page, search, setFromMeta, toast]);
+
+  useEffect(() => {
+    fetchUsers();
+  }, [fetchUsers]);
 
   const handleSaveUser = async ({ data, file }: { data: User; file?: File | null }) => {
     try {
       const formData = buildUserFormData(data, file ?? null);
       if (!data.id) {
-        const created = await createUser(formData);
-        setUsers((prev) => [...prev, created].sort((a, b) => fullName(a).localeCompare(fullName(b))));
+        await createUser(formData);
         toast({ title: 'Usuario Creado', description: 'El nuevo usuario ha sido agregado exitosamente.' });
+        if (page !== 1) {
+          setPage(1);
+        } else {
+          await fetchUsers();
+        }
       } else {
-        const updated = await updateUser(Number(data.id), formData);
-        setUsers((prev) =>
-          prev
-            .map((u) => (String(u.id) === String(updated.id) ? updated : u))
-            .sort((a, b) => fullName(a).localeCompare(fullName(b))),
-        );
+        await updateUser(Number(data.id), formData);
         toast({ title: 'Usuario Actualizado', description: 'Los datos del usuario han sido actualizados.' });
+        await fetchUsers();
       }
     } catch {
       toast({ variant: 'destructive', title: 'Error al guardar', description: 'No se pudo guardar el usuario.' });
@@ -59,8 +84,8 @@ export default function UsuariosPage() {
   const handleDeleteUser = async (userId: string) => {
     try {
       await deleteUser(Number(userId));
-      setUsers((prev) => prev.filter((u) => String(u.id) !== String(userId)));
       toast({ variant: 'destructive', title: 'Usuario Eliminado', description: 'El usuario ha sido eliminado.' });
+      await fetchUsers();
     } catch {
       toast({ variant: 'destructive', title: 'Error al eliminar', description: 'No se pudo eliminar el usuario.' });
     }
@@ -81,6 +106,19 @@ export default function UsuariosPage() {
     );
   }
 
-  return <UsersTable users={users} onSaveUser={handleSaveUser} onDeleteUser={handleDeleteUser} />;
+  return (
+    <UsersTable
+      users={users}
+      total={total}
+      page={page}
+      pageSize={limit}
+      onPageChange={setPage}
+      onPageSizeChange={setLimit}
+      searchTerm={searchInput}
+      onSearchChange={setSearchInput}
+      onSaveUser={handleSaveUser}
+      onDeleteUser={handleDeleteUser}
+    />
+  );
 }
 

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from 'react';
+import React, { useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -9,11 +9,24 @@ import { Search, ArrowUpDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from './ui/button';
 import type { SupervisionDoc, DocEstado } from '@/services/documentsService';
+import { PaginationBar } from './pagination/PaginationBar';
 
 interface SupervisionTableProps {
   documents: SupervisionDoc[];
   title: string;
   description: string;
+  searchTerm: string;
+  onSearchChange: (value: string) => void;
+  statusFilter: DocEstado | 'Todos';
+  onStatusFilterChange: (value: DocEstado | 'Todos') => void;
+  sortOrder: 'asc' | 'desc';
+  onSortOrderChange: (value: 'asc' | 'desc') => void;
+  statusCounts?: Record<DocEstado | 'Todos', number>;
+  total: number;
+  page: number;
+  pageSize: number;
+  onPageChange: (page: number) => void;
+  onPageSizeChange: (pageSize: number) => void;
 }
 
 const getStatusClass = (status: DocEstado): string => {
@@ -48,13 +61,25 @@ const getButtonStatusClass = (status: DocEstado | 'Todos', current: DocEstado | 
   return current === status ? `${baseClass} ${activeClass}` : baseClass;
 };
 
-export function SupervisionTable({ documents: docs, title, description }: SupervisionTableProps) {
+export function SupervisionTable({
+  documents: docs,
+  title,
+  description,
+  searchTerm,
+  onSearchChange,
+  statusFilter,
+  onStatusFilterChange,
+  sortOrder,
+  onSortOrderChange,
+  statusCounts,
+  total,
+  page,
+  pageSize,
+  onPageChange,
+  onPageSizeChange,
+}: SupervisionTableProps) {
   const documents = Array.isArray(docs) ? docs : [];
-  const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<DocEstado | 'Todos'>('Todos');
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
-
-  const counts = useMemo(
+  const fallbackCounts = useMemo(
     () =>
       documents.reduce(
         (acc, d) => {
@@ -62,30 +87,11 @@ export function SupervisionTable({ documents: docs, title, description }: Superv
           acc[d.estado] = (acc[d.estado] ?? 0) + 1;
           return acc;
         },
-        { Todos: 0, Pendiente: 0, 'En Progreso': 0, Rechazado: 0, Completado: 0 } as Record<string, number>,
+        { Todos: 0, Pendiente: 0, 'En Progreso': 0, Rechazado: 0, Completado: 0 } as Record<DocEstado | 'Todos', number>,
       ),
     [documents],
   );
-
-  const parseDate = (d?: string) => (d ? new Date(d).getTime() : 0);
-
-  const filtered = useMemo(() => {
-    let list = documents.filter(
-      (d) =>
-        (d.titulo.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          (d.descripcion ?? '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-          (d.empresa?.nombre ?? '').toLowerCase().includes(searchTerm.toLowerCase())) &&
-        (statusFilter === 'Todos' || d.estado === statusFilter),
-    );
-    list.sort((a, b) => {
-      const aDate = parseDate(a.addDate);
-      const bDate = parseDate(b.addDate);
-      return sortOrder === 'asc' ? aDate - bDate : bDate - aDate;
-    });
-    return list;
-  }, [documents, searchTerm, statusFilter, sortOrder]);
-
-  const handleSort = () => setSortOrder((prev) => (prev === 'asc' ? 'desc' : 'asc'));
+  const counts = statusCounts ?? fallbackCounts;
 
   const statusButtons: (DocEstado | 'Todos')[] = ['Todos', 'Completado', 'En Progreso', 'Rechazado', 'Pendiente'];
 
@@ -103,7 +109,7 @@ export function SupervisionTable({ documents: docs, title, description }: Superv
               placeholder="Buscar por título, empresa..."
               className="pl-8"
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(e) => onSearchChange(e.target.value)}
             />
           </div>
         </div>
@@ -111,11 +117,11 @@ export function SupervisionTable({ documents: docs, title, description }: Superv
           {statusButtons.map((status) => (
             <Button
               key={status}
-              onClick={() => setStatusFilter(status)}
+              onClick={() => onStatusFilterChange(status)}
               className={cn(getButtonStatusClass(status, statusFilter), 'h-8 px-2.5 py-1.5')}
               variant="outline"
             >
-              {status} <span className="ml-2 text-xs opacity-75">({counts[status]})</span>
+              {status} <span className="ml-2 text-xs opacity-75">({counts[status] ?? 0})</span>
             </Button>
           ))}
         </div>
@@ -124,7 +130,7 @@ export function SupervisionTable({ documents: docs, title, description }: Superv
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="cursor-pointer" onClick={handleSort}>
+              <TableHead className="cursor-pointer" onClick={() => onSortOrderChange(sortOrder === 'asc' ? 'desc' : 'asc')}>
                 <div className="flex items-center gap-2">
                   Título
                   <ArrowUpDown className="h-4 w-4" />
@@ -137,7 +143,7 @@ export function SupervisionTable({ documents: docs, title, description }: Superv
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filtered.map((d) => (
+            {documents.map((d) => (
               <TableRow key={d.id}>
                 <TableCell className="font-medium">{d.titulo}</TableCell>
                 <TableCell className="text-muted-foreground">{d.empresa?.nombre ?? ''}</TableCell>
@@ -148,7 +154,7 @@ export function SupervisionTable({ documents: docs, title, description }: Superv
                 <TableCell className="text-muted-foreground">{d.descripcionEstado ?? ''}</TableCell>
               </TableRow>
             ))}
-            {filtered.length === 0 && (
+            {documents.length === 0 && (
               <TableRow>
                 <TableCell colSpan={5} className="text-center py-4 text-sm text-muted-foreground">
                   No hay documentos.
@@ -158,6 +164,13 @@ export function SupervisionTable({ documents: docs, title, description }: Superv
           </TableBody>
         </Table>
       </CardContent>
+      <PaginationBar
+        total={total}
+        page={page}
+        pageSize={pageSize}
+        onPageChange={onPageChange}
+        onPageSizeChange={onPageSizeChange}
+      />
     </Card>
   );
 }

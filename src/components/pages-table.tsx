@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useState } from 'react';
+import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -12,9 +12,17 @@ import { Badge } from '@/components/ui/badge';
 import { PageFormModal, PageForm } from './page-form-modal';
 import type { Page } from '@/services/pageService';
 import { format } from 'date-fns';
+import { PaginationBar } from './pagination/PaginationBar';
 
 interface PagesTableProps {
   pages: Page[];
+  total: number;
+  page: number;
+  pageSize: number;
+  onPageChange: (page: number) => void;
+  onPageSizeChange: (pageSize: number) => void;
+  searchTerm: string;
+  onSearchChange: (value: string) => void;
   showInactive: boolean;
   onToggleInactive: (checked: boolean) => void;
   onSavePage: (page: PageForm) => Promise<void>;
@@ -22,15 +30,23 @@ interface PagesTableProps {
   onRestorePage: (id: number) => Promise<void> | void;
 }
 
-export function PagesTable({ pages, showInactive, onToggleInactive, onSavePage, onDeletePage, onRestorePage }: PagesTableProps) {
-  const [searchTerm, setSearchTerm] = useState('');
+export function PagesTable({
+  pages,
+  total,
+  page,
+  pageSize,
+  onPageChange,
+  onPageSizeChange,
+  searchTerm,
+  onSearchChange,
+  showInactive,
+  onToggleInactive,
+  onSavePage,
+  onDeletePage,
+  onRestorePage,
+}: PagesTableProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedPage, setSelectedPage] = useState<Page | undefined>(undefined);
-
-  const filteredPages = useMemo(
-    () => pages.filter(p => p.nombre.toLowerCase().includes(searchTerm.toLowerCase())),
-    [pages, searchTerm]
-  );
 
   const openModal = (page?: Page) => {
     setSelectedPage(page);
@@ -53,7 +69,7 @@ export function PagesTable({ pages, showInactive, onToggleInactive, onSavePage, 
         <CardHeader>
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div className="space-y-1.5">
-              <CardTitle>Gestión de Páginas ({pages.length})</CardTitle>
+              <CardTitle>Gestión de Páginas ({total})</CardTitle>
               <CardDescription>Administre las páginas de la plataforma.</CardDescription>
             </div>
             <div className="flex items-center gap-2 flex-wrap justify-end">
@@ -63,7 +79,7 @@ export function PagesTable({ pages, showInactive, onToggleInactive, onSavePage, 
                   placeholder="Buscar páginas..."
                   className="pl-8"
                   value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
+                  onChange={(e) => onSearchChange(e.target.value)}
                 />
               </div>
               <div className="flex items-center space-x-2">
@@ -90,7 +106,7 @@ export function PagesTable({ pages, showInactive, onToggleInactive, onSavePage, 
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredPages.map(page => (
+              {pages.map(page => (
                 <TableRow key={page.id}>
                   <TableCell className="font-medium">{page.nombre}</TableCell>
                   <TableCell className="hidden md:table-cell">{page.url}</TableCell>
@@ -135,6 +151,13 @@ export function PagesTable({ pages, showInactive, onToggleInactive, onSavePage, 
             </TableBody>
           </Table>
         </CardContent>
+        <PaginationBar
+          total={total}
+          page={page}
+          pageSize={pageSize}
+          onPageChange={onPageChange}
+          onPageSizeChange={onPageSizeChange}
+        />
       </Card>
       <PageFormModal
         isOpen={isModalOpen}

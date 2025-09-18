@@ -25,6 +25,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "./ui/button";
 import { useRouter } from "next/navigation";
 import { initialsFromUser } from "@/lib/avatar";
+import { PaginationBar } from "./pagination/PaginationBar";
 
 interface DocumentsTableProps {
   documents: Document[];
@@ -39,6 +40,11 @@ interface DocumentsTableProps {
   onAsignadosClick?: (doc: Document) => void;
   statusCounts?: Record<Document["status"] | "Todos", number>;
   dataSource?: "byUser" | "supervision";
+  total: number;
+  page: number;
+  pageSize: number;
+  onPageChange: (page: number) => void;
+  onPageSizeChange: (pageSize: number) => void;
 }
 
 const getStatusClass = (status: Document["status"]): string => {
@@ -115,6 +121,11 @@ export function DocumentsTable({
   onAsignadosClick,
   statusCounts,
   dataSource = "byUser",
+  total,
+  page,
+  pageSize,
+  onPageChange,
+  onPageSizeChange,
 }: DocumentsTableProps) {
   const router = useRouter();
 
@@ -237,6 +248,13 @@ export function DocumentsTable({
           </TableBody>
         </Table>
       </CardContent>
+      <PaginationBar
+        total={total}
+        page={page}
+        pageSize={pageSize}
+        onPageChange={onPageChange}
+        onPageSizeChange={onPageSizeChange}
+      />
     </Card>
   );
 }
