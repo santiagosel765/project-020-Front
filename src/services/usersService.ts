@@ -28,9 +28,11 @@ type ApiUser = {
   posicion_id?: number | null;
   posicion?: ApiCatalogItem | null;
   posicion_nombre?: string | null;
+  posicionNombre?: string | null;
   gerencia_id?: number | null;
   gerencia?: ApiCatalogItem | null;
   gerencia_nombre?: string | null;
+  gerenciaNombre?: string | null;
   telefono?: string | null;
   activo?: boolean | null;
   url_foto?: string | null;
@@ -80,9 +82,15 @@ const toUiUser = (u: ApiUser): UiUser => {
     .join(' ');
 
   const posicionNombre =
-    u.posicion_nombre ?? (u.posicion && typeof u.posicion.nombre === 'string' ? u.posicion.nombre : undefined);
+    u.posicionNombre ??
+    u.posicion_nombre ??
+    (u.posicion && typeof u.posicion.nombre === 'string' ? u.posicion.nombre : null) ??
+    null;
   const gerenciaNombre =
-    u.gerencia_nombre ?? (u.gerencia && typeof u.gerencia.nombre === 'string' ? u.gerencia.nombre : undefined);
+    u.gerenciaNombre ??
+    u.gerencia_nombre ??
+    (u.gerencia && typeof u.gerencia.nombre === 'string' ? u.gerencia.nombre : null) ??
+    null;
 
   return {
     id: String(u.id),
@@ -95,9 +103,9 @@ const toUiUser = (u: ApiUser): UiUser => {
     correoInstitucional: u.correo_institucional ?? '',
     codigoEmpleado: u.codigo_empleado ?? '',
     posicionId: posicionId != null ? Number(posicionId) : null,
-    posicionNombre: posicionNombre ?? null,
+    posicionNombre,
     gerenciaId: gerenciaId != null ? Number(gerenciaId) : null,
-    gerenciaNombre: gerenciaNombre ?? null,
+    gerenciaNombre,
     telefono: u.telefono ?? '',
     activo: u.activo ?? true,
     fotoPerfil: foto ?? undefined,
