@@ -1,56 +1,117 @@
 import { api } from '@/lib/api';
-import type { User } from '@/lib/data';
-import { unwrapArray, unwrapOne, normalizeOne } from '@/lib/apiEnvelope';
+import type { CatalogoItem, UiUser } from '@/lib/data';
+import { unwrapArray, unwrapOne, normalizeOne, normalizeList } from '@/lib/apiEnvelope';
+
+type ApiCatalogItem = {
+  id: number;
+  nombre: string;
+  activo?: boolean | null;
+};
+
+type ApiRole = {
+  id: number | string;
+  nombre?: string | null;
+  name?: string | null;
+};
 
 type ApiUser = {
   id: number;
-  primer_nombre: string;
+  primer_nombre?: string | null;
+  segundo_nombre?: string | null;
   segundo_name?: string | null;
   tercer_nombre?: string | null;
   primer_apellido?: string | null;
   segundo_apellido?: string | null;
   apellido_casada?: string | null;
-  correo_institucional: string;
+  correo_institucional?: string | null;
   codigo_empleado?: string | null;
   posicion_id?: number | null;
+  posicion?: ApiCatalogItem | null;
+  posicion_nombre?: string | null;
   gerencia_id?: number | null;
+  gerencia?: ApiCatalogItem | null;
+  gerencia_nombre?: string | null;
   telefono?: string | null;
   activo?: boolean | null;
   url_foto?: string | null;
   urlFoto?: string | null;
+  foto_perfil?: string | null;
+  roles?: ApiRole[] | null;
 };
 
-const toUiUser = (u: ApiUser): User => ({
-  id: String(u.id),
-  primerNombre: u.primer_nombre ?? '',
-  segundoNombre: u.segundo_name ?? '',
-  tercerNombre: u.tercer_nombre ?? '',
-  primerApellido: u.primer_apellido ?? '',
-  segundoApellido: u.segundo_apellido ?? '',
-  apellidoCasada: u.apellido_casada ?? '',
-  correoInstitucional: u.correo_institucional ?? '',
-  codigoEmpleado: u.codigo_empleado ?? '',
-  posicionId: u.posicion_id != null ? String(u.posicion_id) : '',
-  gerenciaId: u.gerencia_id != null ? String(u.gerencia_id) : '',
-  telefono: u.telefono ?? '',
-  activo: u.activo ?? true,
-  urlFoto: u.url_foto ?? u.urlFoto ?? null,
-  name: [
-    u.primer_nombre,
-    u.segundo_name,
-    u.tercer_nombre,
-    u.primer_apellido,
-    u.segundo_apellido,
-    u.apellido_casada,
+const toUiUser = (u: ApiUser): UiUser => {
+  const posicionId =
+    u.posicion_id ??
+    (u.posicion && typeof u.posicion.id === 'number' ? u.posicion.id : undefined);
+  const gerenciaId =
+    u.gerencia_id ??
+    (u.gerencia && typeof u.gerencia.id === 'number' ? u.gerencia.id : undefined);
+  const foto = u.url_foto ?? u.urlFoto ?? u.foto_perfil ?? null;
+  const roles = Array.isArray(u.roles)
+    ? u.roles
+        .map((role) => ({
+          id: typeof role.id === 'number' ? role.id : Number(role.id),
+          nombre:
+            typeof role.nombre === 'string'
+              ? role.nombre
+              : typeof role.name === 'string'
+              ? role.name
+              : '',
+        }))
+        .filter((role) => Number.isFinite(role.id) && role.nombre.trim() !== '')
+    : [];
+
+  const primerNombre = u.primer_nombre ?? '';
+  const segundoNombre = u.segundo_nombre ?? u.segundo_name ?? '';
+  const tercerNombre = u.tercer_nombre ?? '';
+  const primerApellido = u.primer_apellido ?? '';
+  const segundoApellido = u.segundo_apellido ?? '';
+  const apellidoCasada = u.apellido_casada ?? '';
+
+  const name = [
+    primerNombre,
+    segundoNombre,
+    tercerNombre,
+    primerApellido,
+    segundoApellido,
+    apellidoCasada,
   ]
     .filter(Boolean)
-    .join(' '),
-  position: '',
-  department: '',
-  avatar: u.url_foto ?? u.urlFoto ?? '',
-});
+    .join(' ');
 
-export async function getUsers(): Promise<User[]> {
+  const posicionNombre =
+    u.posicion_nombre ?? (u.posicion && typeof u.posicion.nombre === 'string' ? u.posicion.nombre : undefined);
+  const gerenciaNombre =
+    u.gerencia_nombre ?? (u.gerencia && typeof u.gerencia.nombre === 'string' ? u.gerencia.nombre : undefined);
+
+  return {
+    id: String(u.id),
+    primerNombre,
+    segundoNombre,
+    tercerNombre,
+    primerApellido,
+    segundoApellido,
+    apellidoCasada,
+    correoInstitucional: u.correo_institucional ?? '',
+    codigoEmpleado: u.codigo_empleado ?? '',
+    posicionId: posicionId != null ? Number(posicionId) : null,
+    posicionNombre: posicionNombre ?? null,
+    gerenciaId: gerenciaId != null ? Number(gerenciaId) : null,
+    gerenciaNombre: gerenciaNombre ?? null,
+    telefono: u.telefono ?? '',
+    activo: u.activo ?? true,
+    fotoPerfil: foto ?? undefined,
+    urlFoto: foto,
+    roles,
+    name,
+    position: posicionNombre ?? (posicionId != null ? String(posicionId) : ''),
+    department: gerenciaNombre ?? (gerenciaId != null ? String(gerenciaId) : ''),
+    avatar: foto ?? undefined,
+    employeeCode: u.codigo_empleado ?? undefined,
+  } satisfies UiUser;
+};
+
+export async function getUsers(): Promise<UiUser[]> {
   const { data } = await api.get('/users');
   return unwrapArray<ApiUser>(data)
     .filter((u) => u.activo !== false)
@@ -59,7 +120,7 @@ export async function getUsers(): Promise<User[]> {
 
 const multipartConfig = { headers: { 'Content-Type': 'multipart/form-data' } } as const;
 
-const userFieldMap: Partial<Record<keyof User, string>> = {
+const userFieldMap: Partial<Record<keyof UserFormPayload, string>> = {
   primerNombre: 'primer_nombre',
   segundoNombre: 'segundo_nombre',
   tercerNombre: 'tercer_nombre',
@@ -74,7 +135,8 @@ const userFieldMap: Partial<Record<keyof User, string>> = {
 };
 
 export type UserFormPayload = Pick<
-  User,
+  UiUser,
+  | 'id'
   | 'primerNombre'
   | 'segundoNombre'
   | 'tercerNombre'
@@ -86,17 +148,27 @@ export type UserFormPayload = Pick<
   | 'gerenciaId'
   | 'correoInstitucional'
   | 'telefono'
-> & { urlFoto?: string | null };
+  | 'urlFoto'
+> & {
+  roleIds?: number[];
+};
 
 export function buildUserFormData(values: Partial<UserFormPayload>, file?: Blob | null) {
   const fd = new FormData();
   Object.entries(userFieldMap).forEach(([key, snake]) => {
     const formKey = key as keyof UserFormPayload;
     const value = values[formKey];
-    if (value !== undefined && value !== null && String(value).trim() !== '') {
-      fd.append(snake!, String(value));
+    if (value !== undefined && value !== null) {
+      const asString = String(value);
+      if (asString.trim() !== '') {
+        fd.append(snake!, asString);
+      }
     }
   });
+  if (Array.isArray(values.roleIds)) {
+    const roleIds = values.roleIds.filter((id): id is number => Number.isFinite(id));
+    fd.append('roles', JSON.stringify(roleIds));
+  }
   if (file) {
     fd.append('foto', file);
   }
@@ -139,4 +211,25 @@ export async function updateMyAvatar(file: Blob) {
   fd.append('foto', file);
   const { data } = await api.patch('/users/me', fd, multipartConfig);
   return normalizeOne<any>(data);
+}
+
+const toCatalogItem = (item: ApiCatalogItem): CatalogoItem => ({
+  id: Number(item.id),
+  nombre: typeof item.nombre === 'string' ? item.nombre : String(item.id),
+  activo: item.activo ?? null,
+});
+
+export async function getPosiciones({ all = 0 }: { all?: number } = {}): Promise<CatalogoItem[]> {
+  const { data } = await api.get(`/v1/posiciones?all=${all}`);
+  return normalizeList<ApiCatalogItem>(data).map(toCatalogItem);
+}
+
+export async function getGerencias({ all = 0 }: { all?: number } = {}): Promise<CatalogoItem[]> {
+  const { data } = await api.get(`/v1/gerencias?all=${all}`);
+  return normalizeList<ApiCatalogItem>(data).map(toCatalogItem);
+}
+
+export async function getRoles({ all = 0 }: { all?: number } = {}): Promise<CatalogoItem[]> {
+  const { data } = await api.get(`/v1/roles?all=${all}`);
+  return normalizeList<ApiCatalogItem>(data).map(toCatalogItem);
 }
