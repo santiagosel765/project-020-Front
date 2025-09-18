@@ -215,10 +215,16 @@ export async function changeUserPassword(
 
 export async function getMe(): Promise<any> {
   const { data } = await api.get('/users/me');
-  const normalized = normalizeOne<any>(data);
-  if (!normalized) return normalized;
-  const urlFoto = normalized.urlFoto ?? normalized.url_foto ?? normalized.foto_perfil ?? null;
-  return { ...normalized, urlFoto };
+  const me = normalizeOne<any>(data);
+  if (!me) return me;
+  const fallbackAvatar =
+    me.avatarUrl ?? me.urlFoto ?? me.url_foto ?? me.foto_perfil ?? null;
+
+  return {
+    ...me,
+    urlFoto: me.urlFoto ?? me.url_foto ?? me.foto_perfil ?? null,
+    avatarUrl: fallbackAvatar,
+  };
 }
 
 export async function updateMyAvatar(file: Blob) {

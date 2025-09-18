@@ -11,6 +11,10 @@ export function useSession() {
     staleTime: 5 * 60 * 1000,
   })
 
+  const meWithAvatar = data
+    ? { ...data, avatarUrl: data.avatarUrl ?? data.urlFoto ?? null }
+    : data
+
   const signOut = async () => {
     try {
       await api.post('/auth/logout')
@@ -21,19 +25,19 @@ export function useSession() {
   }
 
   return {
-    me: data,
+    me: meWithAvatar,
     isLoading,
     error,
     refresh: refetch,
-    roles: data?.roles ?? [],
-    pages: data?.pages ?? [],
-    signatureUrl: data?.signatureUrl ?? null,
-    hasSignature: data?.hasSignature ?? false,
-    avatarUrl: data?.urlFoto ?? null,
-    email: data?.correo ?? null,
-    displayName: data?.nombre ?? null,
-    isAdmin: !!data?.roles?.includes('ADMIN'),
-    isSupervisor: !!data?.roles?.includes('SUPERVISOR'),
+    roles: meWithAvatar?.roles ?? [],
+    pages: meWithAvatar?.pages ?? [],
+    signatureUrl: meWithAvatar?.signatureUrl ?? null,
+    hasSignature: meWithAvatar?.hasSignature ?? false,
+    avatarUrl: meWithAvatar?.avatarUrl ?? null,
+    email: meWithAvatar?.correo ?? null,
+    displayName: meWithAvatar?.nombre ?? null,
+    isAdmin: !!meWithAvatar?.roles?.includes('ADMIN'),
+    isSupervisor: !!meWithAvatar?.roles?.includes('SUPERVISOR'),
     signOut,
   }
 }

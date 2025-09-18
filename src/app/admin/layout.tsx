@@ -135,7 +135,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="relative h-10 w-10 rounded-full">
                 <Avatar className="h-10 w-10">
-                  <AvatarImage src={(avatarUrl as string | undefined) ?? (me?.urlFoto as string | undefined)} alt={displayName ?? 'Usuario'} data-ai-hint="person avatar" />
+                  <AvatarImage src={(avatarUrl as string | undefined) ?? (me?.avatarUrl as string | undefined)} alt={displayName ?? 'Usuario'} data-ai-hint="person avatar" />
                   <AvatarFallback>{initials(displayName ?? me?.nombre ?? (userRole ?? ''))}</AvatarFallback>
                 </Avatar>
               </Button>
