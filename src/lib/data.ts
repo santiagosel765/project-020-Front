@@ -74,12 +74,12 @@ function mapUserFromApi(u: any): UiUser {
     u?.gerenciaId ??
     (typeof u?.gerencia?.id === 'number' ? u.gerencia.id : undefined);
   const posicionNombre =
-    u?.posicion_nombre ??
     u?.posicionNombre ??
+    u?.posicion_nombre ??
     (typeof u?.posicion?.nombre === 'string' ? u.posicion.nombre : undefined);
   const gerenciaNombre =
-    u?.gerencia_nombre ??
     u?.gerenciaNombre ??
+    u?.gerencia_nombre ??
     (typeof u?.gerencia?.nombre === 'string' ? u.gerencia.nombre : undefined);
   const foto = u?.url_foto ?? u?.urlFoto ?? u?.foto_perfil ?? null;
 
