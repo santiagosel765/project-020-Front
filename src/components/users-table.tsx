@@ -131,8 +131,8 @@ export function UsersTable({ users, onSaveUser, onDeleteUser }: UsersTableProps)
               <TableRow>
                 <TableHead></TableHead>
                 <TableHead>Nombre Completo</TableHead>
-                <TableHead className="hidden md:table-cell">Posición ID</TableHead>
-                <TableHead className="hidden lg:table-cell">Gerencia ID</TableHead>
+                <TableHead className="hidden md:table-cell">Posición</TableHead>
+                <TableHead className="hidden lg:table-cell">Gerencia</TableHead>
                 <TableHead className="hidden md:table-cell">Código de Empleado</TableHead>
                 <TableHead className="hidden xl:table-cell">Teléfono</TableHead>
                 <TableHead className="hidden xl:table-cell">Correo</TableHead>
