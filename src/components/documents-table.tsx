@@ -26,6 +26,7 @@ import { Button } from "./ui/button";
 import { useRouter } from "next/navigation";
 import { initialsFromUser } from "@/lib/avatar";
 import { PaginationBar } from "./pagination/PaginationBar";
+import { DateCell } from "@/components/DateCell";
 
 interface DocumentsTableProps {
   documents: Document[];
@@ -221,7 +222,7 @@ export function DocumentsTable({
                     {doc.description}
                   </TableCell>
                   <TableCell className="hidden sm:table-cell">
-                    {doc.sendDate}
+                    <DateCell value={doc.sendDate} withTime />
                   </TableCell>
                   <TableCell>
                     <Badge className={cn("border", getStatusClass(doc.status))}>

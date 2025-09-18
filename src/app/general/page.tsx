@@ -4,6 +4,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { DocumentsTable } from "@/components/documents-table";
 import { Document } from "@/lib/data";
+import { getTime } from "@/lib/date";
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { getDocumentsByUser, type AsignacionDTO } from "@/services/documentsService";
@@ -61,8 +62,8 @@ export default function GeneralPage() {
                 return matchesSearch && matchesStatus;
             })
             .sort((a, b) => {
-                const aDate = a.sendDate ? Date.parse(a.sendDate) : 0;
-                const bDate = b.sendDate ? Date.parse(b.sendDate) : 0;
+                const aDate = getTime(a.sendDate);
+                const bDate = getTime(b.sendDate);
                 return sortOrder === 'asc' ? aDate - bDate : bDate - aDate;
             });
     }, [documents, searchTerm, statusFilter, sortOrder]);
