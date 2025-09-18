@@ -85,16 +85,17 @@ function mapUserFromApi(u: any): UiUser {
 
   const roles = Array.isArray(u?.roles)
     ? u.roles
-        .map((r: any) => ({
-          id: typeof r?.id === 'number' ? r.id : Number(r?.id),
-          nombre:
+        .map((r: any): { id: number; nombre: string } => {
+          const id = typeof r?.id === 'number' ? r.id : Number(r?.id);
+          const nombre =
             typeof r?.nombre === 'string'
               ? r.nombre
               : typeof r?.name === 'string'
               ? r.name
-              : '',
-        }))
-        .filter((r) => Number.isFinite(r.id) && r.nombre.trim() !== '')
+              : '';
+          return { id, nombre };
+        })
+        .filter((r: { id: number; nombre: string }) => Number.isFinite(r.id) && r.nombre.trim() !== '')
     : [];
 
   const user: UiUser = {

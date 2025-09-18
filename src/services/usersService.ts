@@ -1,6 +1,7 @@
 import { api } from '@/lib/api';
-import type { CatalogoItem, UiUser } from '@/lib/data';
-import { unwrapArray, unwrapOne, normalizeOne, normalizeList } from '@/lib/apiEnvelope';
+import type { CatalogoItem, UiUser, User } from '@/lib/data';
+import { unwrapArray, unwrapOne, normalizeOne, normalizeList, unwrapPaginated } from '@/lib/apiEnvelope';
+import { hasPaginationMeta, normalizePaginationMeta, paginateArray, type PaginatedResult } from '@/lib/pagination';
 
 type ApiCatalogItem = {
   id: number;
@@ -116,14 +117,62 @@ const toUiUser = (u: ApiUser): UiUser => {
     department: gerenciaNombre ?? (gerenciaId != null ? String(gerenciaId) : ''),
     avatar: foto ?? undefined,
     employeeCode: u.codigo_empleado ?? undefined,
-  } satisfies UiUser;
+} satisfies UiUser;
 };
 
-export async function getUsers(): Promise<UiUser[]> {
-  const { data } = await api.get('/users');
-  return unwrapArray<ApiUser>(data)
-    .filter((u) => u.activo !== false)
-    .map(toUiUser);
+const fullName = (user: UiUser) =>
+  [
+    user.primerNombre,
+    user.segundoNombre,
+    user.tercerNombre,
+    user.primerApellido,
+    user.segundoApellido,
+    user.apellidoCasada,
+  ]
+    .filter(Boolean)
+    .join(' ')
+    .trim();
+
+export interface GetUsersParams {
+  page?: number;
+  limit?: number;
+  search?: string;
+  includeInactive?: boolean;
+  [key: string]: unknown;
+}
+
+const filterUsers = (users: UiUser[], search: string, includeInactive: boolean) => {
+  const term = search.trim().toLowerCase();
+  const filtered = users.filter((user) => {
+    if (!includeInactive && user.activo === false) return false;
+    if (!term) return true;
+    const name = fullName(user).toLowerCase();
+    const email = (user.correoInstitucional ?? '').toLowerCase();
+    const code = (user.codigoEmpleado ?? '').toLowerCase();
+    return name.includes(term) || email.includes(term) || code.includes(term);
+  });
+  return filtered.sort((a, b) => fullName(a).localeCompare(fullName(b)));
+};
+
+export async function getUsers(params: GetUsersParams = {}): Promise<PaginatedResult<User>> {
+  const { page = 1, limit = 10, search = '', includeInactive = false, ...rest } = params;
+  const query: Record<string, unknown> = { ...rest };
+  if (params.page != null) query.page = page;
+  if (params.limit != null) query.limit = limit;
+  if (search.trim() !== '') query.search = search.trim();
+
+  const { data } = await api.get('/users', { params: query });
+  const paginated = unwrapPaginated<ApiUser>(data);
+  if (hasPaginationMeta(paginated.meta)) {
+    const items = (paginated.items ?? []).map(toUiUser);
+    const meta = normalizePaginationMeta(paginated.meta, { page, limit });
+    return { items, meta };
+  }
+
+  const allUsers = unwrapArray<ApiUser>(data).map(toUiUser);
+  const filtered = filterUsers(allUsers, search, includeInactive);
+  const { items, meta } = paginateArray(filtered, { page, limit });
+  return { items, meta };
 }
 
 const multipartConfig = { headers: { 'Content-Type': 'multipart/form-data' } } as const;
@@ -143,7 +192,7 @@ const userFieldMap: Partial<Record<keyof UserFormPayload, string>> = {
   urlFoto: 'url_foto',
 };
 
-export type UserFormPayload = Pick<
+type BaseUserFormPayload = Pick<
   UiUser,
   | 'id'
   | 'primerNombre'
@@ -158,7 +207,10 @@ export type UserFormPayload = Pick<
   | 'correoInstitucional'
   | 'telefono'
   | 'urlFoto'
-> & {
+>;
+
+export type UserFormPayload = Omit<BaseUserFormPayload, 'id'> & {
+  id?: string;
   roleIds?: number[];
 };
 

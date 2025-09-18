@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { DocumentsTable } from "@/components/documents-table";
 import type { Document } from "@/lib/data";
 import { useToast } from "@/hooks/use-toast";
@@ -12,15 +12,13 @@ import {
   type AsignacionDTO,
 } from "@/services/documentsService";
 import { getMe } from "@/services/usersService";
-import { Button } from "@/components/ui/button";
 import { SignersModal } from "@/components/signers-modal";
+import { useServerPagination } from "@/hooks/useServerPagination";
 
 function toUiDocument(a: AsignacionDTO): Document {
   const cf = a.cuadro_firma;
   const add = cf.add_date ?? "";
   const onlyDate = add ? String(add).split("T")[0] : "";
-  // 1) Tomar firmantes desde firmantesResumen si existe;
-  // 2) Si no existe, derivar desde cuadro_firma_user.
   const srcFirmantes =
     Array.isArray((cf as any).firmantesResumen) && (cf as any).firmantesResumen.length
       ? (cf as any).firmantesResumen
@@ -71,9 +69,7 @@ function toUiDocument(a: AsignacionDTO): Document {
 export default function MisDocumentosPage() {
   const [documents, setDocuments] = useState<Document[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [page, setPage] = useState(1);
-  const limit = 10;
-  const [meta, setMeta] = useState<any>({});
+  const [total, setTotal] = useState(0);
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<Document["status"] | "Todos">("Todos");
@@ -86,45 +82,73 @@ export default function MisDocumentosPage() {
     Record<Document["status"] | "Todos", number>
   >({ Todos: 0, Pendiente: 0, "En Progreso": 0, Rechazado: 0, Completado: 0 });
   const { toast } = useToast();
+  const { page, limit, setPage, setLimit, setFromMeta } = useServerPagination();
 
   useEffect(() => {
     const handler = setTimeout(() => setSearch(searchInput), 300);
     return () => clearTimeout(handler);
   }, [searchInput]);
 
-  useEffect(() => {
-    const fetchDocuments = async () => {
-      setIsLoading(true);
-      try {
-        const me = await getMe();
-        const params: any = { page, limit, sort: sortOrder };
-        if (search) params.search = search;
-        if (statusFilter !== "Todos") params.estado = statusFilter;
-        const { asignaciones, meta: metaResp } = await getDocumentsByUser(Number(me.id), params);
-        setDocuments(asignaciones.map(toUiDocument));
-        setUserId(Number(me.id));
-        setMeta({
-          ...metaResp,
-          totalPages: (metaResp as any).totalPages ?? metaResp.lastPage ?? 1,
-        });
-      } catch (error) {
-        toast({
-          variant: "destructive",
-          title: "Error al cargar documentos",
-          description: "No se pudieron obtener los datos de los documentos.",
-        });
-      } finally {
-        setIsLoading(false);
+  const fetchUserId = useCallback(async () => {
+    if (userId != null) return userId;
+    try {
+      const me = await getMe();
+      const id = Number(me.id);
+      if (Number.isFinite(id)) {
+        setUserId(id);
+        return id;
       }
-    };
-    fetchDocuments();
-  }, [toast, page, search, statusFilter, sortOrder]);
+    } catch {
+      toast({
+        variant: "destructive",
+        title: "Error al cargar usuario",
+        description: "No se pudo obtener la información del usuario.",
+      });
+    }
+    return null;
+  }, [toast, userId]);
+
+  const fetchDocuments = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const id = await fetchUserId();
+      if (!id) {
+        setDocuments([]);
+        setTotal(0);
+        return;
+      }
+      const params: Record<string, any> = { page, limit, sort: sortOrder };
+      if (search) params.search = search;
+      if (statusFilter !== "Todos") params.estado = statusFilter;
+      const { items, meta } = await getDocumentsByUser(id, params);
+      setTotal(meta.total ?? 0);
+      if (meta.pages > 0 && page > meta.pages) {
+        setFromMeta(meta);
+        return;
+      }
+      setDocuments(items.map(toUiDocument));
+      setFromMeta(meta);
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Error al cargar documentos",
+        description: "No se pudieron obtener los datos de los documentos.",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  }, [fetchUserId, limit, page, search, statusFilter, sortOrder, setFromMeta, toast]);
 
   useEffect(() => {
-    if (userId == null) return;
-    const fetchCounts = async () => {
+    fetchDocuments();
+  }, [fetchDocuments]);
+
+  useEffect(() => {
+    const loadCounts = async () => {
+      const id = userId ?? (await fetchUserId());
+      if (!id) return;
       try {
-        const resumen = await getByUserStats(userId, { search });
+        const resumen = await getByUserStats(id, { search });
         setCounts({
           Todos: resumen.Todos ?? 0,
           Pendiente: resumen.Pendiente ?? 0,
@@ -136,8 +160,8 @@ export default function MisDocumentosPage() {
         /* ignore */
       }
     };
-    fetchCounts();
-  }, [userId, search]);
+    loadCounts();
+  }, [fetchUserId, search, userId]);
 
   const handleAsignadosClick = async (doc: Document) => {
     setModalOpen(true);
@@ -189,26 +213,12 @@ export default function MisDocumentosPage() {
         }}
         onAsignadosClick={handleAsignadosClick}
         statusCounts={counts}
+        total={total}
+        page={page}
+        pageSize={limit}
+        onPageChange={setPage}
+        onPageSizeChange={setLimit}
       />
-      <div className="flex items-center justify-between mt-4">
-        <Button
-          variant="ghost"
-          disabled={page <= 1}
-          onClick={() => setPage((p) => Math.max(1, p - 1))}
-        >
-          Anterior
-        </Button>
-        <span className="text-sm text-muted-foreground">
-          Página {page} de {meta?.totalPages ?? 1}
-        </span>
-        <Button
-          variant="ghost"
-          disabled={page >= (meta?.totalPages ?? 1)}
-          onClick={() => setPage((p) => p + 1)}
-        >
-          Siguiente
-        </Button>
-      </div>
       <SignersModal
         open={modalOpen}
         onOpenChange={setModalOpen}

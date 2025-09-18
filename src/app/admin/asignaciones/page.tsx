@@ -57,9 +57,8 @@ export default function AsignacionesPage() {
     let mounted = true;
     (async () => {
       try {
-        const data = await getUsers();
-        const list = Array.isArray(data) ? data : [];
-        if (mounted) setUsers(list);
+        const { items } = await getUsers({ page: 1, limit: 200, includeInactive: true });
+        if (mounted) setUsers(items);
       } catch (err) {
         console.error(err);
         toast({

@@ -1,5 +1,6 @@
 import { api } from '@/lib/api';
 import { unwrapArray, unwrapPaginated, unwrapOne } from '@/lib/apiEnvelope';
+import { hasPaginationMeta, normalizePaginationMeta, paginateArray, type PaginatedResult } from '@/lib/pagination';
 import { initials, fullName, initialsFromFullName } from '@/lib/avatar';
 
 export type DocEstado = 'Pendiente' | 'En Progreso' | 'Rechazado' | 'Completado';
@@ -20,8 +21,12 @@ export type DocumentoRow = {
   id: number;
   titulo: string;
   descripcion: string;
+  codigo?: string | null;
+  version?: string | null;
   add_date: string;
+  addDate?: string | null;
   estado: { id: number; nombre: string };
+  estado_firma?: { id: number; nombre: string } | null;
   empresa: { id: number; nombre: string };
   diasTranscurridos?: number;
   descripcionEstado?: string;
@@ -131,18 +136,6 @@ export type AsignacionDTO = {
   usuarioCreador: { correo_institucional: string; codigo_empleado: string };
 };
 
-export type ByUserResponse = {
-  asignaciones: AsignacionDTO[];
-  meta: {
-    totalCount: number;
-    page: number;
-    limit: number;
-    lastPage: number;
-    hasNextPage: boolean;
-    hasPrevPage: boolean;
-  };
-};
-
 const toDocumentoRow = (d: any): DocumentoRow => {
   const x = d?.cuadro_firma ?? d ?? {};
   const firmantes = Array.isArray(x.firmantesResumen)
@@ -184,12 +177,16 @@ const toDocumentoRow = (d: any): DocumentoRow => {
     id: Number(x.id ?? 0),
     titulo: x.titulo ?? '',
     descripcion: x.descripcion ?? '',
+    codigo: x.codigo ?? null,
+    version: x.version ?? null,
     add_date: x.add_date ?? x.addDate ?? '',
+    addDate: x.add_date ?? x.addDate ?? null,
     estado:
       x.estado_firma ?? x.estado ?? ({ id: 0, nombre: '' } as {
         id: number;
         nombre: string;
       }),
+    estado_firma: x.estado_firma ?? null,
     empresa: x.empresa ?? ({ id: 0, nombre: '' } as { id: number; nombre: string }),
     diasTranscurridos: x.diasTranscurridos ?? undefined,
     descripcionEstado: x.descripcionEstado ?? undefined,
@@ -211,6 +208,12 @@ const toSupervisionDoc = (d: any): SupervisionDoc => {
     diasTranscurridos: x.diasTranscurridos ?? undefined,
     descripcionEstado: x.descripcionEstado ?? null,
   };
+};
+
+const parseDateValue = (value?: string | null) => {
+  if (!value) return 0;
+  const timestamp = Date.parse(value);
+  return Number.isFinite(timestamp) ? timestamp : 0;
 };
 
 export async function createCuadroFirma(body: FormData) {
@@ -235,20 +238,58 @@ export async function updateDocumentoAsignacion(
   return unwrapOne<any>(data);
 }
 
-export async function getDocumentSupervision(params?: Record<string, any>) {
+export async function getDocumentSupervision(
+  params: Record<string, any> = {},
+): Promise<PaginatedResult<DocumentoRow>> {
   const { data } = await api.get<any>('/documents/cuadro-firmas/documentos/supervision', {
     params,
   });
   const pag = unwrapPaginated<any>(data);
-  const src = pag.items.length
+  const source = pag.items.length
     ? pag.items
     : unwrapArray<any>(data?.data ?? data?.documentos ?? data);
-  return { documentos: src.map(toDocumentoRow), meta: pag.meta };
+
+  if (hasPaginationMeta(pag.meta)) {
+    const meta = normalizePaginationMeta(pag.meta, {
+      page: Number(params?.page) || undefined,
+      limit: Number(params?.limit) || undefined,
+    });
+    return { items: source.map(toDocumentoRow), meta };
+  }
+
+  const search = typeof params?.search === 'string' ? params.search.trim().toLowerCase() : '';
+  const status =
+    typeof params?.estado === 'string' && params.estado !== 'Todos'
+      ? params.estado.toLowerCase()
+      : '';
+  const sortOrder = params?.sort === 'asc' ? 'asc' : 'desc';
+
+  const mapped = source
+    .map(toDocumentoRow)
+    .filter((doc) => {
+      if (status && doc.estado?.nombre?.toLowerCase() !== status) return false;
+      if (!search) return true;
+      const titulo = (doc.titulo ?? '').toLowerCase();
+      const descripcion = (doc.descripcion ?? '').toLowerCase();
+      const empresa = (doc.empresa?.nombre ?? '').toLowerCase();
+      return titulo.includes(search) || descripcion.includes(search) || empresa.includes(search);
+    })
+    .sort((a, b) => {
+      const aDate = parseDateValue(a.add_date);
+      const bDate = parseDateValue(b.add_date);
+      return sortOrder === 'asc' ? aDate - bDate : bDate - aDate;
+    });
+
+  return paginateArray(mapped, {
+    page: Number(params?.page) || 1,
+    limit: Number(params?.limit) || 10,
+  });
 }
 
 export async function getSupervisionStats(params?: { search?: string }) {
-  const { data } = await api.get('/documents/cuadro-firmas/documentos/supervision/stats', { params });
-  return (data?.data ?? data) as Record<
+  const { data } = await api.get<any>('/documents/cuadro-firmas/documentos/supervision/stats', { params });
+  const payload = data as any;
+  return (payload?.data ?? payload) as Record<
     'Todos' | 'Pendiente' | 'En Progreso' | 'Rechazado' | 'Completado',
     number
   >;
@@ -256,29 +297,54 @@ export async function getSupervisionStats(params?: { search?: string }) {
 
 export async function getDocumentsByUser(
   userId: number,
-  params?: Record<string, any>,
-): Promise<ByUserResponse> {
+  params: Record<string, any> = {},
+): Promise<PaginatedResult<AsignacionDTO>> {
   const { data } = await api.get<any>(`/documents/cuadro-firmas/by-user/${userId}`, { params });
   const pag = unwrapPaginated<any>(data);
   const asignaciones = pag.items.length
     ? pag.items
     : unwrapArray<any>(data?.data?.asignaciones ?? data?.asignaciones ?? []);
-  return {
-    asignaciones,
-    meta: (pag.meta as ByUserResponse["meta"]) || {
-      totalCount: 0,
-      page: 1,
-      limit: 0,
-      lastPage: 1,
-      hasNextPage: false,
-      hasPrevPage: false,
-    },
-  };
+
+  if (hasPaginationMeta(pag.meta)) {
+    const meta = normalizePaginationMeta(pag.meta, {
+      page: Number(params?.page) || undefined,
+      limit: Number(params?.limit) || undefined,
+    });
+    return { items: asignaciones as AsignacionDTO[], meta };
+  }
+
+  const search = typeof params?.search === 'string' ? params.search.trim().toLowerCase() : '';
+  const status =
+    typeof params?.estado === 'string' && params.estado !== 'Todos'
+      ? params.estado.toLowerCase()
+      : '';
+  const sortOrder = params?.sort === 'asc' ? 'asc' : 'desc';
+
+  const filtered = (asignaciones as AsignacionDTO[]).filter((asignacion) => {
+    const cf: any = asignacion?.cuadro_firma ?? {};
+    if (status && String(cf?.estado_firma?.nombre ?? '').toLowerCase() !== status) return false;
+    if (!search) return true;
+    const titulo = String(cf?.titulo ?? '').toLowerCase();
+    const descripcion = String(cf?.descripcion ?? '').toLowerCase();
+    return titulo.includes(search) || descripcion.includes(search);
+  });
+
+  filtered.sort((a, b) => {
+    const aDate = parseDateValue(a?.cuadro_firma?.add_date ?? null);
+    const bDate = parseDateValue(b?.cuadro_firma?.add_date ?? null);
+    return sortOrder === 'asc' ? aDate - bDate : bDate - aDate;
+  });
+
+  return paginateArray(filtered, {
+    page: Number(params?.page) || 1,
+    limit: Number(params?.limit) || 10,
+  });
 }
 
 export async function getByUserStats(userId: number, params?: { search?: string }) {
-  const { data } = await api.get(`/documents/cuadro-firmas/by-user/${userId}/stats`, { params });
-  return (data?.data ?? data) as Record<
+  const { data } = await api.get<any>(`/documents/cuadro-firmas/by-user/${userId}/stats`, { params });
+  const payload = data as any;
+  return (payload?.data ?? payload) as Record<
     'Todos' | 'Pendiente' | 'En Progreso' | 'Rechazado' | 'Completado',
     number
   >;

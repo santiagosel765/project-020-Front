@@ -26,13 +26,17 @@ import {
 import { Loader2 } from "lucide-react";
 import type { Role } from "@/services/roleService";
 
-export type RoleForm = Pick<Role, "id" | "nombre" | "descripcion">;
+export type RoleForm = {
+  id?: string;
+  nombre: string;
+  descripcion?: string;
+};
 
 interface RoleFormModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSave: (role: RoleForm) => Promise<void> | void;
-  role?: RoleForm;
+  role?: Role | null;
 }
 
 const formSchema = z.object({
@@ -46,13 +50,20 @@ const defaultValues: RoleForm = { nombre: "", descripcion: "" };
 export function RoleFormModal({ isOpen, onClose, onSave, role }: RoleFormModalProps) {
   const form = useForm<RoleForm>({
     resolver: zodResolver(formSchema),
-    defaultValues: role ?? defaultValues,
+    defaultValues,
   });
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
-      form.reset(role ?? defaultValues);
+      const values: RoleForm = role
+        ? {
+            id: role.id != null ? String(role.id) : undefined,
+            nombre: role.nombre ?? "",
+            descripcion: role.descripcion ?? "",
+          }
+        : { ...defaultValues };
+      form.reset(values);
     }
   }, [isOpen, role, form]);
 

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useState } from 'react';
+import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -12,9 +12,17 @@ import { Badge } from '@/components/ui/badge';
 import { RoleFormModal, RoleForm } from './role-form-modal';
 import type { Role } from '@/services/roleService';
 import { format } from 'date-fns';
+import { PaginationBar } from './pagination/PaginationBar';
 
 interface RolesTableProps {
   roles: Role[];
+  total: number;
+  page: number;
+  pageSize: number;
+  onPageChange: (page: number) => void;
+  onPageSizeChange: (pageSize: number) => void;
+  searchTerm: string;
+  onSearchChange: (value: string) => void;
   showInactive: boolean;
   onToggleInactive: (checked: boolean) => void;
   onSaveRole: (role: RoleForm) => Promise<void>;
@@ -22,24 +30,32 @@ interface RolesTableProps {
   onRestoreRole: (id: string) => Promise<void> | void;
 }
 
-export function RolesTable({ roles, showInactive, onToggleInactive, onSaveRole, onDeleteRole, onRestoreRole }: RolesTableProps) {
-  const [searchTerm, setSearchTerm] = useState('');
+export function RolesTable({
+  roles,
+  total,
+  page,
+  pageSize,
+  onPageChange,
+  onPageSizeChange,
+  searchTerm,
+  onSearchChange,
+  showInactive,
+  onToggleInactive,
+  onSaveRole,
+  onDeleteRole,
+  onRestoreRole,
+}: RolesTableProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [selectedRole, setSelectedRole] = useState<Role | undefined>(undefined);
-
-  const filteredRoles = useMemo(
-    () => roles.filter(r => r.nombre.toLowerCase().includes(searchTerm.toLowerCase())),
-    [roles, searchTerm]
-  );
+  const [selectedRole, setSelectedRole] = useState<Role | null>(null);
 
   const openModal = (role?: Role) => {
-    setSelectedRole(role);
+    setSelectedRole(role ?? null);
     setIsModalOpen(true);
   };
 
   const closeModal = () => {
     setIsModalOpen(false);
-    setSelectedRole(undefined);
+    setSelectedRole(null);
   };
 
   const handleSave = async (role: RoleForm) => {
@@ -53,7 +69,7 @@ export function RolesTable({ roles, showInactive, onToggleInactive, onSaveRole, 
         <CardHeader>
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div className="space-y-1.5">
-              <CardTitle>Gestión de Roles ({roles.length})</CardTitle>
+              <CardTitle>Gestión de Roles ({total})</CardTitle>
               <CardDescription>Administre los roles de la plataforma.</CardDescription>
             </div>
             <div className="flex items-center gap-2 flex-wrap justify-end">
@@ -63,7 +79,7 @@ export function RolesTable({ roles, showInactive, onToggleInactive, onSaveRole, 
                   placeholder="Buscar roles..."
                   className="pl-8"
                   value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
+                  onChange={(e) => onSearchChange(e.target.value)}
                 />
               </div>
               <div className="flex items-center space-x-2">
@@ -89,7 +105,7 @@ export function RolesTable({ roles, showInactive, onToggleInactive, onSaveRole, 
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredRoles.map(role => (
+              {roles.map(role => (
                 <TableRow key={role.id}>
                   <TableCell className="font-medium">{role.nombre}</TableCell>
                   <TableCell className="hidden md:table-cell">{role.descripcion}</TableCell>
@@ -115,12 +131,15 @@ export function RolesTable({ roles, showInactive, onToggleInactive, onSaveRole, 
                           <span>Editar</span>
                         </DropdownMenuItem>
                         {role.activo ? (
-                          <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => onDeleteRole(role.id!)}>
+                          <DropdownMenuItem
+                            className="text-destructive focus:text-destructive"
+                            onClick={() => onDeleteRole(String(role.id ?? ''))}
+                          >
                             <Trash2 className="mr-2 h-4 w-4" />
                             <span>Eliminar</span>
                           </DropdownMenuItem>
                         ) : (
-                          <DropdownMenuItem onClick={() => onRestoreRole(role.id!)}>
+                          <DropdownMenuItem onClick={() => onRestoreRole(String(role.id ?? ''))}>
                             <RotateCcw className="mr-2 h-4 w-4" />
                             <span>Restaurar</span>
                           </DropdownMenuItem>
@@ -133,6 +152,13 @@ export function RolesTable({ roles, showInactive, onToggleInactive, onSaveRole, 
             </TableBody>
           </Table>
         </CardContent>
+        <PaginationBar
+          total={total}
+          page={page}
+          pageSize={pageSize}
+          onPageChange={onPageChange}
+          onPageSizeChange={onPageSizeChange}
+        />
       </Card>
       <RoleFormModal
         isOpen={isModalOpen}

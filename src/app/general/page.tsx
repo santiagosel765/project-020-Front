@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { DocumentsTable } from "@/components/documents-table";
 import { Document } from "@/lib/data";
 import { useToast } from '@/hooks/use-toast';
@@ -16,13 +16,15 @@ export default function GeneralPage() {
     const [searchTerm, setSearchTerm] = useState("");
     const [statusFilter, setStatusFilter] = useState<Document["status"] | "Todos">("Todos");
     const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
+    const [page, setPage] = useState(1);
+    const [pageSize, setPageSize] = useState(10);
 
     useEffect(() => {
         const fetchDocuments = async () => {
             try {
                 const me = await getMe();
-                const { asignaciones } = await getDocumentsByUser(Number(me.id), { page: 1, limit: 20 });
-                const mapped: Document[] = asignaciones.map((a: AsignacionDTO) => ({
+                const { items } = await getDocumentsByUser(Number(me.id), { page: 1, limit: 20 });
+                const mapped: Document[] = items.map((a: AsignacionDTO) => ({
                     id: String(a.cuadro_firma.id),
                     code: a.cuadro_firma.codigo ?? '',
                     name: a.cuadro_firma.titulo ?? '',
@@ -47,6 +49,41 @@ export default function GeneralPage() {
         fetchDocuments();
     }, [toast]);
 
+    const filteredDocuments = useMemo(() => {
+        const term = searchTerm.trim().toLowerCase();
+        return documents
+            .filter((doc) => {
+                const matchesSearch =
+                    term === '' ||
+                    doc.name.toLowerCase().includes(term) ||
+                    doc.description.toLowerCase().includes(term);
+                const matchesStatus = statusFilter === 'Todos' || doc.status === statusFilter;
+                return matchesSearch && matchesStatus;
+            })
+            .sort((a, b) => {
+                const aDate = a.sendDate ? Date.parse(a.sendDate) : 0;
+                const bDate = b.sendDate ? Date.parse(b.sendDate) : 0;
+                return sortOrder === 'asc' ? aDate - bDate : bDate - aDate;
+            });
+    }, [documents, searchTerm, statusFilter, sortOrder]);
+
+    const total = filteredDocuments.length;
+    const totalPages = Math.max(1, Math.ceil(total / pageSize));
+    const currentPage = Math.min(page, totalPages);
+    const start = (currentPage - 1) * pageSize;
+    const paginatedDocuments = filteredDocuments.slice(start, start + pageSize);
+
+    const statusCounts = useMemo(() => {
+        return filteredDocuments.reduce(
+            (acc, doc) => {
+                acc.Todos += 1;
+                acc[doc.status] = (acc[doc.status] ?? 0) + 1;
+                return acc;
+            },
+            { Todos: 0, Pendiente: 0, 'En Progreso': 0, Rechazado: 0, Completado: 0 } as Record<Document['status'] | 'Todos', number>,
+        );
+    }, [filteredDocuments]);
+
     if (isLoading) {
         return (
             <div className="space-y-4">
@@ -62,7 +99,7 @@ export default function GeneralPage() {
     return (
         <div className="h-full">
             <DocumentsTable
-                documents={documents}
+                documents={paginatedDocuments}
                 title="Mis Documentos"
                 description="Documentos asignados a usted para revisar y firmar."
                 searchTerm={searchTerm}
@@ -71,6 +108,15 @@ export default function GeneralPage() {
                 onStatusFilterChange={setStatusFilter}
                 sortOrder={sortOrder}
                 onSortOrderChange={setSortOrder}
+                statusCounts={statusCounts}
+                total={total}
+                page={currentPage}
+                pageSize={pageSize}
+                onPageChange={setPage}
+                onPageSizeChange={(size) => {
+                    setPageSize(size);
+                    setPage(1);
+                }}
             />
         </div>
     );
