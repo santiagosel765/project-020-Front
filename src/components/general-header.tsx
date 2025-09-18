@@ -19,7 +19,7 @@ import { UserAvatar } from "@/components/avatar/user-avatar";
 export function GeneralHeader() {
   const router = useRouter();
   const pathname = usePathname();
-  const { signOut, me } = useSession();
+  const { signOut, me, avatarUrl } = useSession();
 
   const isDocumentDetailPage = pathname.startsWith("/documento/");
 
@@ -59,7 +59,7 @@ export function GeneralHeader() {
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="relative h-10 w-10 rounded-full">
-                <UserAvatar size="sm" url={me?.urlFoto ?? null} name={me?.nombre ?? "Usuario"} />
+                <UserAvatar size="sm" url={avatarUrl ?? me?.avatarUrl ?? null} name={me?.nombre ?? "Usuario"} />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56">

@@ -16,4 +16,5 @@ export type MeResponseDto = {
   signatureUrl: string | null
   hasSignature: boolean
   urlFoto?: string | null
+  avatarUrl?: string | null
 }

@@ -104,8 +104,8 @@ export function SettingsDialog({ children }: { children: React.ReactNode }) {
   }, [avatarPreview]);
 
   useEffect(() => {
-    setAvatarPreview(me?.urlFoto ?? null);
-  }, [me?.urlFoto]);
+    setAvatarPreview(me?.avatarUrl ?? null);
+  }, [me?.avatarUrl]);
 
   const handleThemeChange = (isDark: boolean) => {
     const newTheme = isDark ? 'dark' : 'light';
@@ -203,7 +203,7 @@ export function SettingsDialog({ children }: { children: React.ReactNode }) {
         title: 'Error',
         description: 'No se pudo actualizar la foto de perfil.',
       });
-      setAvatarPreview(me?.urlFoto ?? null);
+      setAvatarPreview(me?.avatarUrl ?? null);
     } finally {
       setIsUpdatingAvatar(false);
       if (event.target) {
@@ -227,7 +227,7 @@ export function SettingsDialog({ children }: { children: React.ReactNode }) {
         title: 'Error',
         description: 'No se pudo actualizar la foto de perfil.',
       });
-      setAvatarPreview(me?.urlFoto ?? null);
+      setAvatarPreview(me?.avatarUrl ?? null);
     } finally {
       setIsUpdatingAvatar(false);
       if (profileImageUploadRef.current) {
@@ -258,7 +258,7 @@ export function SettingsDialog({ children }: { children: React.ReactNode }) {
         </DialogHeader>
         <div className="grid gap-6 py-4 flex-1 overflow-y-auto pr-6 pl-1 -mr-6">
           <div className="flex items-center gap-4">
-            <UserAvatar size="lg" url={avatarPreview} name={me?.nombre ?? 'Usuario'} />
+            <UserAvatar size="lg" url={avatarPreview ?? me?.avatarUrl ?? null} name={me?.nombre ?? 'Usuario'} />
             <div className="flex-grow space-y-2">
               <Label>Foto de perfil</Label>
               <p className="text-xs text-muted-foreground">
@@ -280,7 +280,7 @@ export function SettingsDialog({ children }: { children: React.ReactNode }) {
                   )}
                   Cambiar foto
                 </Button>
-                {(avatarPreview || me?.urlFoto) && (
+                {(avatarPreview || me?.avatarUrl) && (
                   <Button type="button" variant="ghost" onClick={handleAvatarRemove} disabled={isUpdatingAvatar}>
                     {isUpdatingAvatar ? (
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
