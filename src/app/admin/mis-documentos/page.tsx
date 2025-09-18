@@ -27,6 +27,7 @@ function toUiDocument(a: AsignacionDTO): Document {
       : Array.isArray((cf as any).cuadro_firma_user)
       ? (cf as any).cuadro_firma_user.map((f: any) => {
           const u = f.user ?? {};
+          const foto = u.urlFoto ?? u.url_foto ?? null;
           const nombre = [
             u.primer_nombre,
             u.segundo_name,
@@ -40,7 +41,8 @@ function toUiDocument(a: AsignacionDTO): Document {
           return {
             id: Number(u.id ?? f.user_id ?? 0),
             nombre,
-            urlFoto: u.url_foto ?? u.urlFoto ?? u.foto_perfil ?? null,
+            urlFoto: foto,
+            avatar: foto,
             responsabilidad: f.responsabilidad_firma?.nombre ?? "",
           };
         })
@@ -48,7 +50,7 @@ function toUiDocument(a: AsignacionDTO): Document {
   const assignedUsers = srcFirmantes.map((f: any) => ({
     id: String(f.id),
     name: f.nombre,
-    avatar: f.urlFoto ?? undefined,
+    avatar: (f.urlFoto ?? f.avatar ?? null) ?? undefined,
     responsibility: f.responsabilidad,
     department: "",
     employeeCode: "",

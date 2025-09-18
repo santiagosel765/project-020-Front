@@ -170,7 +170,10 @@ export function SignDialog({
                   <li key={`${f.user.id}-${f.responsabilidad.id}`} className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <Avatar className="h-8 w-8">
-                        <AvatarImage src={undefined} />
+                        <AvatarImage
+                          src={f.user.urlFoto ?? f.user.avatar ?? undefined}
+                          alt={f.user.nombre}
+                        />
                         <AvatarFallback>{initials(f.user.nombre)}</AvatarFallback>
                       </Avatar>
                       <div className="text-sm">
