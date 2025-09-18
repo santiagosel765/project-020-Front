@@ -10,16 +10,16 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { LogOut, Settings, Bell, ArrowLeft } from "lucide-react";
 import { useRouter, usePathname } from "next/navigation";
 import { SettingsDialog } from "./settings-dialog";
 import { useSession } from "@/lib/session";
+import { UserAvatar } from "@/components/avatar/user-avatar";
 
 export function GeneralHeader() {
   const router = useRouter();
   const pathname = usePathname();
-  const { signOut } = useSession();
+  const { signOut, me } = useSession();
 
   const isDocumentDetailPage = pathname.startsWith("/documento/");
 
@@ -59,16 +59,13 @@ export function GeneralHeader() {
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="relative h-10 w-10 rounded-full">
-                <Avatar className="h-10 w-10">
-                  <AvatarImage src="https://placehold.co/100x100.png" alt="Usuario" data-ai-hint="person avatar" />
-                  <AvatarFallback>UG</AvatarFallback>
-                </Avatar>
+                <UserAvatar size="sm" url={me?.urlFoto ?? null} name={me?.nombre ?? "Usuario"} />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56">
               <DropdownMenuLabel>
-                <p>Usuario General</p>
-                <p className="text-xs text-muted-foreground font-normal">usuario@zignosign.com</p>
+                <p>{me?.nombre ?? "Usuario"}</p>
+                <p className="text-xs text-muted-foreground font-normal">{me?.correo ?? ""}</p>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
               <DropdownMenuItem onSelect={(e) => e.preventDefault()}>

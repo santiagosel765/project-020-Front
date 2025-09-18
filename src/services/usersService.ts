@@ -140,6 +140,7 @@ const userFieldMap: Partial<Record<keyof UserFormPayload, string>> = {
   gerenciaId: 'gerencia_id',
   correoInstitucional: 'correo_institucional',
   telefono: 'telefono',
+  urlFoto: 'url_foto',
 };
 
 export type UserFormPayload = Pick<
@@ -166,6 +167,12 @@ export function buildUserFormData(values: Partial<UserFormPayload>, file?: Blob 
   Object.entries(userFieldMap).forEach(([key, snake]) => {
     const formKey = key as keyof UserFormPayload;
     const value = values[formKey];
+    if (formKey === 'urlFoto') {
+      if (value === undefined) return;
+      const normalized = value == null ? '' : String(value);
+      fd.append(snake!, normalized);
+      return;
+    }
     if (value !== undefined && value !== null) {
       const asString = String(value);
       if (asString.trim() !== '') {

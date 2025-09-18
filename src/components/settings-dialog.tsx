@@ -14,7 +14,6 @@ import {
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { Avatar, AvatarImage, AvatarFallback } from './ui/avatar';
 import { Upload, PenLine, Trash2, Loader2 } from 'lucide-react';
 import { Separator } from './ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -25,8 +24,8 @@ import Image from 'next/image';
 import { Input } from './ui/input';
 import { useSession } from '@/lib/session';
 import { api } from '@/lib/api';
-import { updateMyAvatar } from '@/services/usersService';
-import { initials } from '@/lib/avatar';
+import { buildUserFormData, updateUser } from '@/services/usersService';
+import { UserAvatar } from '@/components/avatar/user-avatar';
 
 const SettingsDialogContext = React.createContext({
     setOpen: (open: boolean) => {}
@@ -61,7 +60,7 @@ export function SettingsDialog({ children }: { children: React.ReactNode }) {
   const [mounted, setMounted] = useState(false);
   const [theme, setTheme] = useState('light');
   const [userRole, setUserRole] = useState<string | null>(null);
-  const { roles, signatureUrl, refresh, avatarUrl, displayName } = useSession();
+  const { roles, signatureUrl, refresh, me } = useSession();
   const { toast } = useToast();
 
   const [currentSignature, setCurrentSignature] = useState<string | null>(null);
@@ -70,8 +69,7 @@ export function SettingsDialog({ children }: { children: React.ReactNode }) {
 
   const profileImageUploadRef = useRef<HTMLInputElement>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
-  const [avatarFile, setAvatarFile] = useState<File | null>(null);
-  const [isSavingAvatar, setIsSavingAvatar] = useState(false);
+  const [isUpdatingAvatar, setIsUpdatingAvatar] = useState(false);
   const { setOpen } = React.useContext(SettingsDialogContext);
 
 
@@ -95,11 +93,7 @@ export function SettingsDialog({ children }: { children: React.ReactNode }) {
         setCurrentSignature(savedSignature);
       }
     }
-
-    if (!avatarFile) {
-      setAvatarPreview(avatarUrl ?? null);
-    }
-  }, [roles, signatureUrl, avatarUrl, avatarFile]);
+  }, [roles, signatureUrl]);
 
   useEffect(() => {
     return () => {
@@ -108,6 +102,10 @@ export function SettingsDialog({ children }: { children: React.ReactNode }) {
       }
     };
   }, [avatarPreview]);
+
+  useEffect(() => {
+    setAvatarPreview(me?.urlFoto ?? null);
+  }, [me?.urlFoto]);
 
   const handleThemeChange = (isDark: boolean) => {
     const newTheme = isDark ? 'dark' : 'light';
@@ -181,38 +179,23 @@ export function SettingsDialog({ children }: { children: React.ReactNode }) {
     profileImageUploadRef.current?.click();
   };
 
-  const handleAvatarFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0] ?? null;
-    if (file) {
-      const objectUrl = URL.createObjectURL(file);
-      setAvatarPreview(objectUrl);
-      setAvatarFile(file);
-    } else {
-      setAvatarFile(null);
-      setAvatarPreview(avatarUrl ?? null);
+  const handleAvatarFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !me?.id) {
+      if (event.target) {
+        event.target.value = '';
+      }
+      return;
     }
-    if (event.target) {
-      event.target.value = '';
-    }
-  };
 
-  const handleAvatarCancel = () => {
-    setAvatarFile(null);
-    setAvatarPreview(avatarUrl ?? null);
-    if (profileImageUploadRef.current) profileImageUploadRef.current.value = '';
-  };
+    const objectUrl = URL.createObjectURL(file);
+    setAvatarPreview(objectUrl);
+    setIsUpdatingAvatar(true);
 
-  const handleAvatarSave = async () => {
-    if (!avatarFile) return;
-    setIsSavingAvatar(true);
     try {
-      await updateMyAvatar(avatarFile);
-      toast({
-        title: 'Foto de perfil actualizada',
-        description: 'Tu foto de perfil se actualizó correctamente.',
-      });
-      setAvatarFile(null);
-      if (profileImageUploadRef.current) profileImageUploadRef.current.value = '';
+      const formData = buildUserFormData({}, file);
+      await updateUser(Number(me.id), formData);
+      toast({ title: 'Foto actualizada' });
       await refresh();
     } catch {
       toast({
@@ -220,8 +203,36 @@ export function SettingsDialog({ children }: { children: React.ReactNode }) {
         title: 'Error',
         description: 'No se pudo actualizar la foto de perfil.',
       });
+      setAvatarPreview(me?.urlFoto ?? null);
     } finally {
-      setIsSavingAvatar(false);
+      setIsUpdatingAvatar(false);
+      if (event.target) {
+        event.target.value = '';
+      }
+    }
+  };
+
+  const handleAvatarRemove = async () => {
+    if (!me?.id) return;
+    setIsUpdatingAvatar(true);
+    setAvatarPreview(null);
+    try {
+      const formData = buildUserFormData({ urlFoto: '' });
+      await updateUser(Number(me.id), formData);
+      toast({ title: 'Foto eliminada' });
+      await refresh();
+    } catch {
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'No se pudo actualizar la foto de perfil.',
+      });
+      setAvatarPreview(me?.urlFoto ?? null);
+    } finally {
+      setIsUpdatingAvatar(false);
+      if (profileImageUploadRef.current) {
+        profileImageUploadRef.current.value = '';
+      }
     }
   };
 
@@ -247,10 +258,7 @@ export function SettingsDialog({ children }: { children: React.ReactNode }) {
         </DialogHeader>
         <div className="grid gap-6 py-4 flex-1 overflow-y-auto pr-6 pl-1 -mr-6">
           <div className="flex items-center gap-4">
-            <Avatar className="h-20 w-20">
-              <AvatarImage src={avatarPreview ?? undefined} alt="Profile" data-ai-hint="person avatar" />
-              <AvatarFallback>{initials(displayName ?? userRole ?? 'UG')}</AvatarFallback>
-            </Avatar>
+            <UserAvatar size="lg" url={avatarPreview} name={me?.nombre ?? 'Usuario'} />
             <div className="flex-grow space-y-2">
               <Label>Foto de perfil</Label>
               <p className="text-xs text-muted-foreground">
@@ -264,20 +272,23 @@ export function SettingsDialog({ children }: { children: React.ReactNode }) {
                 onChange={handleAvatarFileChange}
               />
               <div className="flex flex-wrap gap-2">
-                <Button variant="outline" onClick={handleProfileImageUploadClick}>
-                  <Upload className="mr-2 h-4 w-4" />
+                <Button variant="outline" onClick={handleProfileImageUploadClick} disabled={isUpdatingAvatar}>
+                  {isUpdatingAvatar ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Upload className="mr-2 h-4 w-4" />
+                  )}
                   Cambiar foto
                 </Button>
-                {avatarFile && (
-                  <>
-                    <Button onClick={handleAvatarSave} disabled={isSavingAvatar}>
-                      {isSavingAvatar && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                      Guardar foto
-                    </Button>
-                    <Button type="button" variant="ghost" onClick={handleAvatarCancel}>
-                      Cancelar
-                    </Button>
-                  </>
+                {(avatarPreview || me?.urlFoto) && (
+                  <Button type="button" variant="ghost" onClick={handleAvatarRemove} disabled={isUpdatingAvatar}>
+                    {isUpdatingAvatar ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <Trash2 className="mr-2 h-4 w-4" />
+                    )}
+                    Quitar foto
+                  </Button>
                 )}
               </div>
             </div>
