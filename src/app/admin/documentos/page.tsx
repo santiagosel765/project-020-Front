@@ -29,7 +29,7 @@ function toUiDocument(d: DocumentoRow): Document {
   ).map((f) => ({
     id: String(f.id),
     name: f.nombre,
-    avatar: f.urlFoto ?? undefined,
+    avatar: (f.urlFoto ?? (f as any).avatar ?? null) ?? undefined,
     responsibility: f.responsabilidad,
     department: "",
     employeeCode: "",

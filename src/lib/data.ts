@@ -81,7 +81,7 @@ function mapUserFromApi(u: any): UiUser {
     u?.gerenciaNombre ??
     u?.gerencia_nombre ??
     (typeof u?.gerencia?.nombre === 'string' ? u.gerencia.nombre : undefined);
-  const foto = u?.url_foto ?? u?.urlFoto ?? u?.foto_perfil ?? null;
+  const foto = u?.urlFoto ?? u?.url_foto ?? u?.foto_perfil ?? null;
 
   const roles = Array.isArray(u?.roles)
     ? u.roles

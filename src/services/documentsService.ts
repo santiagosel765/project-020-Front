@@ -30,6 +30,7 @@ export type DocumentoRow = {
     nombre: string;
     iniciales: string;
     urlFoto: string | null;
+    avatar?: string | null;
     responsabilidad: string;
   }>;
 };
@@ -65,6 +66,8 @@ export type Signer = {
   gerencia?: string | null;
   estaFirmado: boolean;
   diasTranscurridos?: number;
+  urlFoto?: string | null;
+  avatar?: string | null;
 };
 
 export type DocumentDetail = {
@@ -94,6 +97,10 @@ export type SignerSummary = {
     codigo_empleado?: string | null;
     posicion?: { nombre?: string | null } | null;
     gerencia?: { nombre?: string | null } | null;
+    url_foto?: string | null;
+    urlFoto?: string | null;
+    avatar?: string | null;
+    foto_perfil?: string | null;
   };
   responsabilidad_firma: { id: number; nombre: string };
 };
@@ -106,7 +113,14 @@ export type SignerPending = {
 };
 
 export type SignerFull = {
-  user: { id: number; nombre: string; posicion?: string; gerencia?: string };
+  user: {
+    id: number;
+    nombre: string;
+    posicion?: string;
+    gerencia?: string;
+    urlFoto?: string | null;
+    avatar?: string | null;
+  };
   responsabilidad: { id: number; nombre: string };
   estaFirmado: boolean;
 };
@@ -136,12 +150,16 @@ const toDocumentoRow = (d: any): DocumentoRow => {
         id: Number(f.id ?? 0),
         nombre: f.nombre ?? '',
         iniciales: f.iniciales ?? initials(f.nombre ?? ''),
-        urlFoto: f.urlFoto ?? null,
+        ...(() => {
+          const foto = f.urlFoto ?? f.avatar ?? null;
+          return { urlFoto: foto, avatar: foto };
+        })(),
         responsabilidad: f.responsabilidad ?? '',
       }))
     : Array.isArray(x.cuadro_firma_user)
     ? x.cuadro_firma_user.map((f: any) => {
         const u = f.user ?? {};
+        const foto = u.urlFoto ?? u.url_foto ?? u.foto_perfil ?? null;
         const nombre = [
           u.primer_nombre,
           u.segundo_name,
@@ -156,7 +174,8 @@ const toDocumentoRow = (d: any): DocumentoRow => {
           id: Number(u.id ?? f.user_id ?? 0),
           nombre,
           iniciales: initials(nombre ?? ''),
-          urlFoto: u.url_foto ?? u.urlFoto ?? u.foto_perfil ?? null,
+          urlFoto: foto,
+          avatar: foto,
           responsabilidad: f.responsabilidad_firma?.nombre ?? '',
         };
       })
@@ -305,6 +324,7 @@ export async function getDocumentDetail(id: number): Promise<DocumentDetail> {
   const firmantes: Signer[] = Array.isArray(x.cuadro_firma_user)
     ? x.cuadro_firma_user.map((f: any) => {
         const u = f.user ?? {};
+        const foto = u.urlFoto ?? u.url_foto ?? u.foto_perfil ?? null;
         return {
           id: Number(u.id ?? 0),
           nombre: fullName(u),
@@ -321,6 +341,8 @@ export async function getDocumentDetail(id: number): Promise<DocumentDetail> {
           gerencia: u.gerencia?.nombre ?? null,
           estaFirmado: Boolean(f.estaFirmado),
           diasTranscurridos: f.diasTranscurridos ?? undefined,
+          urlFoto: foto,
+          avatar: foto,
         } as Signer;
       })
     : [];

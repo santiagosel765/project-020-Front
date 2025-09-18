@@ -25,7 +25,10 @@ export function SignersPanel({ firmantes, progress }: { firmantes: Signer[]; pro
           <li key={`${f.id}-${f.responsabilidad}`} className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <Avatar className="h-9 w-9">
-                <AvatarImage src={undefined} />
+                <AvatarImage
+                  src={f.urlFoto ?? f.avatar ?? undefined}
+                  alt={f.nombre}
+                />
                 <AvatarFallback>{f.iniciales}</AvatarFallback>
               </Avatar>
               <div className="text-sm">

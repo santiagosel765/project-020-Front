@@ -49,19 +49,24 @@ export default function DocumentDetailPage() {
     try {
       const det = await getCuadroFirmaDetalle(id, 3600);
       const fs = await getFirmantes(id);
-      const mapped: SignerFull[] = fs.map((f) => ({
-        user: {
-          id: Number(f.user.id),
-          nombre: fullName(f.user),
-          posicion: f.user.posicion?.nombre ?? undefined,
-          gerencia: f.user.gerencia?.nombre ?? undefined,
-        },
+      const mapped: SignerFull[] = fs.map((f) => {
+        const foto = f.user.urlFoto ?? f.user.url_foto ?? f.user.avatar ?? null;
+        return {
+          user: {
+            id: Number(f.user.id),
+            nombre: fullName(f.user),
+            posicion: f.user.posicion?.nombre ?? undefined,
+            gerencia: f.user.gerencia?.nombre ?? undefined,
+            urlFoto: foto ?? undefined,
+            avatar: foto ?? undefined,
+          },
         responsabilidad: {
           id: Number(f.responsabilidad_firma.id),
           nombre: f.responsabilidad_firma.nombre,
         },
         estaFirmado: f.estaFirmado,
-      }));
+        } satisfies SignerFull;
+      });
       setDetalle(det);
       setFirmantes(mapped);
     } catch (e) {
@@ -111,15 +116,20 @@ export default function DocumentDetailPage() {
   const progress = firmantes.length
     ? (firmantes.filter((f) => f.estaFirmado).length / firmantes.length) * 100
     : 0;
-  const signersPanel: Signer[] = firmantes.map((f) => ({
-    id: f.user.id,
-    nombre: f.user.nombre,
-    iniciales: initials(f.user.nombre),
-    responsabilidad: f.responsabilidad.nombre,
-    puesto: f.user.posicion,
-    gerencia: f.user.gerencia,
-    estaFirmado: f.estaFirmado,
-  }));
+  const signersPanel: Signer[] = firmantes.map((f) => {
+    const foto = f.user.urlFoto ?? f.user.avatar ?? null;
+    return {
+      id: f.user.id,
+      nombre: f.user.nombre,
+      iniciales: initials(f.user.nombre),
+      responsabilidad: f.responsabilidad.nombre,
+      puesto: f.user.posicion,
+      gerencia: f.user.gerencia,
+      estaFirmado: f.estaFirmado,
+      urlFoto: foto,
+      avatar: foto,
+    } satisfies Signer;
+  });
 
   const orderResponsabilidad = (nombre: string) => {
     const n = nombre.toLowerCase();

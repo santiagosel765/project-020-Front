@@ -2,7 +2,7 @@
 
 import React from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { initialsFromUser, fullName, subtitleFromUser } from "@/lib/avatar";
 import type { SignerSummary } from "@/services/documentsService";
@@ -34,6 +34,10 @@ export function SignersModal({ open, onOpenChange, firmantes, loading }: Signers
                 className="flex items-center gap-4"
               >
                 <Avatar>
+                  <AvatarImage
+                    src={f.user.urlFoto ?? f.user.url_foto ?? f.user.avatar ?? undefined}
+                    alt={fullName(f.user) || f.user.correo_institucional}
+                  />
                   <AvatarFallback>{initialsFromUser(f.user)}</AvatarFallback>
                 </Avatar>
                 <div className="flex flex-col">
