@@ -220,16 +220,16 @@ const toCatalogItem = (item: ApiCatalogItem): CatalogoItem => ({
 });
 
 export async function getPosiciones({ all = 0 }: { all?: number } = {}): Promise<CatalogoItem[]> {
-  const { data } = await api.get(`/v1/posiciones?all=${all}`);
+  const { data } = await api.get(`/posiciones?all=${all}`);
   return normalizeList<ApiCatalogItem>(data).map(toCatalogItem);
 }
 
 export async function getGerencias({ all = 0 }: { all?: number } = {}): Promise<CatalogoItem[]> {
-  const { data } = await api.get(`/v1/gerencias?all=${all}`);
+  const { data } = await api.get(`/gerencias?all=${all}`);
   return normalizeList<ApiCatalogItem>(data).map(toCatalogItem);
 }
 
 export async function getRoles({ all = 0 }: { all?: number } = {}): Promise<CatalogoItem[]> {
-  const { data } = await api.get(`/v1/roles?all=${all}`);
+  const { data } = await api.get(`/roles?all=${all}`);
   return normalizeList<ApiCatalogItem>(data).map(toCatalogItem);
 }
