@@ -11,6 +11,7 @@ import { User } from '@/lib/data';
 import { UserFormModal } from './user-form-modal';
 import { useToast } from '@/hooks/use-toast';
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
+import { Badge } from './ui/badge';
 import { UserPasswordDialog } from './user-password-dialog';
 import { useSession } from '@/lib/session';
 
@@ -147,9 +148,32 @@ export function UsersTable({ users, onSaveUser, onDeleteUser }: UsersTableProps)
                       <AvatarFallback>{getInitials(user)}</AvatarFallback>
                     </Avatar>
                   </TableCell>
-                  <TableCell className="font-medium">{getFullName(user)}</TableCell>
-                  <TableCell className="hidden md:table-cell">{user.posicionId}</TableCell>
-                  <TableCell className="hidden lg:table-cell">{user.gerenciaId}</TableCell>
+                  <TableCell className="font-medium">
+                    <div>{getFullName(user)}</div>
+                    {Array.isArray(user.roles) && user.roles.length > 0 && (
+                      <div className="mt-1 flex flex-wrap gap-1">
+                        {user.roles.map((role) => (
+                          <Badge key={`${user.id}-role-${role.id}`} variant="secondary" className="text-xs">
+                            {role.nombre}
+                          </Badge>
+                        ))}
+                      </div>
+                    )}
+                  </TableCell>
+                  <TableCell className="hidden md:table-cell">
+                    {user.posicionNombre?.trim()
+                      ? user.posicionNombre
+                      : user.posicionId != null && String(user.posicionId).trim() !== ''
+                      ? String(user.posicionId)
+                      : '—'}
+                  </TableCell>
+                  <TableCell className="hidden lg:table-cell">
+                    {user.gerenciaNombre?.trim()
+                      ? user.gerenciaNombre
+                      : user.gerenciaId != null && String(user.gerenciaId).trim() !== ''
+                      ? String(user.gerenciaId)
+                      : '—'}
+                  </TableCell>
                   <TableCell className="hidden md:table-cell">{user.codigoEmpleado}</TableCell>
                   <TableCell className="hidden xl:table-cell">{user.telefono}</TableCell>
                   <TableCell className="hidden xl:table-cell">{user.correoInstitucional}</TableCell>
