@@ -17,7 +17,6 @@ import { useServerPagination } from "@/hooks/useServerPagination";
 
 function toUiDocument(d: DocumentoRow): Document {
   const add = d.add_date ?? "";
-  const onlyDate = add ? String(add).split("T")[0] : "";
   const assignedUsers = (d.firmantesResumen && d.firmantesResumen.length
     ? d.firmantesResumen
     : Array.from({ length: 3 }).map((_, i) => ({
@@ -39,7 +38,7 @@ function toUiDocument(d: DocumentoRow): Document {
     code: "",
     name: d.titulo ?? "",
     description: d.descripcion ?? "",
-    sendDate: onlyDate,
+    sendDate: add,
     status: (d.estado?.nombre ?? "") as Document["status"],
     businessDays: d.diasTranscurridos ?? 0,
     assignedUsers,

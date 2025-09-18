@@ -11,8 +11,8 @@ import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { PageFormModal, PageForm } from './page-form-modal';
 import type { Page } from '@/services/pageService';
-import { format } from 'date-fns';
 import { PaginationBar } from './pagination/PaginationBar';
+import { DateCell } from '@/components/DateCell';
 
 interface PagesTableProps {
   pages: Page[];
@@ -117,7 +117,7 @@ export function PagesTable({
                     </Badge>
                   </TableCell>
                   <TableCell className="hidden md:table-cell">
-                    {page.createdAt ? format(new Date(page.createdAt), 'dd/MM/yyyy') : ''}
+                    <DateCell value={page.createdAt} />
                   </TableCell>
                   <TableCell>
                     <DropdownMenu>

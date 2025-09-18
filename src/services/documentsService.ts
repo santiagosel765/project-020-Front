@@ -2,6 +2,7 @@ import { api } from '@/lib/api';
 import { unwrapArray, unwrapPaginated, unwrapOne } from '@/lib/apiEnvelope';
 import { hasPaginationMeta, normalizePaginationMeta, paginateArray, type PaginatedResult } from '@/lib/pagination';
 import { initials, fullName, initialsFromFullName } from '@/lib/avatar';
+import { getTime } from '@/lib/date';
 
 export type DocEstado = 'Pendiente' | 'En Progreso' | 'Rechazado' | 'Completado';
 export type SupervisionDoc = {
@@ -210,11 +211,7 @@ const toSupervisionDoc = (d: any): SupervisionDoc => {
   };
 };
 
-const parseDateValue = (value?: string | null) => {
-  if (!value) return 0;
-  const timestamp = Date.parse(value);
-  return Number.isFinite(timestamp) ? timestamp : 0;
-};
+const parseDateValue = (value?: string | null) => getTime(value);
 
 export async function createCuadroFirma(body: FormData) {
   const { data } = await api.post('/documents/cuadro-firmas', body, { timeout: 60000 });

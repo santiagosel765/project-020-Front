@@ -18,7 +18,6 @@ import { useServerPagination } from "@/hooks/useServerPagination";
 function toUiDocument(a: AsignacionDTO): Document {
   const cf = a.cuadro_firma;
   const add = cf.add_date ?? "";
-  const onlyDate = add ? String(add).split("T")[0] : "";
   const srcFirmantes =
     Array.isArray((cf as any).firmantesResumen) && (cf as any).firmantesResumen.length
       ? (cf as any).firmantesResumen
@@ -58,7 +57,7 @@ function toUiDocument(a: AsignacionDTO): Document {
     code: cf.codigo ?? "",
     name: cf.titulo ?? "",
     description: cf.descripcion ?? "",
-    sendDate: onlyDate,
+    sendDate: add,
     status: (cf.estado_firma?.nombre ?? "") as Document["status"],
     businessDays: cf.diasTranscurridos ?? 0,
     assignedUsers,

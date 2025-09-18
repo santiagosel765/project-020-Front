@@ -11,8 +11,8 @@ import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { RoleFormModal, RoleForm } from './role-form-modal';
 import type { Role } from '@/services/roleService';
-import { format } from 'date-fns';
 import { PaginationBar } from './pagination/PaginationBar';
+import { DateCell } from '@/components/DateCell';
 
 interface RolesTableProps {
   roles: Role[];
@@ -115,7 +115,7 @@ export function RolesTable({
                     </Badge>
                   </TableCell>
                   <TableCell className="hidden md:table-cell">
-                    {role.createdAt ? format(new Date(role.createdAt), 'dd/MM/yyyy') : ''}
+                    <DateCell value={role.createdAt} />
                   </TableCell>
                   <TableCell>
                     <DropdownMenu>
