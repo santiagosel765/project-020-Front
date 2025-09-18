@@ -2,8 +2,12 @@
 import React from 'react';
 import { formatGT, formatGTDateTime } from '@/lib/date';
 
-export function DateCell({ value, withTime = false }: { value?: string | Date | null; withTime?: boolean }) {
-  const shown = withTime ? formatGTDateTime(value) : formatGT(value);
-  const title = formatGTDateTime(value) || '';
+export function DateCell({
+  value,
+  withTime = false,
+  ampm = 'upper',
+}: { value?: string | Date | null; withTime?: boolean; ampm?: 'upper' | 'locale' }) {
+  const shown = withTime ? formatGTDateTime(value, { ampm }) : formatGT(value);
+  const title = formatGTDateTime(value, { ampm: 'upper' }) || '';
   return <span title={title}>{shown || '—'}</span>;
 }
