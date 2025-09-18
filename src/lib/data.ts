@@ -3,8 +3,14 @@ import api from './axiosConfig';
 // =======================
 // Tipos de usuario
 // =======================
-export interface User {
-  id?: string;
+export interface CatalogoItem {
+  id: number;
+  nombre: string;
+  activo?: boolean | null;
+}
+
+export interface UiUser {
+  id: string;
   primerNombre: string;
   segundoNombre?: string;
   tercerNombre?: string;
@@ -12,13 +18,16 @@ export interface User {
   segundoApellido?: string;
   apellidoCasada?: string;
   codigoEmpleado: string;
-  posicionId: string;
-  gerenciaId: string;
+  posicionId?: number | null;
+  posicionNombre?: string | null;
+  gerenciaId?: number | null;
+  gerenciaNombre?: string | null;
   correoInstitucional: string;
   telefono: string;
   activo?: boolean;
   fotoPerfil?: string;
   urlFoto?: string | null;
+  roles?: Array<{ id: number; nombre: string }>;
   /** Campos agregados para componentes de UI */
   name: string;
   position: string;
@@ -27,7 +36,9 @@ export interface User {
   employeeCode?: string;
 }
 
-export interface DocumentUser extends User {
+export type User = UiUser;
+
+export interface DocumentUser extends UiUser {
   responsibility?: 'REVISA' | 'APRUEBA' | 'ENTERADO';
   statusChangeDate?: string;
   status?: 'FIRMADO' | 'RECHAZADO' | 'PENDIENTE';
@@ -53,25 +64,63 @@ export interface Document {
 // =======================
 // Helpers de mapeo
 // =======================
-function mapUserFromApi(u: any): User {
-  const user: User = {
-    id: u.id,
-    primerNombre: u.primer_nombre,
-    segundoNombre: u.segundo_nombre,
-    tercerNombre: u.tercer_nombre,
-    primerApellido: u.primer_apellido,
-    segundoApellido: u.segundo_apellido,
-    apellidoCasada: u.apellido_casada,
-    codigoEmpleado: u.codigo_empleado,
-    posicionId: u.posicion_id,
-    gerenciaId: u.gerencia_id,
-    correoInstitucional: u.correo_institucional,
-    telefono: u.telefono,
-    urlFoto: u.url_foto ?? u.urlFoto ?? u.foto_perfil ?? null,
-    fotoPerfil: u.url_foto ?? u.urlFoto ?? u.foto_perfil ?? '',
+function mapUserFromApi(u: any): UiUser {
+  const posicionId =
+    u?.posicion_id ??
+    u?.posicionId ??
+    (typeof u?.posicion?.id === 'number' ? u.posicion.id : undefined);
+  const gerenciaId =
+    u?.gerencia_id ??
+    u?.gerenciaId ??
+    (typeof u?.gerencia?.id === 'number' ? u.gerencia.id : undefined);
+  const posicionNombre =
+    u?.posicion_nombre ??
+    u?.posicionNombre ??
+    (typeof u?.posicion?.nombre === 'string' ? u.posicion.nombre : undefined);
+  const gerenciaNombre =
+    u?.gerencia_nombre ??
+    u?.gerenciaNombre ??
+    (typeof u?.gerencia?.nombre === 'string' ? u.gerencia.nombre : undefined);
+  const foto = u?.url_foto ?? u?.urlFoto ?? u?.foto_perfil ?? null;
+
+  const roles = Array.isArray(u?.roles)
+    ? u.roles
+        .map((r: any) => ({
+          id: typeof r?.id === 'number' ? r.id : Number(r?.id),
+          nombre:
+            typeof r?.nombre === 'string'
+              ? r.nombre
+              : typeof r?.name === 'string'
+              ? r.name
+              : '',
+        }))
+        .filter((r) => Number.isFinite(r.id) && r.nombre.trim() !== '')
+    : [];
+
+  const user: UiUser = {
+    id: String(u?.id ?? ''),
+    primerNombre: u?.primer_nombre ?? u?.primerNombre ?? '',
+    segundoNombre: u?.segundo_nombre ?? u?.segundoNombre ?? '',
+    tercerNombre: u?.tercer_nombre ?? u?.tercerNombre ?? '',
+    primerApellido: u?.primer_apellido ?? u?.primerApellido ?? '',
+    segundoApellido: u?.segundo_apellido ?? u?.segundoApellido ?? '',
+    apellidoCasada: u?.apellido_casada ?? u?.apellidoCasada ?? '',
+    codigoEmpleado: u?.codigo_empleado ?? u?.codigoEmpleado ?? '',
+    posicionId: posicionId != null ? Number(posicionId) : null,
+    posicionNombre: posicionNombre ?? null,
+    gerenciaId: gerenciaId != null ? Number(gerenciaId) : null,
+    gerenciaNombre: gerenciaNombre ?? null,
+    correoInstitucional: u?.correo_institucional ?? u?.correoInstitucional ?? '',
+    telefono: u?.telefono ?? '',
+    activo: u?.activo ?? true,
+    fotoPerfil: foto ?? undefined,
+    urlFoto: foto,
+    roles,
     name: '',
     position: '',
     department: '',
+    avatar: foto ?? undefined,
+    employeeCode: u?.codigo_empleado ?? u?.codigoEmpleado ?? undefined,
   };
 
   user.name = [
@@ -84,9 +133,9 @@ function mapUserFromApi(u: any): User {
   ]
     .filter(Boolean)
     .join(' ');
-  user.position = user.posicionId;
-  user.department = user.gerenciaId;
-  user.avatar = user.urlFoto ?? user.fotoPerfil;
+  user.position = user.posicionNombre ?? (user.posicionId != null ? String(user.posicionId) : '');
+  user.department = user.gerenciaNombre ?? (user.gerenciaId != null ? String(user.gerenciaId) : '');
+  user.avatar = user.urlFoto ?? user.fotoPerfil ?? undefined;
   user.employeeCode = user.codigoEmpleado;
 
   return user;

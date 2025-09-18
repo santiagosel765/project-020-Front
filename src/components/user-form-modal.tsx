@@ -22,18 +22,32 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { Loader2 } from "lucide-react";
-import type { User } from "@/lib/data";
+import { Loader2, ChevronDown } from "lucide-react";
+import type { CatalogoItem, UiUser } from "@/lib/data";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { initialsFromFullName } from "@/lib/avatar";
-
-type UserForm = Omit<User, "name" | "position" | "department">;
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Badge } from "@/components/ui/badge";
+import {
+  getPosiciones,
+  getGerencias,
+  getRoles as getRolesCatalog,
+  type UserFormPayload,
+} from "@/services/usersService";
 
 interface UserFormModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (user: UserForm, file?: File | null) => Promise<void> | void;
-  user?: UserForm;
+  onSave: (user: UserFormPayload, file?: File | null) => Promise<void> | void;
+  user?: UiUser;
 }
 
 const formSchema = z.object({
@@ -49,10 +63,14 @@ const formSchema = z.object({
   gerenciaId: z.string().min(1, "La gerencia es requerida."),
   correoInstitucional: z.string().email("Debe ser un correo válido."),
   telefono: z.string().regex(/^\d{8}$/, "El teléfono debe tener 8 dígitos."),
+  roleIds: z.array(z.number()).default([]),
   urlFoto: z.string().optional().nullable(),
 });
 
-const defaultUserValues: Omit<UserForm, "id"> = {
+type FormValues = z.infer<typeof formSchema>;
+
+const defaultUserValues: FormValues = {
+  id: undefined,
   primerNombre: "",
   segundoNombre: "",
   tercerNombre: "",
@@ -64,6 +82,7 @@ const defaultUserValues: Omit<UserForm, "id"> = {
   gerenciaId: "",
   correoInstitucional: "",
   telefono: "",
+  roleIds: [],
   urlFoto: null,
 };
 
@@ -73,24 +92,84 @@ export function UserFormModal({
   onSave,
   user,
 }: UserFormModalProps) {
-  const form = useForm<UserForm>({
+  const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
-    defaultValues: user ? { ...user } : defaultUserValues,
+    defaultValues: defaultUserValues,
   });
 
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [posiciones, setPosiciones] = useState<CatalogoItem[]>([]);
+  const [gerencias, setGerencias] = useState<CatalogoItem[]>([]);
+  const [rolesCatalog, setRolesCatalog] = useState<CatalogoItem[]>([]);
+  const [isLoadingCatalogs, setIsLoadingCatalogs] = useState(false);
 
   useEffect(() => {
-    if (isOpen) {
-      const url = user?.urlFoto ?? user?.fotoPerfil ?? null;
-      setPreviewUrl(url);
-      setSelectedFile(null);
-      form.reset(user ? { ...user, urlFoto: url } : defaultUserValues);
-      if (fileInputRef.current) fileInputRef.current.value = "";
-    }
+    if (!isOpen) return;
+
+    const url = user?.urlFoto ?? user?.fotoPerfil ?? null;
+    setPreviewUrl(url);
+    setSelectedFile(null);
+
+    const currentRoles = Array.isArray(user?.roles) ? user?.roles ?? [] : [];
+    const roleIds = currentRoles
+      .map((role) => (typeof role?.id === "number" ? role.id : Number(role?.id)))
+      .filter((id): id is number => Number.isFinite(id));
+
+    const values: FormValues = user
+      ? {
+          id: user.id ?? undefined,
+          primerNombre: user.primerNombre ?? "",
+          segundoNombre: user.segundoNombre ?? "",
+          tercerNombre: user.tercerNombre ?? "",
+          primerApellido: user.primerApellido ?? "",
+          segundoApellido: user.segundoApellido ?? "",
+          apellidoCasada: user.apellidoCasada ?? "",
+          codigoEmpleado: user.codigoEmpleado ?? "",
+          posicionId: user.posicionId != null ? String(user.posicionId) : "",
+          gerenciaId: user.gerenciaId != null ? String(user.gerenciaId) : "",
+          correoInstitucional: user.correoInstitucional ?? "",
+          telefono: user.telefono ?? "",
+          roleIds,
+          urlFoto: url,
+        }
+      : { ...defaultUserValues };
+
+    form.reset(values);
+    if (fileInputRef.current) fileInputRef.current.value = "";
   }, [isOpen, user, form]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    let active = true;
+    setIsLoadingCatalogs(true);
+
+    (async () => {
+      try {
+        const [pos, ger, rol] = await Promise.all([
+          getPosiciones({ all: 0 }),
+          getGerencias({ all: 0 }),
+          getRolesCatalog({ all: 0 }),
+        ]);
+        if (!active) return;
+        setPosiciones(pos);
+        setGerencias(ger);
+        setRolesCatalog(rol);
+      } catch (error) {
+        console.error("Error al cargar catálogos de usuario", error);
+      } finally {
+        if (active) {
+          setIsLoadingCatalogs(false);
+        }
+      }
+    })();
+
+    return () => {
+      active = false;
+    };
+  }, [isOpen]);
 
   useEffect(() => {
     return () => {
@@ -100,8 +179,23 @@ export function UserFormModal({
     };
   }, [previewUrl]);
 
-  const onSubmit = async (data: UserForm) => {
-    const payload = { ...data, urlFoto: previewUrl ?? null };
+  const onSubmit = async (data: FormValues) => {
+    const payload: UserFormPayload = {
+      id: data.id,
+      primerNombre: data.primerNombre,
+      segundoNombre: data.segundoNombre,
+      tercerNombre: data.tercerNombre,
+      primerApellido: data.primerApellido,
+      segundoApellido: data.segundoApellido,
+      apellidoCasada: data.apellidoCasada,
+      codigoEmpleado: data.codigoEmpleado,
+      posicionId: data.posicionId ? Number(data.posicionId) : undefined,
+      gerenciaId: data.gerenciaId ? Number(data.gerenciaId) : undefined,
+      correoInstitucional: data.correoInstitucional,
+      telefono: data.telefono,
+      urlFoto: previewUrl ?? null,
+      roleIds: Array.isArray(data.roleIds) ? data.roleIds : [],
+    };
     await onSave(payload, selectedFile);
   };
 
@@ -310,10 +404,35 @@ export function UserFormModal({
                   name="posicionId"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Posición ID</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Ej: POS123" {...field} />
-                      </FormControl>
+                      <FormLabel>Posición</FormLabel>
+                      <Select
+                        disabled={isLoadingCatalogs && posiciones.length === 0}
+                        onValueChange={field.onChange}
+                        value={field.value || undefined}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue
+                              placeholder={
+                                isLoadingCatalogs ? "Cargando posiciones..." : "Seleccione una posición"
+                              }
+                            />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {posiciones.length ? (
+                            posiciones.map((posicion) => (
+                              <SelectItem key={posicion.id} value={String(posicion.id)}>
+                                {posicion.nombre}
+                              </SelectItem>
+                            ))
+                          ) : (
+                            <SelectItem value="__posicion_placeholder" disabled>
+                              {isLoadingCatalogs ? "Cargando..." : "Sin posiciones disponibles"}
+                            </SelectItem>
+                          )}
+                        </SelectContent>
+                      </Select>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -323,13 +442,125 @@ export function UserFormModal({
                   name="gerenciaId"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Gerencia ID</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Ej: GER456" {...field} />
-                      </FormControl>
+                      <FormLabel>Gerencia</FormLabel>
+                      <Select
+                        disabled={isLoadingCatalogs && gerencias.length === 0}
+                        onValueChange={field.onChange}
+                        value={field.value || undefined}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue
+                              placeholder={
+                                isLoadingCatalogs ? "Cargando gerencias..." : "Seleccione una gerencia"
+                              }
+                            />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {gerencias.length ? (
+                            gerencias.map((gerencia) => (
+                              <SelectItem key={gerencia.id} value={String(gerencia.id)}>
+                                {gerencia.nombre}
+                              </SelectItem>
+                            ))
+                          ) : (
+                            <SelectItem value="__gerencia_placeholder" disabled>
+                              {isLoadingCatalogs ? "Cargando..." : "Sin gerencias disponibles"}
+                            </SelectItem>
+                          )}
+                        </SelectContent>
+                      </Select>
                       <FormMessage />
                     </FormItem>
                   )}
+                />
+                <FormField
+                  control={form.control}
+                  name="roleIds"
+                  render={({ field }) => {
+                    const selectedIds = Array.isArray(field.value) ? field.value : [];
+                    const selectedRoles = selectedIds.map((id) => {
+                      const found = rolesCatalog.find((role) => role.id === id);
+                      return { id, nombre: found?.nombre ?? `ID ${id}` };
+                    });
+
+                    return (
+                      <FormItem>
+                        <FormLabel>Roles</FormLabel>
+                        <FormControl>
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                role="combobox"
+                                className="w-full justify-between"
+                                disabled={isLoadingCatalogs && rolesCatalog.length === 0}
+                              >
+                                <span className="truncate text-left">
+                                  {selectedIds.length > 0
+                                    ? `${selectedIds.length} rol${selectedIds.length === 1 ? "" : "es"} seleccionados`
+                                    : isLoadingCatalogs
+                                    ? "Cargando roles..."
+                                    : "Seleccione roles"}
+                                </span>
+                                <ChevronDown className="h-4 w-4 opacity-50" />
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-[260px] p-0" align="start">
+                              <div className="max-h-60 overflow-y-auto py-1">
+                                {rolesCatalog.length === 0 ? (
+                                  <div className="px-3 py-2 text-sm text-muted-foreground">
+                                    {isLoadingCatalogs ? (
+                                      <span className="flex items-center gap-2">
+                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                        Cargando...
+                                      </span>
+                                    ) : (
+                                      "No hay roles disponibles."
+                                    )}
+                                  </div>
+                                ) : (
+                                  rolesCatalog.map((role) => {
+                                    const isSelected = selectedIds.includes(role.id);
+                                    return (
+                                      <label
+                                        key={role.id}
+                                        className="flex cursor-pointer items-center gap-2 px-3 py-1.5 text-sm hover:bg-muted"
+                                      >
+                                        <Checkbox
+                                          checked={isSelected}
+                                          onCheckedChange={(checked) => {
+                                            const next = checked === true
+                                              ? Array.from(new Set([...selectedIds, role.id]))
+                                              : selectedIds.filter((id) => id !== role.id);
+                                            field.onChange(next);
+                                          }}
+                                          className="h-4 w-4"
+                                        />
+                                        <span className="flex-1 truncate">{role.nombre}</span>
+                                      </label>
+                                    );
+                                  })
+                                )}
+                              </div>
+                            </PopoverContent>
+                          </Popover>
+                        </FormControl>
+                        {selectedRoles.length > 0 && (
+                          <div className="flex flex-wrap gap-2 pt-2">
+                            {selectedRoles.map((role) => (
+                              <Badge key={role.id} variant="secondary">
+                                {role.nombre}
+                              </Badge>
+                            ))}
+                          </div>
+                        )}
+                        <FormMessage />
+                      </FormItem>
+                    );
+                  }}
                 />
                 <FormField
                   control={form.control}
