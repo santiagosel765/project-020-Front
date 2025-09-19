@@ -231,7 +231,7 @@ export function UserFormModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="glassmorphism flex flex-col sm:max-w-4xl h-full sm:h-auto sm:max-h-[90vh]">
+      <DialogContent className="glassmorphism flex flex-col max-w-4xl md:max-w-5xl h-full sm:h-auto sm:max-h-[90vh]">
         <DialogHeader>
           <DialogTitle>
             {user ? "Editar Usuario" : "Crear Nuevo Usuario"}
@@ -248,349 +248,354 @@ export function UserFormModal({
             onSubmit={form.handleSubmit(onSubmit)}
             className="flex-1 flex flex-col overflow-hidden"
           >
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 flex-1 overflow-y-auto pr-4 -mr-4">
-              {/* Columna izquierda */}
-              <div className="space-y-6">
-                {/* Foto de perfil con preview */}
-                <FormField
-                  control={form.control}
-                  name="urlFoto"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Foto de Perfil</FormLabel>
-                      <FormControl>
-                        <div className="flex flex-col items-center space-y-4">
-                          <Avatar className="h-32 w-32">
-                            <AvatarImage src={previewUrl ?? undefined} alt="Foto de perfil" />
-                            <AvatarFallback>{avatarFallback}</AvatarFallback>
-                          </Avatar>
-                          <Input
-                            ref={fileInputRef}
-                            type="file"
-                            accept="image/*"
-                            onChange={(e) => {
-                              const file = e.target.files?.[0] ?? null;
-                              if (file) {
-                                const objectUrl = URL.createObjectURL(file);
-                                setPreviewUrl(objectUrl);
-                                setSelectedFile(file);
-                                field.onChange(objectUrl);
-                              } else {
-                                setPreviewUrl(null);
-                                setSelectedFile(null);
-                                field.onChange(null);
-                              }
-                            }}
-                          />
-                          {previewUrl && (
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              onClick={() => {
-                                setPreviewUrl(null);
-                                setSelectedFile(null);
-                                if (fileInputRef.current) fileInputRef.current.value = "";
-                                field.onChange(null);
-                              }}
-                            >
-                              Quitar foto
-                            </Button>
-                          )}
-                        </div>
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+            <div className="flex-1 overflow-y-auto pr-4 -mr-4">
+              <div className="space-y-8">
+                <section className="grid grid-cols-1 md:grid-cols-12 gap-6">
+                  <div className="md:col-span-3 flex items-center justify-center md:justify-start">
+                    <Avatar className="h-28 w-28 md:h-32 md:w-32">
+                      <AvatarImage src={previewUrl ?? undefined} alt="Foto de perfil" />
+                      <AvatarFallback>{avatarFallback}</AvatarFallback>
+                    </Avatar>
+                  </div>
+                  <div className="md:col-span-6">
+                    <FormField
+                      control={form.control}
+                      name="urlFoto"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="mb-2 block">Foto de Perfil</FormLabel>
+                          <FormControl>
+                            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                              <Input
+                                ref={fileInputRef}
+                                type="file"
+                                accept="image/*"
+                                onChange={(e) => {
+                                  const file = e.target.files?.[0] ?? null;
+                                  if (file) {
+                                    const objectUrl = URL.createObjectURL(file);
+                                    setPreviewUrl(objectUrl);
+                                    setSelectedFile(file);
+                                    field.onChange(objectUrl);
+                                  } else {
+                                    setPreviewUrl(null);
+                                    setSelectedFile(null);
+                                    field.onChange(null);
+                                  }
+                                }}
+                              />
+                              {previewUrl && (
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  onClick={() => {
+                                    setPreviewUrl(null);
+                                    setSelectedFile(null);
+                                    if (fileInputRef.current) fileInputRef.current.value = "";
+                                    field.onChange(null);
+                                  }}
+                                >
+                                  Quitar foto
+                                </Button>
+                              )}
+                            </div>
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                  <div className="md:col-span-3" />
+                </section>
 
-                {/* Nombres y Apellidos */}
-                <FormField
-                  control={form.control}
-                  name="primerNombre"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Primer Nombre</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Ej: Ana" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="segundoNombre"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Segundo Nombre</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Ej: María" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="tercerNombre"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Tercer Nombre</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Ej: Isabel" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="primerApellido"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Primer Apellido</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Ej: García" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="segundoApellido"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Segundo Apellido</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Ej: López" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="apellidoCasada"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Apellido de Casada</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Ej: de García" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
+                <section className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-4">
+                    <FormField
+                      control={form.control}
+                      name="codigoEmpleado"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Código de Empleado</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Ej: EMP001" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="posicionId"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Posición</FormLabel>
+                          <Select
+                            disabled={isLoadingCatalogs && posiciones.length === 0}
+                            onValueChange={field.onChange}
+                            value={field.value || undefined}
+                          >
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue
+                                  placeholder={
+                                    isLoadingCatalogs ? "Cargando posiciones..." : "Seleccione una posición"
+                                  }
+                                />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {posiciones.length ? (
+                                posiciones.map((posicion) => (
+                                  <SelectItem key={posicion.id} value={String(posicion.id)}>
+                                    {posicion.nombre}
+                                  </SelectItem>
+                                ))
+                              ) : (
+                                <SelectItem value="__posicion_placeholder" disabled>
+                                  {isLoadingCatalogs ? "Cargando..." : "Sin posiciones disponibles"}
+                                </SelectItem>
+                              )}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="gerenciaId"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Gerencia</FormLabel>
+                          <Select
+                            disabled={isLoadingCatalogs && gerencias.length === 0}
+                            onValueChange={field.onChange}
+                            value={field.value || undefined}
+                          >
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue
+                                  placeholder={
+                                    isLoadingCatalogs ? "Cargando gerencias..." : "Seleccione una gerencia"
+                                  }
+                                />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {gerencias.length ? (
+                                gerencias.map((gerencia) => (
+                                  <SelectItem key={gerencia.id} value={String(gerencia.id)}>
+                                    {gerencia.nombre}
+                                  </SelectItem>
+                                ))
+                              ) : (
+                                <SelectItem value="__gerencia_placeholder" disabled>
+                                  {isLoadingCatalogs ? "Cargando..." : "Sin gerencias disponibles"}
+                                </SelectItem>
+                              )}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="roleIds"
+                      render={({ field }) => {
+                        const selectedIds = Array.isArray(field.value) ? field.value : [];
+                        const selectedRoles = selectedIds.map((id) => {
+                          const found = rolesCatalog.find((role) => role.id === id);
+                          return { id, nombre: found?.nombre ?? `ID ${id}` };
+                        });
 
-              {/* Columna derecha */}
-              <div className="space-y-6">
-                <FormField
-                  control={form.control}
-                  name="codigoEmpleado"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Código de Empleado</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Ej: EMP001" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="posicionId"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Posición</FormLabel>
-                      <Select
-                        disabled={isLoadingCatalogs && posiciones.length === 0}
-                        onValueChange={field.onChange}
-                        value={field.value || undefined}
-                      >
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue
-                              placeholder={
-                                isLoadingCatalogs ? "Cargando posiciones..." : "Seleccione una posición"
-                              }
-                            />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {posiciones.length ? (
-                            posiciones.map((posicion) => (
-                              <SelectItem key={posicion.id} value={String(posicion.id)}>
-                                {posicion.nombre}
-                              </SelectItem>
-                            ))
-                          ) : (
-                            <SelectItem value="__posicion_placeholder" disabled>
-                              {isLoadingCatalogs ? "Cargando..." : "Sin posiciones disponibles"}
-                            </SelectItem>
-                          )}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="gerenciaId"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Gerencia</FormLabel>
-                      <Select
-                        disabled={isLoadingCatalogs && gerencias.length === 0}
-                        onValueChange={field.onChange}
-                        value={field.value || undefined}
-                      >
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue
-                              placeholder={
-                                isLoadingCatalogs ? "Cargando gerencias..." : "Seleccione una gerencia"
-                              }
-                            />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {gerencias.length ? (
-                            gerencias.map((gerencia) => (
-                              <SelectItem key={gerencia.id} value={String(gerencia.id)}>
-                                {gerencia.nombre}
-                              </SelectItem>
-                            ))
-                          ) : (
-                            <SelectItem value="__gerencia_placeholder" disabled>
-                              {isLoadingCatalogs ? "Cargando..." : "Sin gerencias disponibles"}
-                            </SelectItem>
-                          )}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="roleIds"
-                  render={({ field }) => {
-                    const selectedIds = Array.isArray(field.value) ? field.value : [];
-                    const selectedRoles = selectedIds.map((id) => {
-                      const found = rolesCatalog.find((role) => role.id === id);
-                      return { id, nombre: found?.nombre ?? `ID ${id}` };
-                    });
-
-                    return (
-                      <FormItem>
-                        <FormLabel>Roles</FormLabel>
-                        <FormControl>
-                          <Popover>
-                            <PopoverTrigger asChild>
-                              <Button
-                                type="button"
-                                variant="outline"
-                                role="combobox"
-                                className="w-full justify-between"
-                                disabled={isLoadingCatalogs && rolesCatalog.length === 0}
-                              >
-                                <span className="truncate text-left">
-                                  {selectedIds.length > 0
-                                    ? `${selectedIds.length} rol${selectedIds.length === 1 ? "" : "es"} seleccionados`
-                                    : isLoadingCatalogs
-                                    ? "Cargando roles..."
-                                    : "Seleccione roles"}
-                                </span>
-                                <ChevronDown className="h-4 w-4 opacity-50" />
-                              </Button>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-[260px] p-0" align="start">
-                              <div className="max-h-60 overflow-y-auto py-1">
-                                {rolesCatalog.length === 0 ? (
-                                  <div className="px-3 py-2 text-sm text-muted-foreground">
-                                    {isLoadingCatalogs ? (
-                                      <span className="flex items-center gap-2">
-                                        <Loader2 className="h-4 w-4 animate-spin" />
-                                        Cargando...
-                                      </span>
+                        return (
+                          <FormItem>
+                            <FormLabel>Roles</FormLabel>
+                            <FormControl>
+                              <Popover>
+                                <PopoverTrigger asChild>
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    role="combobox"
+                                    className="w-full justify-between"
+                                    disabled={isLoadingCatalogs && rolesCatalog.length === 0}
+                                  >
+                                    <span className="truncate text-left">
+                                      {selectedIds.length > 0
+                                        ? `${selectedIds.length} rol${selectedIds.length === 1 ? "" : "es"} seleccionados`
+                                        : isLoadingCatalogs
+                                        ? "Cargando roles..."
+                                        : "Seleccione roles"}
+                                    </span>
+                                    <ChevronDown className="h-4 w-4 opacity-50" />
+                                  </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-[260px] p-0" align="start">
+                                  <div className="max-h-60 overflow-y-auto py-1">
+                                    {rolesCatalog.length === 0 ? (
+                                      <div className="px-3 py-2 text-sm text-muted-foreground">
+                                        {isLoadingCatalogs ? (
+                                          <span className="flex items-center gap-2">
+                                            <Loader2 className="h-4 w-4 animate-spin" />
+                                            Cargando...
+                                          </span>
+                                        ) : (
+                                          "No hay roles disponibles."
+                                        )}
+                                      </div>
                                     ) : (
-                                      "No hay roles disponibles."
+                                      rolesCatalog.map((role) => {
+                                        const isSelected = selectedIds.includes(role.id);
+                                        return (
+                                          <label
+                                            key={role.id}
+                                            className="flex cursor-pointer items-center gap-2 px-3 py-1.5 text-sm hover:bg-muted"
+                                          >
+                                            <Checkbox
+                                              checked={isSelected}
+                                              onCheckedChange={(checked) => {
+                                                const next =
+                                                  checked === true
+                                                    ? Array.from(new Set([...selectedIds, role.id]))
+                                                    : selectedIds.filter((id) => id !== role.id);
+                                                field.onChange(next);
+                                              }}
+                                              className="h-4 w-4"
+                                            />
+                                            <span className="flex-1 truncate">{role.nombre}</span>
+                                          </label>
+                                        );
+                                      })
                                     )}
                                   </div>
-                                ) : (
-                                  rolesCatalog.map((role) => {
-                                    const isSelected = selectedIds.includes(role.id);
-                                    return (
-                                      <label
-                                        key={role.id}
-                                        className="flex cursor-pointer items-center gap-2 px-3 py-1.5 text-sm hover:bg-muted"
-                                      >
-                                        <Checkbox
-                                          checked={isSelected}
-                                          onCheckedChange={(checked) => {
-                                            const next = checked === true
-                                              ? Array.from(new Set([...selectedIds, role.id]))
-                                              : selectedIds.filter((id) => id !== role.id);
-                                            field.onChange(next);
-                                          }}
-                                          className="h-4 w-4"
-                                        />
-                                        <span className="flex-1 truncate">{role.nombre}</span>
-                                      </label>
-                                    );
-                                  })
-                                )}
+                                </PopoverContent>
+                              </Popover>
+                            </FormControl>
+                            {selectedRoles.length > 0 && (
+                              <div className="flex flex-wrap gap-2 pt-2">
+                                {selectedRoles.map((role) => (
+                                  <Badge key={role.id} variant="secondary">
+                                    {role.nombre}
+                                  </Badge>
+                                ))}
                               </div>
-                            </PopoverContent>
-                          </Popover>
-                        </FormControl>
-                        {selectedRoles.length > 0 && (
-                          <div className="flex flex-wrap gap-2 pt-2">
-                            {selectedRoles.map((role) => (
-                              <Badge key={role.id} variant="secondary">
-                                {role.nombre}
-                              </Badge>
-                            ))}
-                          </div>
-                        )}
-                        <FormMessage />
-                      </FormItem>
-                    );
-                  }}
-                />
-                <FormField
-                  control={form.control}
-                  name="correoInstitucional"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Correo Institucional</FormLabel>
-                      <FormControl>
-                        <Input
-                          placeholder="Ej: ana.garcia@example.com"
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="telefono"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Teléfono</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Ej: 55550101" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                            )}
+                            <FormMessage />
+                          </FormItem>
+                        );
+                      }}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="correoInstitucional"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Correo Institucional</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Ej: ana.garcia@example.com" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="telefono"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Teléfono</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Ej: 55550101" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+
+                  <div className="space-y-4">
+                    <FormField
+                      control={form.control}
+                      name="primerNombre"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Primer Nombre</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Ej: Ana" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="segundoNombre"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Segundo Nombre</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Ej: María" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="tercerNombre"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Tercer Nombre</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Ej: Isabel" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="primerApellido"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Primer Apellido</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Ej: García" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="segundoApellido"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Segundo Apellido</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Ej: López" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="apellidoCasada"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Apellido de Casada</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Ej: de García" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                </section>
               </div>
             </div>
 
