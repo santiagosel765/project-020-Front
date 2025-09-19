@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -22,7 +22,7 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { Loader2, ChevronDown } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import type { CatalogoItem, UiUser } from "@/lib/data";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { initialsFromFullName } from "@/lib/avatar";
@@ -33,9 +33,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Badge } from "@/components/ui/badge";
 import {
   getPosiciones,
   getGerencias,
@@ -63,7 +60,7 @@ const formSchema = z.object({
   gerenciaId: z.string().min(1, "La gerencia es requerida."),
   correoInstitucional: z.string().email("Debe ser un correo válido."),
   telefono: z.string().regex(/^\d{8}$/, "El teléfono debe tener 8 dígitos."),
-  roleIds: z.array(z.number()).default([]),
+  roleId: z.string().optional(),
   urlFoto: z.string().optional().nullable(),
 });
 
@@ -82,7 +79,7 @@ const defaultUserValues: FormValues = {
   gerenciaId: "",
   correoInstitucional: "",
   telefono: "",
-  roleIds: [],
+  roleId: "",
   urlFoto: null,
 };
 
@@ -116,6 +113,7 @@ export function UserFormModal({
     const roleIds = currentRoles
       .map((role) => (typeof role?.id === "number" ? role.id : Number(role?.id)))
       .filter((id): id is number => Number.isFinite(id));
+    const initialRoleId = roleIds.length > 0 ? String(roleIds[0]) : "";
 
     const values: FormValues = user
       ? {
@@ -131,7 +129,7 @@ export function UserFormModal({
           gerenciaId: user.gerenciaId != null ? String(user.gerenciaId) : "",
           correoInstitucional: user.correoInstitucional ?? "",
           telefono: user.telefono ?? "",
-          roleIds,
+          roleId: initialRoleId,
           urlFoto: url,
         }
       : { ...defaultUserValues };
@@ -194,10 +192,57 @@ export function UserFormModal({
       correoInstitucional: data.correoInstitucional,
       telefono: data.telefono,
       urlFoto: previewUrl ?? null,
-      roleIds: Array.isArray(data.roleIds) ? data.roleIds : [],
+      roleIds: data.roleId ? [Number(data.roleId)] : [],
     };
     await onSave(payload, selectedFile);
   };
+
+  const handleFileChange = useCallback(
+    (
+      event: React.ChangeEvent<HTMLInputElement>,
+      onChange: (value: string | null | undefined) => void,
+    ) => {
+      const file = event.target.files?.[0] ?? null;
+
+      if (file) {
+        if (previewUrl && previewUrl.startsWith("blob:")) {
+          URL.revokeObjectURL(previewUrl);
+        }
+
+        const objectUrl = URL.createObjectURL(file);
+        setPreviewUrl(objectUrl);
+        setSelectedFile(file);
+        onChange(objectUrl);
+      } else {
+        if (previewUrl && previewUrl.startsWith("blob:")) {
+          URL.revokeObjectURL(previewUrl);
+        }
+        setPreviewUrl(null);
+        setSelectedFile(null);
+        if (fileInputRef.current) {
+          fileInputRef.current.value = "";
+        }
+        onChange(null);
+      }
+    },
+    [previewUrl],
+  );
+
+  const handleRemovePhoto = useCallback(
+    (onChange: (value: string | null | undefined) => void) => {
+      if (previewUrl && previewUrl.startsWith("blob:")) {
+        URL.revokeObjectURL(previewUrl);
+      }
+
+      setPreviewUrl(null);
+      setSelectedFile(null);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+      onChange(null);
+    },
+    [previewUrl],
+  );
 
   const [watchPrimerNombre, watchSegundoNombre, watchTercerNombre, watchPrimerApellido, watchSegundoApellido, watchApellidoCasada] =
     form.watch([
@@ -250,63 +295,51 @@ export function UserFormModal({
           >
             <div className="flex-1 overflow-y-auto pr-4 -mr-4">
               <div className="space-y-8">
-                <section className="grid grid-cols-1 md:grid-cols-12 gap-6">
-                  <div className="md:col-span-3 flex items-center justify-center md:justify-start">
-                    <Avatar className="h-28 w-28 md:h-32 md:w-32">
-                      <AvatarImage src={previewUrl ?? undefined} alt="Foto de perfil" />
-                      <AvatarFallback>{avatarFallback}</AvatarFallback>
-                    </Avatar>
-                  </div>
-                  <div className="md:col-span-6">
-                    <FormField
-                      control={form.control}
-                      name="urlFoto"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="mb-2 block">Foto de Perfil</FormLabel>
-                          <FormControl>
-                            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                              <Input
-                                ref={fileInputRef}
-                                type="file"
-                                accept="image/*"
-                                onChange={(e) => {
-                                  const file = e.target.files?.[0] ?? null;
-                                  if (file) {
-                                    const objectUrl = URL.createObjectURL(file);
-                                    setPreviewUrl(objectUrl);
-                                    setSelectedFile(file);
-                                    field.onChange(objectUrl);
-                                  } else {
-                                    setPreviewUrl(null);
-                                    setSelectedFile(null);
-                                    field.onChange(null);
-                                  }
-                                }}
-                              />
-                              {previewUrl && (
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  onClick={() => {
-                                    setPreviewUrl(null);
-                                    setSelectedFile(null);
-                                    if (fileInputRef.current) fileInputRef.current.value = "";
-                                    field.onChange(null);
-                                  }}
-                                >
-                                  Quitar foto
-                                </Button>
-                              )}
-                            </div>
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-                  <div className="md:col-span-3" />
-                </section>
+                <FormField
+                  control={form.control}
+                  name="urlFoto"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="sr-only">Foto de Perfil</FormLabel>
+                      <FormControl>
+                        <section className="grid grid-cols-1 place-items-center gap-3 py-2">
+                          <Avatar className="h-32 w-32">
+                            <AvatarImage src={previewUrl ?? undefined} alt="Foto de perfil" />
+                            <AvatarFallback>{avatarFallback}</AvatarFallback>
+                          </Avatar>
+
+                          <div className="flex gap-2">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              onClick={() => fileInputRef.current?.click()}
+                            >
+                              Subir foto
+                            </Button>
+                            {previewUrl && (
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                onClick={() => handleRemovePhoto(field.onChange)}
+                              >
+                                Quitar foto
+                              </Button>
+                            )}
+                          </div>
+
+                          <input
+                            ref={fileInputRef}
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={(event) => handleFileChange(event, field.onChange)}
+                          />
+                        </section>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
                 <section className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-4">
@@ -401,91 +434,41 @@ export function UserFormModal({
                     />
                     <FormField
                       control={form.control}
-                      name="roleIds"
-                      render={({ field }) => {
-                        const selectedIds = Array.isArray(field.value) ? field.value : [];
-                        const selectedRoles = selectedIds.map((id) => {
-                          const found = rolesCatalog.find((role) => role.id === id);
-                          return { id, nombre: found?.nombre ?? `ID ${id}` };
-                        });
-
-                        return (
-                          <FormItem>
-                            <FormLabel>Roles</FormLabel>
+                      name="roleId"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Rol</FormLabel>
+                          <Select
+                            disabled={isLoadingCatalogs && rolesCatalog.length === 0}
+                            onValueChange={field.onChange}
+                            value={field.value ? field.value : undefined}
+                          >
                             <FormControl>
-                              <Popover>
-                                <PopoverTrigger asChild>
-                                  <Button
-                                    type="button"
-                                    variant="outline"
-                                    role="combobox"
-                                    className="w-full justify-between"
-                                    disabled={isLoadingCatalogs && rolesCatalog.length === 0}
-                                  >
-                                    <span className="truncate text-left">
-                                      {selectedIds.length > 0
-                                        ? `${selectedIds.length} rol${selectedIds.length === 1 ? "" : "es"} seleccionados`
-                                        : isLoadingCatalogs
-                                        ? "Cargando roles..."
-                                        : "Seleccione roles"}
-                                    </span>
-                                    <ChevronDown className="h-4 w-4 opacity-50" />
-                                  </Button>
-                                </PopoverTrigger>
-                                <PopoverContent className="w-[260px] p-0" align="start">
-                                  <div className="max-h-60 overflow-y-auto py-1">
-                                    {rolesCatalog.length === 0 ? (
-                                      <div className="px-3 py-2 text-sm text-muted-foreground">
-                                        {isLoadingCatalogs ? (
-                                          <span className="flex items-center gap-2">
-                                            <Loader2 className="h-4 w-4 animate-spin" />
-                                            Cargando...
-                                          </span>
-                                        ) : (
-                                          "No hay roles disponibles."
-                                        )}
-                                      </div>
-                                    ) : (
-                                      rolesCatalog.map((role) => {
-                                        const isSelected = selectedIds.includes(role.id);
-                                        return (
-                                          <label
-                                            key={role.id}
-                                            className="flex cursor-pointer items-center gap-2 px-3 py-1.5 text-sm hover:bg-muted"
-                                          >
-                                            <Checkbox
-                                              checked={isSelected}
-                                              onCheckedChange={(checked) => {
-                                                const next =
-                                                  checked === true
-                                                    ? Array.from(new Set([...selectedIds, role.id]))
-                                                    : selectedIds.filter((id) => id !== role.id);
-                                                field.onChange(next);
-                                              }}
-                                              className="h-4 w-4"
-                                            />
-                                            <span className="flex-1 truncate">{role.nombre}</span>
-                                          </label>
-                                        );
-                                      })
-                                    )}
-                                  </div>
-                                </PopoverContent>
-                              </Popover>
+                              <SelectTrigger>
+                                <SelectValue
+                                  placeholder={
+                                    isLoadingCatalogs ? "Cargando roles..." : "Seleccione un rol"
+                                  }
+                                />
+                              </SelectTrigger>
                             </FormControl>
-                            {selectedRoles.length > 0 && (
-                              <div className="flex flex-wrap gap-2 pt-2">
-                                {selectedRoles.map((role) => (
-                                  <Badge key={role.id} variant="secondary">
+                            <SelectContent>
+                              {rolesCatalog.length ? (
+                                rolesCatalog.map((role) => (
+                                  <SelectItem key={role.id} value={String(role.id)}>
                                     {role.nombre}
-                                  </Badge>
-                                ))}
-                              </div>
-                            )}
-                            <FormMessage />
-                          </FormItem>
-                        );
-                      }}
+                                  </SelectItem>
+                                ))
+                              ) : (
+                                <SelectItem value="__role_placeholder" disabled>
+                                  {isLoadingCatalogs ? "Cargando..." : "Sin roles disponibles"}
+                                </SelectItem>
+                              )}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
                     />
                     <FormField
                       control={form.control}
