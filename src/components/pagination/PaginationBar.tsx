@@ -39,11 +39,8 @@ export function PaginationBar({
   className,
 }: PaginationBarProps) {
   const size = Number.isFinite(limit) && limit > 0 ? Math.floor(limit) : DEFAULT_OPTIONS[0];
-  const totalPages =
-    Number.isFinite(pages) && pages > 0
-      ? Math.floor(pages)
-      : Math.max(1, Math.ceil(((Number.isFinite(total) ? Math.max(0, total) : 0) / size) || 0) || 1);
-  const currentPage = Math.min(Math.max(1, Math.floor(page || 1)), totalPages);
+  const totalPages = Number.isFinite(pages) && pages > 0 ? Math.floor(pages) : 1;
+  const currentPage = Number.isFinite(page) && page > 0 ? Math.floor(page) : 1;
 
   const options = useMemo(() => {
     const set = new Set<number>();
@@ -59,7 +56,7 @@ export function PaginationBar({
   };
 
   const handleNext = () => {
-    if (!hasNext || currentPage >= totalPages) return;
+    if (!hasNext) return;
     onPageChange(currentPage + 1);
   };
 
@@ -111,7 +108,7 @@ export function PaginationBar({
             variant="outline"
             size="sm"
             onClick={handleNext}
-            disabled={!hasNext || currentPage >= totalPages}
+            disabled={!hasNext}
             aria-label="Página siguiente"
           >
             Siguiente ⟩

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { DocumentsTable } from "@/components/documents-table";
 import type { Document } from "@/lib/data";
@@ -57,25 +57,40 @@ const defaultCounts: Record<Document["status"] | "Todos", number> = {
 };
 
 export default function DocumentosPage() {
-  const [searchInput, setSearchInput] = useState("");
-  const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<Document["status"] | "Todos">("Todos");
   const [firmantes, setFirmantes] = useState<SignerSummary[]>([]);
   const [modalOpen, setModalOpen] = useState(false);
   const [modalLoading, setModalLoading] = useState(false);
   const { toast } = useToast();
-  const { page, limit, sort, setPage, setLimit, toggleSort } = usePaginationState({
+  const { page, limit, sort, search, setPage, setLimit, setSearch, toggleSort } = usePaginationState({
     defaultLimit: 10,
     defaultSort: "desc",
   });
   const sortOrder: "asc" | "desc" = sort;
+  const [searchInput, setSearchInput] = useState(() => search);
+  const initialSearchRef = useRef(search);
+  const isFirstSearchEffect = useRef(true);
 
   useEffect(() => {
-    const handler = setTimeout(() => {
+    initialSearchRef.current = search;
+    setSearchInput((current) => (current === search ? current : search));
+    isFirstSearchEffect.current = true;
+  }, [search]);
+
+  useEffect(() => {
+    const handler = window.setTimeout(() => {
+      if (isFirstSearchEffect.current) {
+        isFirstSearchEffect.current = false;
+        if (searchInput === initialSearchRef.current) {
+          return;
+        }
+      }
       setSearch(searchInput);
       setPage(1);
     }, 300);
-    return () => clearTimeout(handler);
+    return () => {
+      window.clearTimeout(handler);
+    };
   }, [searchInput, setPage, setSearch]);
 
   const documentsQuery = useQuery({
@@ -95,8 +110,8 @@ export default function DocumentosPage() {
         page,
         limit,
         sort: sortOrder,
+        search,
       };
-      if (search) params.search = search;
       if (statusFilter !== "Todos") params.estado = statusFilter;
       const response = await getDocumentSupervision(params);
       return {
@@ -168,18 +183,11 @@ export default function DocumentosPage() {
   }
 
   const payload = documentsQuery.data;
-  const documents = payload?.items ?? [];
-  const total = payload?.total ?? 0;
-  const totalPages = payload?.pages ?? 1;
-  const currentPage = payload?.page ?? page;
-  const hasPrev = payload?.hasPrev ?? currentPage > 1;
-  const hasNext = payload?.hasNext ?? currentPage < totalPages;
-  const currentLimit = payload?.limit ?? limit;
 
   return (
     <div className="h-full">
       <DocumentsTable
-        items={documents}
+        data={payload}
         title="Gestión de Documentos"
         description="Visualice, busque y gestione todos los documentos de la plataforma."
         searchTerm={searchInput}
@@ -192,21 +200,11 @@ export default function DocumentosPage() {
         sortOrder={sortOrder}
         onSortToggle={() => {
           toggleSort();
-          setPage(1);
         }}
         onAsignadosClick={handleAsignadosClick}
         statusCounts={counts}
-        total={total}
-        pages={totalPages}
-        hasPrev={hasPrev}
-        hasNext={hasNext}
-        page={currentPage}
-        limit={currentLimit}
         onPageChange={setPage}
-        onLimitChange={(value) => {
-          setLimit(value);
-          setPage(1);
-        }}
+        onLimitChange={setLimit}
         loading={documentsQuery.isFetching}
       />
       <SignersModal

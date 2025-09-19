@@ -15,15 +15,10 @@ import { Badge } from './ui/badge';
 import { UserPasswordDialog } from './user-password-dialog';
 import { useSession } from '@/lib/session';
 import { PaginationBar } from './pagination/PaginationBar';
+import type { PageEnvelope } from '@/lib/pagination';
 
 interface UsersTableProps {
-  items: User[];
-  total: number;
-  pages: number;
-  hasPrev: boolean;
-  hasNext: boolean;
-  page: number;
-  limit: number;
+  data?: PageEnvelope<User>;
   onPageChange: (page: number) => void;
   onLimitChange: (limit: number) => void;
   searchTerm: string;
@@ -43,13 +38,7 @@ const getInitials = (u: User) => {
 };
 
 export function UsersTable({
-  items,
-  total,
-  pages,
-  hasPrev,
-  hasNext,
-  page,
-  limit,
+  data,
   onPageChange,
   onLimitChange,
   searchTerm,
@@ -65,7 +54,13 @@ export function UsersTable({
   const { me } = useSession();
   const [passwordDialogUser, setPasswordDialogUser] = useState<{ user: User; requireCurrent: boolean } | null>(null);
 
-  const users = Array.isArray(items) ? items : [];
+  const users = data?.items ?? [];
+  const total = data?.total ?? 0;
+  const totalPages = data?.pages ?? 1;
+  const currentPage = data?.page ?? 1;
+  const hasPrev = Boolean(data?.hasPrev);
+  const hasNext = Boolean(data?.hasNext);
+  const currentLimit = data?.limit ?? 10;
 
   const handleOpenModal = (user?: User) => {
     setSelectedUser(user);
@@ -230,9 +225,9 @@ export function UsersTable({
       </CardContent>
       <PaginationBar
         total={total}
-        page={page}
-        pages={pages}
-        limit={limit}
+        page={currentPage}
+        pages={totalPages}
+        limit={currentLimit}
         hasPrev={hasPrev}
         hasNext={hasNext}
         onPageChange={onPageChange}

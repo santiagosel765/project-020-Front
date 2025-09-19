@@ -10,9 +10,10 @@ import { cn } from '@/lib/utils';
 import { Button } from './ui/button';
 import type { SupervisionDoc, DocEstado } from '@/services/documentsService';
 import { PaginationBar } from './pagination/PaginationBar';
+import type { PageEnvelope } from '@/lib/pagination';
 
 interface SupervisionTableProps {
-  items: SupervisionDoc[];
+  data?: PageEnvelope<SupervisionDoc>;
   title: string;
   description: string;
   searchTerm: string;
@@ -22,12 +23,6 @@ interface SupervisionTableProps {
   sortOrder: 'asc' | 'desc';
   onSortToggle: () => void;
   statusCounts?: Record<DocEstado | 'Todos', number>;
-  total: number;
-  pages: number;
-  hasPrev: boolean;
-  hasNext: boolean;
-  page: number;
-  limit: number;
   onPageChange: (page: number) => void;
   onLimitChange: (limit: number) => void;
   loading?: boolean;
@@ -66,7 +61,7 @@ const getButtonStatusClass = (status: DocEstado | 'Todos', current: DocEstado | 
 };
 
 export function SupervisionTable({
-  items,
+  data,
   title,
   description,
   searchTerm,
@@ -76,17 +71,17 @@ export function SupervisionTable({
   sortOrder,
   onSortToggle,
   statusCounts,
-  total,
-  pages,
-  hasPrev,
-  hasNext,
-  page,
-  limit,
   onPageChange,
   onLimitChange,
   loading = false,
 }: SupervisionTableProps) {
-  const documents = Array.isArray(items) ? items : [];
+  const documents = data?.items ?? [];
+  const total = data?.total ?? 0;
+  const totalPages = data?.pages ?? 1;
+  const currentPage = data?.page ?? 1;
+  const hasPrev = Boolean(data?.hasPrev);
+  const hasNext = Boolean(data?.hasNext);
+  const currentLimit = data?.limit ?? 10;
   const fallbackCounts = useMemo(
     () =>
       documents.reduce(
@@ -178,9 +173,9 @@ export function SupervisionTable({
       </CardContent>
       <PaginationBar
         total={total}
-        page={page}
-        pages={pages}
-        limit={limit}
+        page={currentPage}
+        pages={totalPages}
+        limit={currentLimit}
         hasPrev={hasPrev}
         hasNext={hasNext}
         onPageChange={onPageChange}

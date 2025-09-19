@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { UsersTable } from '@/components/users-table';
 import { useToast } from '@/hooks/use-toast';
@@ -17,18 +17,30 @@ import type { User } from '@/lib/data';
 import { usePaginationState } from '@/hooks/usePaginationState';
 
 export default function UsuariosPage() {
-  const [searchInput, setSearchInput] = useState('');
-  const [search, setSearch] = useState('');
   const { toast } = useToast();
-  const { page, limit, sort, setPage, setLimit } = usePaginationState({
+  const { page, limit, sort, search, setPage, setLimit, setSearch } = usePaginationState({
     defaultLimit: 10,
     defaultSort: 'desc',
   });
+  const [searchInput, setSearchInput] = useState(() => search);
+  const initialSearchRef = useRef(search);
+  const isFirstSearchEffect = useRef(true);
+
+  useEffect(() => {
+    initialSearchRef.current = search;
+    setSearchInput((current) => (current === search ? current : search));
+    isFirstSearchEffect.current = true;
+  }, [search]);
 
   useEffect(() => {
     const handler = window.setTimeout(() => {
-      const term = searchInput.trim();
-      setSearch(term);
+      if (isFirstSearchEffect.current) {
+        isFirstSearchEffect.current = false;
+        if (searchInput === initialSearchRef.current) {
+          return;
+        }
+      }
+      setSearch(searchInput);
       setPage(1);
     }, 300);
     return () => window.clearTimeout(handler);
@@ -37,8 +49,7 @@ export default function UsuariosPage() {
   const usersQuery = useQuery({
     queryKey: ['users', { page, limit, sort, search }],
     queryFn: async () => {
-      const params: GetUsersParams = { page, limit, sort };
-      if (search) params.search = search;
+      const params: GetUsersParams = { page, limit, sort, search };
       const result = await getUsers(params);
       return result;
     },
@@ -104,28 +115,12 @@ export default function UsuariosPage() {
   }
 
   const payload = usersQuery.data;
-  const users = payload?.items ?? [];
-  const total = payload?.total ?? 0;
-  const totalPages = payload?.pages ?? 1;
-  const currentPage = payload?.page ?? page;
-  const currentLimit = payload?.limit ?? limit;
-  const hasPrev = payload?.hasPrev ?? currentPage > 1;
-  const hasNext = payload?.hasNext ?? currentPage < totalPages;
 
   return (
     <UsersTable
-      items={users}
-      total={total}
-      pages={totalPages}
-      hasPrev={hasPrev}
-      hasNext={hasNext}
-      page={currentPage}
-      limit={currentLimit}
+      data={payload}
       onPageChange={setPage}
-      onLimitChange={(value) => {
-        setLimit(value);
-        setPage(1);
-      }}
+      onLimitChange={setLimit}
       searchTerm={searchInput}
       onSearchChange={setSearchInput}
       onSaveUser={handleSaveUser}

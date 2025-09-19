@@ -13,15 +13,10 @@ import { PageFormModal, PageForm } from './page-form-modal';
 import type { Page } from '@/services/pageService';
 import { PaginationBar } from './pagination/PaginationBar';
 import { DateCell } from '@/components/DateCell';
+import type { PageEnvelope } from '@/lib/pagination';
 
 interface PagesTableProps {
-  items: Page[];
-  total: number;
-  pages: number;
-  hasPrev: boolean;
-  hasNext: boolean;
-  page: number;
-  limit: number;
+  data?: PageEnvelope<Page>;
   onPageChange: (page: number) => void;
   onLimitChange: (limit: number) => void;
   searchTerm: string;
@@ -35,13 +30,7 @@ interface PagesTableProps {
 }
 
 export function PagesTable({
-  items,
-  total,
-  pages,
-  hasPrev,
-  hasNext,
-  page,
-  limit,
+  data,
   onPageChange,
   onLimitChange,
   searchTerm,
@@ -56,7 +45,13 @@ export function PagesTable({
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedPage, setSelectedPage] = useState<Page | undefined>(undefined);
 
-  const rows = Array.isArray(items) ? items : [];
+  const rows = data?.items ?? [];
+  const total = data?.total ?? 0;
+  const totalPages = data?.pages ?? 1;
+  const currentPage = data?.page ?? 1;
+  const hasPrev = Boolean(data?.hasPrev);
+  const hasNext = Boolean(data?.hasNext);
+  const currentLimit = data?.limit ?? 10;
 
   const openModal = (page?: Page) => {
     setSelectedPage(page);
@@ -170,9 +165,9 @@ export function PagesTable({
       </CardContent>
       <PaginationBar
         total={total}
-        page={page}
-        pages={pages}
-        limit={limit}
+        page={currentPage}
+        pages={totalPages}
+        limit={currentLimit}
         hasPrev={hasPrev}
         hasNext={hasNext}
         onPageChange={onPageChange}
