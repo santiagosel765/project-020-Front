@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { RolesTable } from '@/components/roles-table';
 import {
@@ -19,16 +19,29 @@ import type { RoleForm } from '@/components/role-form-modal';
 
 export default function RolesPage() {
   const [showInactive, setShowInactive] = useState(false);
-  const [searchInput, setSearchInput] = useState('');
-  const [search, setSearch] = useState('');
   const { toast } = useToast();
-  const { page, limit, sort, setPage, setLimit } = usePaginationState({
+  const { page, limit, sort, search, setPage, setLimit, setSearch } = usePaginationState({
     defaultLimit: 10,
     defaultSort: 'desc',
   });
+  const [searchInput, setSearchInput] = useState(() => search);
+  const initialSearchRef = useRef(search);
+  const isFirstSearchEffect = useRef(true);
 
   useEffect(() => {
-    const handler = setTimeout(() => {
+    initialSearchRef.current = search;
+    setSearchInput((current) => (current === search ? current : search));
+    isFirstSearchEffect.current = true;
+  }, [search]);
+
+  useEffect(() => {
+    const handler = window.setTimeout(() => {
+      if (isFirstSearchEffect.current) {
+        isFirstSearchEffect.current = false;
+        if (searchInput === initialSearchRef.current) {
+          return;
+        }
+      }
       setSearch(searchInput);
       setPage(1);
     }, 300);
@@ -152,29 +165,13 @@ export default function RolesPage() {
   }
 
   const payload = rolesQuery.data;
-  const roles = payload?.items ?? [];
-  const total = payload?.total ?? 0;
-  const totalPages = payload?.pages ?? 1;
-  const currentPage = payload?.page ?? page;
-  const currentLimit = payload?.limit ?? limit;
-  const hasPrev = payload?.hasPrev ?? currentPage > 1;
-  const hasNext = payload?.hasNext ?? currentPage < totalPages;
 
   return (
     <div className="h-full">
       <RolesTable
-        items={roles}
-        total={total}
-        pages={totalPages}
-        hasPrev={hasPrev}
-        hasNext={hasNext}
-        page={currentPage}
-        limit={currentLimit}
+        data={payload}
         onPageChange={setPage}
-        onLimitChange={(value) => {
-          setLimit(value);
-          setPage(1);
-        }}
+        onLimitChange={setLimit}
         searchTerm={searchInput}
         onSearchChange={setSearchInput}
         showInactive={showInactive}

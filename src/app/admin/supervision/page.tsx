@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { SupervisionTable } from "@/components/supervision-table";
 import { useToast } from '@/hooks/use-toast';
@@ -40,22 +40,35 @@ const statusCountsDefault: Record<DocEstado | 'Todos', number> = {
 };
 
 export default function SupervisionPage() {
-  const [searchInput, setSearchInput] = useState('');
-  const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<DocEstado | 'Todos'>('Todos');
   const { toast } = useToast();
-  const { page, limit, sort, setPage, setLimit, toggleSort } = usePaginationState({
+  const { page, limit, sort, search, setPage, setLimit, setSearch, toggleSort } = usePaginationState({
     defaultLimit: 10,
     defaultSort: 'desc',
   });
   const sortOrder: 'asc' | 'desc' = sort;
+  const [searchInput, setSearchInput] = useState(() => search);
+  const inputRef = useRef(search);
+  const isFirstSearchEffect = useRef(true);
 
   useEffect(() => {
-    const handler = setTimeout(() => {
+    inputRef.current = search;
+    setSearchInput((current) => (current === search ? current : search));
+    isFirstSearchEffect.current = true;
+  }, [search]);
+
+  useEffect(() => {
+    const handler = window.setTimeout(() => {
+      if (isFirstSearchEffect.current) {
+        isFirstSearchEffect.current = false;
+        if (searchInput === inputRef.current) {
+          return;
+        }
+      }
       setSearch(searchInput);
       setPage(1);
     }, 300);
-    return () => clearTimeout(handler);
+    return () => window.clearTimeout(handler);
   }, [searchInput, setPage, setSearch]);
 
   const documentsQuery = useQuery({
@@ -76,8 +89,8 @@ export default function SupervisionPage() {
         page,
         limit,
         sort: sortOrder,
+        search,
       };
-      if (search) params.search = search;
       if (statusFilter !== 'Todos') params.estado = statusFilter;
       const response = await getDocumentSupervision(params);
       return {
@@ -137,18 +150,11 @@ export default function SupervisionPage() {
   }
 
   const payload = documentsQuery.data;
-  const documents = payload?.items ?? [];
-  const total = payload?.total ?? 0;
-  const totalPages = payload?.pages ?? 1;
-  const currentPage = payload?.page ?? page;
-  const hasPrev = payload?.hasPrev ?? currentPage > 1;
-  const hasNext = payload?.hasNext ?? currentPage < totalPages;
-  const currentLimit = payload?.limit ?? limit;
 
   return (
     <div className="h-full">
       <SupervisionTable
-        items={documents}
+        data={payload}
         title="Supervisión de Documentos"
         description="Monitoree el estado y progreso de todos los documentos en tiempo real."
         searchTerm={searchInput}
@@ -161,20 +167,10 @@ export default function SupervisionPage() {
         sortOrder={sortOrder}
         onSortToggle={() => {
           toggleSort();
-          setPage(1);
         }}
         statusCounts={counts}
-        total={total}
-        pages={totalPages}
-        hasPrev={hasPrev}
-        hasNext={hasNext}
-        page={currentPage}
-        limit={currentLimit}
         onPageChange={setPage}
-        onLimitChange={(value) => {
-          setLimit(value);
-          setPage(1);
-        }}
+        onLimitChange={setLimit}
         loading={documentsQuery.isFetching}
       />
     </div>

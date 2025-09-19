@@ -35,6 +35,7 @@ export interface PaginationStateOptions {
   defaultPage?: number;
   defaultLimit?: number;
   defaultSort?: SortOrder;
+  defaultSearch?: string;
 }
 
 export const usePaginationState = (options: PaginationStateOptions = {}) => {
@@ -44,6 +45,7 @@ export const usePaginationState = (options: PaginationStateOptions = {}) => {
   const defaultPage = options.defaultPage ?? 1;
   const defaultLimit = options.defaultLimit ?? DEFAULT_LIMIT;
   const defaultSort = options.defaultSort ?? "desc";
+  const defaultSearch = options.defaultSearch ?? "";
 
   const page = useMemo(
     () => parsePositiveInteger(searchParams?.get("page"), defaultPage),
@@ -60,27 +62,60 @@ export const usePaginationState = (options: PaginationStateOptions = {}) => {
     [defaultSort, searchParams],
   );
 
+  const search = useMemo(
+    () => {
+      const raw = searchParams?.get("search");
+      return typeof raw === "string" ? raw : defaultSearch;
+    },
+    [defaultSearch, searchParams],
+  );
+
   const commit = useCallback(
-    (next: { page?: number; limit?: number; sort?: SortOrder }) => {
+    (next: { page?: number; limit?: number; sort?: SortOrder; search?: string }) => {
       const nextPage = parsePositiveInteger(next.page ?? page, defaultPage);
       const nextLimit = parsePositiveInteger(next.limit ?? limit, defaultLimit);
       const nextSort = sanitizeSort(next.sort ?? sort, defaultSort);
+      const nextSearch = typeof next.search === "string" ? next.search : search;
 
-      if (nextPage === page && nextLimit === limit && nextSort === sort) return;
+      if (
+        nextPage === page &&
+        nextLimit === limit &&
+        nextSort === sort &&
+        nextSearch === search
+      )
+        return;
 
-      const params = new URLSearchParams();
+      const params = new URLSearchParams(searchParams?.toString());
       params.set("page", String(nextPage));
       params.set("limit", String(nextLimit));
       params.set("sort", nextSort);
 
+      if (typeof nextSearch === "string" && nextSearch.length > 0) {
+        params.set("search", nextSearch);
+      } else {
+        params.delete("search");
+      }
+
       router.replace(`?${params.toString()}`, { scroll: false });
     },
-    [defaultLimit, defaultPage, defaultSort, limit, page, router, sort],
+    [
+      defaultLimit,
+      defaultPage,
+      defaultSearch,
+      defaultSort,
+      limit,
+      page,
+      router,
+      search,
+      searchParams,
+      sort,
+    ],
   );
 
   const setPage = useCallback(
     (value: number) => {
-      commit({ page: value });
+      if (!Number.isFinite(value)) return;
+      commit({ page: Math.max(1, Math.floor(value)) });
     },
     [commit],
   );
@@ -103,13 +138,21 @@ export const usePaginationState = (options: PaginationStateOptions = {}) => {
     commit({ sort: sort === "asc" ? "desc" : "asc" });
   }, [commit, sort]);
 
+  const setSearch = useCallback(
+    (value: string) => {
+      commit({ search: typeof value === "string" ? value : "" });
+    },
+    [commit],
+  );
+
   const params = useMemo(
     () => ({
       page,
       limit,
       sort,
+      search,
     }),
-    [limit, page, sort],
+    [limit, page, search, sort],
   );
 
   const queryString = useMemo(() => {
@@ -117,16 +160,21 @@ export const usePaginationState = (options: PaginationStateOptions = {}) => {
     url.set("page", String(page));
     url.set("limit", String(limit));
     url.set("sort", sort);
+    if (typeof search === "string" && search.length > 0) {
+      url.set("search", search);
+    }
     return url.toString();
-  }, [limit, page, sort]);
+  }, [limit, page, search, sort]);
 
   return {
     page,
     limit,
     sort,
+    search,
     setPage,
     setLimit,
     setSort,
+    setSearch,
     toggleSort,
     params,
     queryString,
