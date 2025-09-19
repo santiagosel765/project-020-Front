@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { useQuery, keepPreviousData } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { UsersTable } from '@/components/users-table';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -20,7 +20,10 @@ export default function UsuariosPage() {
   const [searchInput, setSearchInput] = useState('');
   const [search, setSearch] = useState('');
   const { toast } = useToast();
-  const { page, limit, setPage, setLimit } = usePaginationState();
+  const { page, limit, sort, setPage, setLimit } = usePaginationState({
+    defaultLimit: 10,
+    defaultSort: 'desc',
+  });
 
   useEffect(() => {
     const handler = window.setTimeout(() => {
@@ -34,14 +37,14 @@ export default function UsuariosPage() {
   }, [page, searchInput, setPage]);
 
   const usersQuery = useQuery({
-    queryKey: ['users', { page, limit, search }],
+    queryKey: ['users', { page, limit, sort, search }],
     queryFn: async () => {
-      const params: GetUsersParams = { page, limit };
+      const params: GetUsersParams = { page, limit, sort };
       if (search) params.search = search;
       const result = await getUsers(params);
       return result;
     },
-    placeholderData: keepPreviousData,
+    keepPreviousData: true,
     retry: false,
   });
 
@@ -102,13 +105,14 @@ export default function UsuariosPage() {
     );
   }
 
-  const users = usersQuery.data?.items ?? [];
-  const meta = usersQuery.data?.meta;
-  const total = meta?.total ?? 0;
-  const totalPages = meta?.pages ?? 1;
-  const hasPrev = meta?.hasPrevPage ?? page > 1;
-  const hasNext = meta?.hasNextPage ?? page < totalPages;
-  const pageSize = meta?.limit ?? limit;
+  const payload = usersQuery.data;
+  const users = payload?.items ?? [];
+  const total = payload?.total ?? 0;
+  const totalPages = payload?.pages ?? 1;
+  const currentPage = payload?.page ?? page;
+  const currentLimit = payload?.limit ?? limit;
+  const hasPrev = payload?.hasPrev ?? currentPage > 1;
+  const hasNext = payload?.hasNext ?? currentPage < totalPages;
 
   return (
     <UsersTable
@@ -117,14 +121,18 @@ export default function UsuariosPage() {
       pages={totalPages}
       hasPrev={hasPrev}
       hasNext={hasNext}
-      page={page}
-      pageSize={pageSize}
+      page={currentPage}
+      limit={currentLimit}
       onPageChange={setPage}
-      onPageSizeChange={setLimit}
+      onLimitChange={(value) => {
+        setLimit(value);
+        setPage(1);
+      }}
       searchTerm={searchInput}
       onSearchChange={setSearchInput}
       onSaveUser={handleSaveUser}
       onDeleteUser={handleDeleteUser}
+      loading={usersQuery.isFetching}
     />
   );
 }

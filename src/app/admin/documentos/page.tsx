@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from "react";
-import { useQuery, keepPreviousData } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { DocumentsTable } from "@/components/documents-table";
 import type { Document } from "@/lib/data";
 import { useToast } from "@/hooks/use-toast";
@@ -12,6 +12,7 @@ import {
   getSupervisionStats,
   type DocumentoRow,
   type SignerSummary,
+  type DocumentSupervisionParams,
 } from "@/services/documentsService";
 import { SignersModal } from "@/components/signers-modal";
 import { usePaginationState } from "@/hooks/usePaginationState";
@@ -63,8 +64,11 @@ export default function DocumentosPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [modalLoading, setModalLoading] = useState(false);
   const { toast } = useToast();
-  const { page, limit, sort, setPage, setLimit, setSort } = usePaginationState({ sort: "desc" });
-  const sortOrder: "asc" | "desc" = sort === "asc" ? "asc" : "desc";
+  const { page, limit, sort, setPage, setLimit, toggleSort } = usePaginationState({
+    defaultLimit: 10,
+    defaultSort: "desc",
+  });
+  const sortOrder: "asc" | "desc" = sort;
 
   useEffect(() => {
     const handler = setTimeout(() => {
@@ -87,16 +91,20 @@ export default function DocumentosPage() {
       },
     ],
     queryFn: async () => {
-      const params: Record<string, any> = { page, limit, sort: sortOrder };
+      const params: DocumentSupervisionParams = {
+        page,
+        limit,
+        sort: sortOrder,
+      };
       if (search) params.search = search;
       if (statusFilter !== "Todos") params.estado = statusFilter;
       const response = await getDocumentSupervision(params);
       return {
+        ...response,
         items: response.items.map(toUiDocument),
-        meta: response.meta,
       };
     },
-    placeholderData: keepPreviousData,
+    keepPreviousData: true,
     retry: false,
   });
 
@@ -159,13 +167,14 @@ export default function DocumentosPage() {
     );
   }
 
-  const documents = documentsQuery.data?.items ?? [];
-  const meta = documentsQuery.data?.meta;
-  const total = meta?.total ?? 0;
-  const totalPages = meta?.pages ?? 1;
-  const hasPrev = meta?.hasPrevPage ?? page > 1;
-  const hasNext = meta?.hasNextPage ?? page < totalPages;
-  const pageSize = meta?.limit ?? limit;
+  const payload = documentsQuery.data;
+  const documents = payload?.items ?? [];
+  const total = payload?.total ?? 0;
+  const totalPages = payload?.pages ?? 1;
+  const currentPage = payload?.page ?? page;
+  const hasPrev = payload?.hasPrev ?? currentPage > 1;
+  const hasNext = payload?.hasNext ?? currentPage < totalPages;
+  const currentLimit = payload?.limit ?? limit;
 
   return (
     <div className="h-full">
@@ -181,8 +190,9 @@ export default function DocumentosPage() {
           if (page !== 1) setPage(1);
         }}
         sortOrder={sortOrder}
-        onSortOrderChange={(o) => {
-          setSort(o);
+        onSortToggle={() => {
+          toggleSort();
+          setPage(1);
         }}
         onAsignadosClick={handleAsignadosClick}
         statusCounts={counts}
@@ -190,10 +200,14 @@ export default function DocumentosPage() {
         pages={totalPages}
         hasPrev={hasPrev}
         hasNext={hasNext}
-        page={page}
-        pageSize={pageSize}
+        page={currentPage}
+        limit={currentLimit}
         onPageChange={setPage}
-        onPageSizeChange={setLimit}
+        onLimitChange={(value) => {
+          setLimit(value);
+          setPage(1);
+        }}
+        loading={documentsQuery.isFetching}
       />
       <SignersModal
         open={modalOpen}

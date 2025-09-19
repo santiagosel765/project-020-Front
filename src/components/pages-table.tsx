@@ -21,9 +21,9 @@ interface PagesTableProps {
   hasPrev: boolean;
   hasNext: boolean;
   page: number;
-  pageSize: number;
+  limit: number;
   onPageChange: (page: number) => void;
-  onPageSizeChange: (pageSize: number) => void;
+  onLimitChange: (limit: number) => void;
   searchTerm: string;
   onSearchChange: (value: string) => void;
   showInactive: boolean;
@@ -31,6 +31,7 @@ interface PagesTableProps {
   onSavePage: (page: PageForm) => Promise<void>;
   onDeletePage: (id: number) => Promise<void> | void;
   onRestorePage: (id: number) => Promise<void> | void;
+  loading?: boolean;
 }
 
 export function PagesTable({
@@ -40,9 +41,9 @@ export function PagesTable({
   hasPrev,
   hasNext,
   page,
-  pageSize,
+  limit,
   onPageChange,
-  onPageSizeChange,
+  onLimitChange,
   searchTerm,
   onSearchChange,
   showInactive,
@@ -50,6 +51,7 @@ export function PagesTable({
   onSavePage,
   onDeletePage,
   onRestorePage,
+  loading = false,
 }: PagesTableProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedPage, setSelectedPage] = useState<Page | undefined>(undefined);
@@ -114,8 +116,8 @@ export function PagesTable({
               </TableRow>
             </TableHeader>
             <TableBody>
-              {rows.map(pageItem => (
-                <TableRow key={pageItem.id}>
+            {rows.map(pageItem => (
+              <TableRow key={pageItem.id}>
                   <TableCell className="font-medium">{pageItem.nombre}</TableCell>
                   <TableCell className="hidden md:table-cell">{pageItem.url}</TableCell>
                   <TableCell className="hidden md:table-cell">{pageItem.descripcion}</TableCell>
@@ -155,27 +157,27 @@ export function PagesTable({
                     </DropdownMenu>
                   </TableCell>
                 </TableRow>
-              ))}
-              {rows.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={6} className="text-center py-4 text-sm text-muted-foreground">
-                    No hay páginas.
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-        <PaginationBar
-          total={total}
-          page={page}
-          pages={pages}
-          pageSize={pageSize}
-          hasPrev={hasPrev}
-          hasNext={hasNext}
-          onPageChange={onPageChange}
-          onPageSizeChange={onPageSizeChange}
-        />
+            ))}
+            {!loading && rows.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={6} className="text-center py-4 text-sm text-muted-foreground">
+                  No hay páginas.
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </CardContent>
+      <PaginationBar
+        total={total}
+        page={page}
+        pages={pages}
+        limit={limit}
+        hasPrev={hasPrev}
+        hasNext={hasNext}
+        onPageChange={onPageChange}
+        onLimitChange={onLimitChange}
+      />
       </Card>
       <PageFormModal
         isOpen={isModalOpen}

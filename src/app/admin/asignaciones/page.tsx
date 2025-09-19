@@ -57,7 +57,7 @@ export default function AsignacionesPage() {
     let mounted = true;
     (async () => {
       try {
-        const { items } = await getUsers({ page: 1, limit: 200, includeInactive: true });
+        const { items } = await getUsers({ page: 1, limit: 200, sort: 'desc', includeInactive: true });
         if (mounted) setUsers(items);
       } catch (err) {
         console.error(err);

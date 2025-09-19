@@ -1,7 +1,7 @@
 import { api } from '@/lib/api';
 import type { CatalogoItem, UiUser, User } from '@/lib/data';
-import { unwrapArray, unwrapOne, normalizeOne, normalizeList, unwrapPaginated } from '@/lib/apiEnvelope';
-import { hasPaginationMeta, normalizePaginationMeta, paginateArray, type PaginatedResult } from '@/lib/pagination';
+import { unwrapArray, unwrapOne, normalizeOne, normalizeList } from '@/lib/apiEnvelope';
+import { PageEnvelope } from '@/lib/pagination';
 
 type ApiCatalogItem = {
   id: number;
@@ -120,59 +120,45 @@ const toUiUser = (u: ApiUser): UiUser => {
 } satisfies UiUser;
 };
 
-const fullName = (user: UiUser) =>
-  [
-    user.primerNombre,
-    user.segundoNombre,
-    user.tercerNombre,
-    user.primerApellido,
-    user.segundoApellido,
-    user.apellidoCasada,
-  ]
-    .filter(Boolean)
-    .join(' ')
-    .trim();
-
 export interface GetUsersParams {
   page?: number;
   limit?: number;
+  sort?: 'asc' | 'desc';
   search?: string;
   includeInactive?: boolean;
   [key: string]: unknown;
 }
 
-const filterUsers = (users: UiUser[], search: string, includeInactive: boolean) => {
-  const term = search.trim().toLowerCase();
-  const filtered = users.filter((user) => {
-    if (!includeInactive && user.activo === false) return false;
-    if (!term) return true;
-    const name = fullName(user).toLowerCase();
-    const email = (user.correoInstitucional ?? '').toLowerCase();
-    const code = (user.codigoEmpleado ?? '').toLowerCase();
-    return name.includes(term) || email.includes(term) || code.includes(term);
-  });
-  return filtered.sort((a, b) => fullName(a).localeCompare(fullName(b)));
-};
+export async function getUsers(params: GetUsersParams = {}): Promise<PageEnvelope<User>> {
+  const {
+    page = 1,
+    limit = 10,
+    sort = 'desc',
+    search,
+    includeInactive = false,
+    ...rest
+  } = params;
 
-export async function getUsers(params: GetUsersParams = {}): Promise<PaginatedResult<User>> {
-  const { page = 1, limit = 10, search = '', includeInactive = false, ...rest } = params;
-  const query: Record<string, unknown> = { ...rest };
-  if (params.page != null) query.page = page;
-  if (params.limit != null) query.limit = limit;
-  if (search.trim() !== '') query.search = search.trim();
+  const query: Record<string, unknown> = {
+    page,
+    limit,
+    sort,
+    includeInactive,
+    ...rest,
+  };
 
-  const { data } = await api.get('/users', { params: query });
-  const paginated = unwrapPaginated<ApiUser>(data);
-  if (hasPaginationMeta(paginated.meta)) {
-    const items = (paginated.items ?? []).map(toUiUser);
-    const meta = normalizePaginationMeta(paginated.meta, { page, limit });
-    return { items, meta };
+  if (typeof search === 'string' && search.trim() !== '') {
+    query.search = search.trim();
   }
 
-  const allUsers = unwrapArray<ApiUser>(data).map(toUiUser);
-  const filtered = filterUsers(allUsers, search, includeInactive);
-  const { items, meta } = paginateArray(filtered, { page, limit });
-  return { items, meta };
+  const { data } = await api.get<PageEnvelope<ApiUser>>('/users', { params: query });
+  const envelope = data as PageEnvelope<ApiUser>;
+  const items = Array.isArray(envelope.items) ? envelope.items.map(toUiUser) : [];
+
+  return {
+    ...envelope,
+    items,
+  };
 }
 
 const multipartConfig = { headers: { 'Content-Type': 'multipart/form-data' } } as const;

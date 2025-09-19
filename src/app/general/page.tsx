@@ -24,7 +24,11 @@ export default function GeneralPage() {
         const fetchDocuments = async () => {
             try {
                 const me = await getMe();
-                const { items } = await getDocumentsByUser(Number(me.id), { page: 1, limit: 20 });
+                const { items } = await getDocumentsByUser(Number(me.id), {
+                    page: 1,
+                    limit: 20,
+                    sort: 'desc',
+                });
                 const mapped: Document[] = items.map((a: AsignacionDTO) => ({
                     id: String(a.cuadro_firma.id),
                     code: a.cuadro_firma.codigo ?? '',
@@ -108,16 +112,16 @@ export default function GeneralPage() {
                 statusFilter={statusFilter}
                 onStatusFilterChange={setStatusFilter}
                 sortOrder={sortOrder}
-                onSortOrderChange={setSortOrder}
+                onSortToggle={() => setSortOrder((prev) => (prev === 'asc' ? 'desc' : 'asc'))}
                 statusCounts={statusCounts}
                 total={total}
                 pages={totalPages}
                 hasPrev={currentPage > 1}
                 hasNext={currentPage < totalPages}
                 page={currentPage}
-                pageSize={pageSize}
+                limit={pageSize}
                 onPageChange={setPage}
-                onPageSizeChange={(size) => {
+                onLimitChange={(size) => {
                     setPageSize(size);
                     setPage(1);
                 }}

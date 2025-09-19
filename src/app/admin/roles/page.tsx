@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { useQuery, keepPreviousData } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { RolesTable } from '@/components/roles-table';
 import {
   getRoles,
@@ -22,7 +22,10 @@ export default function RolesPage() {
   const [searchInput, setSearchInput] = useState('');
   const [search, setSearch] = useState('');
   const { toast } = useToast();
-  const { page, limit, setPage, setLimit } = usePaginationState();
+  const { page, limit, sort, setPage, setLimit } = usePaginationState({
+    defaultLimit: 10,
+    defaultSort: 'desc',
+  });
 
   useEffect(() => {
     const handler = setTimeout(() => {
@@ -33,13 +36,13 @@ export default function RolesPage() {
   }, [page, searchInput, setPage]);
 
   const rolesQuery = useQuery({
-    queryKey: ['roles', { page, limit, search, showInactive }],
+    queryKey: ['roles', { page, limit, sort, search, showInactive }],
     queryFn: async () => {
-      const params: GetRolesParams = { page, limit, search, showInactive };
+      const params: GetRolesParams = { page, limit, sort, search, showInactive };
       const result = await getRoles(params);
       return result;
     },
-    placeholderData: keepPreviousData,
+    keepPreviousData: true,
     retry: false,
   });
 
@@ -148,13 +151,14 @@ export default function RolesPage() {
     );
   }
 
-  const roles = rolesQuery.data?.items ?? [];
-  const meta = rolesQuery.data?.meta;
-  const total = meta?.total ?? 0;
-  const totalPages = meta?.pages ?? 1;
-  const hasPrev = meta?.hasPrevPage ?? page > 1;
-  const hasNext = meta?.hasNextPage ?? page < totalPages;
-  const pageSize = meta?.limit ?? limit;
+  const payload = rolesQuery.data;
+  const roles = payload?.items ?? [];
+  const total = payload?.total ?? 0;
+  const totalPages = payload?.pages ?? 1;
+  const currentPage = payload?.page ?? page;
+  const currentLimit = payload?.limit ?? limit;
+  const hasPrev = payload?.hasPrev ?? currentPage > 1;
+  const hasNext = payload?.hasNext ?? currentPage < totalPages;
 
   return (
     <div className="h-full">
@@ -164,10 +168,13 @@ export default function RolesPage() {
         pages={totalPages}
         hasPrev={hasPrev}
         hasNext={hasNext}
-        page={page}
-        pageSize={pageSize}
+        page={currentPage}
+        limit={currentLimit}
         onPageChange={setPage}
-        onPageSizeChange={setLimit}
+        onLimitChange={(value) => {
+          setLimit(value);
+          setPage(1);
+        }}
         searchTerm={searchInput}
         onSearchChange={setSearchInput}
         showInactive={showInactive}
@@ -178,6 +185,7 @@ export default function RolesPage() {
         onSaveRole={handleSaveRole}
         onDeleteRole={handleDeleteRole}
         onRestoreRole={handleRestoreRole}
+        loading={rolesQuery.isFetching}
       />
     </div>
   );

@@ -13,6 +13,17 @@ export interface PaginatedResult<T> {
   meta: PaginationMeta;
 }
 
+export interface PageEnvelope<T> {
+  items: T[];
+  page: number;
+  limit: number;
+  sort: 'asc' | 'desc';
+  total: number;
+  pages: number;
+  hasPrev: boolean;
+  hasNext: boolean;
+}
+
 const META_NUMBER_KEYS = [
   'total',
   'totalCount',

@@ -21,9 +21,9 @@ interface RolesTableProps {
   hasPrev: boolean;
   hasNext: boolean;
   page: number;
-  pageSize: number;
+  limit: number;
   onPageChange: (page: number) => void;
-  onPageSizeChange: (pageSize: number) => void;
+  onLimitChange: (limit: number) => void;
   searchTerm: string;
   onSearchChange: (value: string) => void;
   showInactive: boolean;
@@ -31,6 +31,7 @@ interface RolesTableProps {
   onSaveRole: (role: RoleForm) => Promise<void>;
   onDeleteRole: (id: string) => Promise<void> | void;
   onRestoreRole: (id: string) => Promise<void> | void;
+  loading?: boolean;
 }
 
 export function RolesTable({
@@ -40,9 +41,9 @@ export function RolesTable({
   hasPrev,
   hasNext,
   page,
-  pageSize,
+  limit,
   onPageChange,
-  onPageSizeChange,
+  onLimitChange,
   searchTerm,
   onSearchChange,
   showInactive,
@@ -50,6 +51,7 @@ export function RolesTable({
   onSaveRole,
   onDeleteRole,
   onRestoreRole,
+  loading = false,
 }: RolesTableProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedRole, setSelectedRole] = useState<Role | null>(null);
@@ -156,27 +158,27 @@ export function RolesTable({
                     </DropdownMenu>
                   </TableCell>
                 </TableRow>
-              ))}
-              {roles.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={5} className="text-center py-4 text-sm text-muted-foreground">
-                    No hay roles.
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-        <PaginationBar
-          total={total}
-          page={page}
-          pages={pages}
-          pageSize={pageSize}
-          hasPrev={hasPrev}
-          hasNext={hasNext}
-          onPageChange={onPageChange}
-          onPageSizeChange={onPageSizeChange}
-        />
+            ))}
+            {!loading && roles.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={5} className="text-center py-4 text-sm text-muted-foreground">
+                  No hay roles.
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </CardContent>
+      <PaginationBar
+        total={total}
+        page={page}
+        pages={pages}
+        limit={limit}
+        hasPrev={hasPrev}
+        hasNext={hasNext}
+        onPageChange={onPageChange}
+        onLimitChange={onLimitChange}
+      />
       </Card>
       <RoleFormModal
         isOpen={isModalOpen}

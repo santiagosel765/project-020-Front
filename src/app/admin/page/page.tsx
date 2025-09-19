@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { useQuery, keepPreviousData } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { PagesTable } from '@/components/pages-table';
 import {
   getPages,
@@ -21,7 +21,10 @@ export default function PageAdminPage() {
   const [searchInput, setSearchInput] = useState('');
   const [search, setSearch] = useState('');
   const { toast } = useToast();
-  const { page, limit, setPage, setLimit } = usePaginationState();
+  const { page, limit, sort, setPage, setLimit } = usePaginationState({
+    defaultLimit: 10,
+    defaultSort: 'desc',
+  });
 
   useEffect(() => {
     const handler = setTimeout(() => {
@@ -32,13 +35,13 @@ export default function PageAdminPage() {
   }, [page, searchInput, setPage]);
 
   const pagesQuery = useQuery({
-    queryKey: ['pages', { page, limit, search, showInactive }],
+    queryKey: ['pages', { page, limit, sort, search, showInactive }],
     queryFn: async () => {
-      const params: GetPagesParams = { page, limit, search, showInactive };
+      const params: GetPagesParams = { page, limit, sort, search, showInactive };
       const result = await getPages(params);
       return result;
     },
-    placeholderData: keepPreviousData,
+    keepPreviousData: true,
     retry: false,
   });
 
@@ -120,13 +123,14 @@ export default function PageAdminPage() {
     );
   }
 
-  const items = pagesQuery.data?.items ?? [];
-  const meta = pagesQuery.data?.meta;
-  const total = meta?.total ?? 0;
-  const totalPages = meta?.pages ?? 1;
-  const hasPrev = meta?.hasPrevPage ?? page > 1;
-  const hasNext = meta?.hasNextPage ?? page < totalPages;
-  const pageSize = meta?.limit ?? limit;
+  const payload = pagesQuery.data;
+  const items = payload?.items ?? [];
+  const total = payload?.total ?? 0;
+  const totalPages = payload?.pages ?? 1;
+  const currentPage = payload?.page ?? page;
+  const currentLimit = payload?.limit ?? limit;
+  const hasPrev = payload?.hasPrev ?? currentPage > 1;
+  const hasNext = payload?.hasNext ?? currentPage < totalPages;
 
   return (
     <div className="h-full">
@@ -136,10 +140,13 @@ export default function PageAdminPage() {
         pages={totalPages}
         hasPrev={hasPrev}
         hasNext={hasNext}
-        page={page}
-        pageSize={pageSize}
+        page={currentPage}
+        limit={currentLimit}
         onPageChange={setPage}
-        onPageSizeChange={setLimit}
+        onLimitChange={(value) => {
+          setLimit(value);
+          setPage(1);
+        }}
         searchTerm={searchInput}
         onSearchChange={setSearchInput}
         showInactive={showInactive}
@@ -150,6 +157,7 @@ export default function PageAdminPage() {
         onSavePage={handleSavePage}
         onDeletePage={handleDeletePage}
         onRestorePage={handleRestorePage}
+        loading={pagesQuery.isFetching}
       />
     </div>
   );

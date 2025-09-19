@@ -23,13 +23,14 @@ interface UsersTableProps {
   hasPrev: boolean;
   hasNext: boolean;
   page: number;
-  pageSize: number;
+  limit: number;
   onPageChange: (page: number) => void;
-  onPageSizeChange: (pageSize: number) => void;
+  onLimitChange: (limit: number) => void;
   searchTerm: string;
   onSearchChange: (value: string) => void;
   onSaveUser: (payload: { data: User; file?: File | null }) => Promise<void> | void;
   onDeleteUser: (userId: string) => void;
+  loading?: boolean;
 }
 
 const getFullName = (u: User) =>
@@ -48,13 +49,14 @@ export function UsersTable({
   hasPrev,
   hasNext,
   page,
-  pageSize,
+  limit,
   onPageChange,
-  onPageSizeChange,
+  onLimitChange,
   searchTerm,
   onSearchChange,
   onSaveUser,
   onDeleteUser,
+  loading = false,
 }: UsersTableProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | undefined>(undefined);
@@ -152,9 +154,9 @@ export function UsersTable({
                 <TableHead>Acciones</TableHead>
               </TableRow>
             </TableHeader>
-            <TableBody>
-              {users.map(user => (
-                <TableRow key={user.id}>
+          <TableBody>
+            {users.map(user => (
+              <TableRow key={user.id}>
                   <TableCell>
                     <Avatar className="h-9 w-9">
                       <AvatarImage src={user.urlFoto || user.fotoPerfil || user.avatar || undefined} alt={getFullName(user)} />
@@ -215,28 +217,28 @@ export function UsersTable({
                     </DropdownMenu>
                   </TableCell>
                 </TableRow>
-              ))}
-              {users.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={8} className="text-center py-4 text-sm text-muted-foreground">
-                    No hay usuarios.
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-        <PaginationBar
-          total={total}
-          page={page}
-          pages={pages}
-          pageSize={pageSize}
-          hasPrev={hasPrev}
-          hasNext={hasNext}
-          onPageChange={onPageChange}
-          onPageSizeChange={onPageSizeChange}
-        />
-      </Card>
+            ))}
+            {!loading && users.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={8} className="text-center py-4 text-sm text-muted-foreground">
+                  No hay usuarios.
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </CardContent>
+      <PaginationBar
+        total={total}
+        page={page}
+        pages={pages}
+        limit={limit}
+        hasPrev={hasPrev}
+        hasNext={hasNext}
+        onPageChange={onPageChange}
+        onLimitChange={onLimitChange}
+      />
+    </Card>
 
       <UserFormModal
         isOpen={isModalOpen}

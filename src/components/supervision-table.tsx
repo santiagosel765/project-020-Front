@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Search, ArrowUpDown } from 'lucide-react';
+import { Search } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from './ui/button';
 import type { SupervisionDoc, DocEstado } from '@/services/documentsService';
@@ -20,16 +20,17 @@ interface SupervisionTableProps {
   statusFilter: DocEstado | 'Todos';
   onStatusFilterChange: (value: DocEstado | 'Todos') => void;
   sortOrder: 'asc' | 'desc';
-  onSortOrderChange: (value: 'asc' | 'desc') => void;
+  onSortToggle: () => void;
   statusCounts?: Record<DocEstado | 'Todos', number>;
   total: number;
   pages: number;
   hasPrev: boolean;
   hasNext: boolean;
   page: number;
-  pageSize: number;
+  limit: number;
   onPageChange: (page: number) => void;
-  onPageSizeChange: (pageSize: number) => void;
+  onLimitChange: (limit: number) => void;
+  loading?: boolean;
 }
 
 const getStatusClass = (status: DocEstado): string => {
@@ -73,16 +74,17 @@ export function SupervisionTable({
   statusFilter,
   onStatusFilterChange,
   sortOrder,
-  onSortOrderChange,
+  onSortToggle,
   statusCounts,
   total,
   pages,
   hasPrev,
   hasNext,
   page,
-  pageSize,
+  limit,
   onPageChange,
-  onPageSizeChange,
+  onLimitChange,
+  loading = false,
 }: SupervisionTableProps) {
   const documents = Array.isArray(items) ? items : [];
   const fallbackCounts = useMemo(
@@ -136,10 +138,14 @@ export function SupervisionTable({
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="cursor-pointer" onClick={() => onSortOrderChange(sortOrder === 'asc' ? 'desc' : 'asc')}>
+              <TableHead
+                className="cursor-pointer select-none"
+                onClick={() => {
+                  onSortToggle();
+                }}
+              >
                 <div className="flex items-center gap-2">
-                  Título
-                  <ArrowUpDown className="h-4 w-4" />
+                  Título {sortOrder === 'desc' ? '↓' : '↑'}
                 </div>
               </TableHead>
               <TableHead>Empresa</TableHead>
@@ -160,7 +166,7 @@ export function SupervisionTable({
                 <TableCell className="text-muted-foreground">{d.descripcionEstado ?? ''}</TableCell>
               </TableRow>
             ))}
-            {documents.length === 0 && (
+            {!loading && documents.length === 0 && (
               <TableRow>
                 <TableCell colSpan={5} className="text-center py-4 text-sm text-muted-foreground">
                   No hay documentos.
@@ -174,11 +180,11 @@ export function SupervisionTable({
         total={total}
         page={page}
         pages={pages}
-        pageSize={pageSize}
+        limit={limit}
         hasPrev={hasPrev}
         hasNext={hasNext}
         onPageChange={onPageChange}
-        onPageSizeChange={onPageSizeChange}
+        onLimitChange={onLimitChange}
       />
     </Card>
   );
