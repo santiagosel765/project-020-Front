@@ -14,6 +14,7 @@ import {
   type DocumentSupervisionParams,
 } from '@/services/documentsService';
 import { usePaginationState } from '@/hooks/usePaginationState';
+import { pageDebug } from '@/lib/page-debug';
 
 const toSupervisionDoc = (d: DocumentoRow): SupervisionDoc => {
   const x = d ?? (d as any)?.cuadro_firma ?? {};
@@ -42,10 +43,11 @@ const statusCountsDefault: Record<DocEstado | 'Todos', number> = {
 export default function SupervisionPage() {
   const [statusFilter, setStatusFilter] = useState<DocEstado | 'Todos'>('Todos');
   const { toast } = useToast();
-  const { page, limit, sort, search, setPage, setLimit, setSearch, toggleSort } = usePaginationState({
-    defaultLimit: 10,
-    defaultSort: 'desc',
-  });
+  const { page, limit, sort, search, setPage, setLimit, setSearch, toggleSort, isUserPagingRef } =
+    usePaginationState({
+      defaultLimit: 10,
+      defaultSort: 'desc',
+    });
   const sortOrder: 'asc' | 'desc' = sort;
   const [searchInput, setSearchInput] = useState(() => search);
   const inputRef = useRef(search);
@@ -66,6 +68,20 @@ export default function SupervisionPage() {
         }
       }
       setSearch(searchInput);
+      if (isUserPagingRef.current) {
+        pageDebug('src/app/admin/supervision/page.tsx:72:setPage(skip)', {
+          reason: 'userPaging',
+          from: page,
+          to: 1,
+          searchInput,
+        });
+        return;
+      }
+      pageDebug('src/app/admin/supervision/page.tsx:80:setPage', {
+        from: page,
+        to: 1,
+        searchInput,
+      });
       setPage(1);
     }, 300);
     return () => window.clearTimeout(handler);
@@ -114,6 +130,7 @@ export default function SupervisionPage() {
   const countsQuery = useQuery({
     queryKey: ['documents', 'supervision', 'counts', { search }],
     queryFn: async () => getSupervisionStats({ search }),
+    keepPreviousData: true,
     retry: false,
   });
 
@@ -162,7 +179,23 @@ export default function SupervisionPage() {
         statusFilter={statusFilter}
         onStatusFilterChange={(s) => {
           setStatusFilter(s);
-          if (page !== 1) setPage(1);
+          if (page !== 1) {
+            if (isUserPagingRef.current) {
+              pageDebug('src/app/admin/supervision/page.tsx:184:setPage(skip)', {
+                reason: 'userPaging',
+                from: page,
+                to: 1,
+                status: s,
+              });
+              return;
+            }
+            pageDebug('src/app/admin/supervision/page.tsx:192:setPage', {
+              from: page,
+              to: 1,
+              status: s,
+            });
+            setPage(1);
+          }
         }}
         sortOrder={sortOrder}
         onSortToggle={() => {

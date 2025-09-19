@@ -16,6 +16,7 @@ import {
 } from "@/services/documentsService";
 import { SignersModal } from "@/components/signers-modal";
 import { usePaginationState } from "@/hooks/usePaginationState";
+import { pageDebug } from "@/lib/page-debug";
 
 function toUiDocument(d: DocumentoRow): Document {
   const add = d.add_date ?? "";
@@ -62,7 +63,17 @@ export default function DocumentosPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [modalLoading, setModalLoading] = useState(false);
   const { toast } = useToast();
-  const { page, limit, sort, search, setPage, setLimit, setSearch, toggleSort } = usePaginationState({
+  const {
+    page,
+    limit,
+    sort,
+    search,
+    setPage,
+    setLimit,
+    setSearch,
+    toggleSort,
+    isUserPagingRef,
+  } = usePaginationState({
     defaultLimit: 10,
     defaultSort: "desc",
   });
@@ -86,6 +97,20 @@ export default function DocumentosPage() {
         }
       }
       setSearch(searchInput);
+      if (isUserPagingRef.current) {
+        pageDebug("src/app/admin/documentos/page.tsx:101:setPage(skip)", {
+          reason: "userPaging",
+          from: page,
+          to: 1,
+          searchInput,
+        });
+        return;
+      }
+      pageDebug("src/app/admin/documentos/page.tsx:109:setPage", {
+        from: page,
+        to: 1,
+        searchInput,
+      });
       setPage(1);
     }, 300);
     return () => {
@@ -135,6 +160,7 @@ export default function DocumentosPage() {
   const countsQuery = useQuery({
     queryKey: ["documents", "supervision", "stats", { search }],
     queryFn: async () => getSupervisionStats({ search }),
+    keepPreviousData: true,
     retry: false,
   });
 
@@ -195,7 +221,23 @@ export default function DocumentosPage() {
         statusFilter={statusFilter}
         onStatusFilterChange={(s) => {
           setStatusFilter(s);
-          if (page !== 1) setPage(1);
+          if (page !== 1) {
+            if (isUserPagingRef.current) {
+              pageDebug("src/app/admin/documentos/page.tsx:225:setPage(skip)", {
+                reason: "userPaging",
+                from: page,
+                to: 1,
+                status: s,
+              });
+              return;
+            }
+            pageDebug("src/app/admin/documentos/page.tsx:233:setPage", {
+              from: page,
+              to: 1,
+              status: s,
+            });
+            setPage(1);
+          }
         }}
         sortOrder={sortOrder}
         onSortToggle={() => {

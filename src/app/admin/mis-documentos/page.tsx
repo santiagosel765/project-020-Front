@@ -16,6 +16,7 @@ import {
 import { getMe } from "@/services/usersService";
 import { SignersModal } from "@/components/signers-modal";
 import { usePaginationState } from "@/hooks/usePaginationState";
+import { pageDebug } from "@/lib/page-debug";
 
 function toUiDocument(a: AsignacionDTO): Document {
   const cf = a.cuadro_firma;
@@ -81,7 +82,17 @@ export default function MisDocumentosPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [modalLoading, setModalLoading] = useState(false);
   const { toast } = useToast();
-  const { page, limit, sort, search, setPage, setLimit, setSearch, toggleSort } = usePaginationState({
+  const {
+    page,
+    limit,
+    sort,
+    search,
+    setPage,
+    setLimit,
+    setSearch,
+    toggleSort,
+    isUserPagingRef,
+  } = usePaginationState({
     defaultLimit: 10,
     defaultSort: "desc",
   });
@@ -105,6 +116,20 @@ export default function MisDocumentosPage() {
         }
       }
       setSearch(searchInput);
+      if (isUserPagingRef.current) {
+        pageDebug("src/app/admin/mis-documentos/page.tsx:120:setPage(skip)", {
+          reason: "userPaging",
+          from: page,
+          to: 1,
+          searchInput,
+        });
+        return;
+      }
+      pageDebug("src/app/admin/mis-documentos/page.tsx:128:setPage", {
+        from: page,
+        to: 1,
+        searchInput,
+      });
       setPage(1);
     }, 300);
     return () => {
@@ -183,6 +208,7 @@ export default function MisDocumentosPage() {
       const resumen = await getByUserStats(userId, { search });
       return resumen;
     },
+    keepPreviousData: true,
     retry: false,
   });
 
@@ -243,7 +269,23 @@ export default function MisDocumentosPage() {
         statusFilter={statusFilter}
         onStatusFilterChange={(s) => {
           setStatusFilter(s);
-          if (page !== 1) setPage(1);
+          if (page !== 1) {
+            if (isUserPagingRef.current) {
+              pageDebug("src/app/admin/mis-documentos/page.tsx:273:setPage(skip)", {
+                reason: "userPaging",
+                from: page,
+                to: 1,
+                status: s,
+              });
+              return;
+            }
+            pageDebug("src/app/admin/mis-documentos/page.tsx:281:setPage", {
+              from: page,
+              to: 1,
+              status: s,
+            });
+            setPage(1);
+          }
         }}
         sortOrder={sortOrder}
         onSortToggle={() => {

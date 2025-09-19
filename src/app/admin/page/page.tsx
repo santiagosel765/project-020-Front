@@ -15,11 +15,12 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { usePaginationState } from '@/hooks/usePaginationState';
+import { pageDebug } from '@/lib/page-debug';
 
 export default function PageAdminPage() {
   const [showInactive, setShowInactive] = useState(false);
   const { toast } = useToast();
-  const { page, limit, sort, search, setPage, setLimit, setSearch } = usePaginationState({
+  const { page, limit, sort, search, setPage, setLimit, setSearch, isUserPagingRef } = usePaginationState({
     defaultLimit: 10,
     defaultSort: 'desc',
   });
@@ -42,6 +43,20 @@ export default function PageAdminPage() {
         }
       }
       setSearch(searchInput);
+      if (isUserPagingRef.current) {
+        pageDebug('src/app/admin/page/page.tsx:47:setPage(skip)', {
+          reason: 'userPaging',
+          from: page,
+          to: 1,
+          searchInput,
+        });
+        return;
+      }
+      pageDebug('src/app/admin/page/page.tsx:55:setPage', {
+        from: page,
+        to: 1,
+        searchInput,
+      });
       setPage(1);
     }, 300);
     return () => clearTimeout(handler);
@@ -78,6 +93,18 @@ export default function PageAdminPage() {
         await createPage(pageData as any);
         toast({ title: 'Página creada', description: 'La nueva página ha sido agregada.' });
         if (page !== 1) {
+          if (isUserPagingRef.current) {
+            pageDebug('src/app/admin/page/page.tsx:97:setPage(skip)', {
+              reason: 'userPaging',
+              from: page,
+              to: 1,
+            });
+            return;
+          }
+          pageDebug('src/app/admin/page/page.tsx:104:setPage', {
+            from: page,
+            to: 1,
+          });
           setPage(1);
           return;
         }
@@ -149,7 +176,23 @@ export default function PageAdminPage() {
         showInactive={showInactive}
         onToggleInactive={(checked) => {
           setShowInactive(checked);
-          if (page !== 1) setPage(1);
+          if (page !== 1) {
+            if (isUserPagingRef.current) {
+              pageDebug('src/app/admin/page/page.tsx:181:setPage(skip)', {
+                reason: 'userPaging',
+                from: page,
+                to: 1,
+                showInactive: checked,
+              });
+              return;
+            }
+            pageDebug('src/app/admin/page/page.tsx:189:setPage', {
+              from: page,
+              to: 1,
+              showInactive: checked,
+            });
+            setPage(1);
+          }
         }}
         onSavePage={handleSavePage}
         onDeletePage={handleDeletePage}
