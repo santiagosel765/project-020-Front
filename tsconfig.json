@@ -19,7 +19,8 @@
       }
     ],
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "react-markdown": ["./src/lib/react-markdown"]
     },
     "types": ["@types/formidable"]
   },

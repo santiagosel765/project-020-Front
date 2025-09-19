@@ -1,11 +1,11 @@
 "use client";
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { GeneralHeader } from '@/components/general-header';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Download, Loader2, Sparkles } from 'lucide-react';
+import { Download, Sparkles } from 'lucide-react';
 import { SignersPanel } from '@/components/document-detail/signers-panel';
 import {
   getCuadroFirmaDetalle,
@@ -24,10 +24,14 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
-import { summarizeDocument, SummarizeDocumentOutput } from '@/ai/flows/summarize-document';
 import { useAuth } from '@/store/auth';
 import { fullName, initials } from '@/lib/avatar';
 import { SignDialog } from '@/components/sign-dialog';
+import {
+  DocumentSummaryDialog,
+  type DocumentSummaryDialogHandle,
+} from '@/components/ai/DocumentSummaryDialog';
+import { DocumentPdfViewer } from '@/components/document-detail/pdf-viewer';
 
 export default function DocumentDetailPage() {
   const params = useParams<{ id: string }>();
@@ -40,8 +44,7 @@ export default function DocumentDetailPage() {
   const [signOpen, setSignOpen] = useState(false);
   const [rejectOpen, setRejectOpen] = useState(false);
   const [rejectReason, setRejectReason] = useState('');
-  const [summary, setSummary] = useState<SummarizeDocumentOutput | null>(null);
-  const [isSummarizing, setIsSummarizing] = useState(false);
+  const summaryDialogRef = useRef<DocumentSummaryDialogHandle>(null);
 
   const fetchDetalle = async (id: number) => {
     setLoading(true);
@@ -99,18 +102,9 @@ export default function DocumentDetailPage() {
     setRejectOpen(false);
   };
 
-  const handleSummarize = async () => {
+  const handleSummarize = () => {
     if (!detalle) return;
-    setIsSummarizing(true);
-    try {
-      const text = `Título: ${detalle.titulo}\n\nDescripción: ${detalle.descripcion ?? ''}`;
-      const result = await summarizeDocument({ documentText: text });
-      setSummary(result);
-    } catch {
-      toast({ variant: 'destructive', title: 'Error de IA', description: 'No se pudo generar el resumen.' });
-    } finally {
-      setIsSummarizing(false);
-    }
+    summaryDialogRef.current?.open();
   };
 
   const progress = firmantes.length
@@ -198,11 +192,9 @@ export default function DocumentDetailPage() {
                 <Button onClick={() => detalle && fetchDetalle(detalle.id)}>Reintentar</Button>
               </div>
             ) : (
-              <iframe
+              <DocumentPdfViewer
                 key={detalle.urlCuadroFirmasPDF}
                 src={detalle.urlCuadroFirmasPDF}
-                className="w-full h-[70vh] rounded-xl bg-muted"
-                referrerPolicy="no-referrer"
                 onError={() => setPdfError(true)}
               />
             )}
@@ -255,15 +247,9 @@ export default function DocumentDetailPage() {
                 <Sparkles className="h-4 w-4 text-primary" />
                 <h3 className="font-medium">Resumen con IA</h3>
               </div>
-              <Button onClick={handleSummarize} disabled={isSummarizing} className="w-full">
-                {isSummarizing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {isSummarizing ? 'Generando...' : 'Resumir Documento'}
+              <Button onClick={handleSummarize} className="w-full">
+                Resumir Documento
               </Button>
-              {summary?.summary && (
-                <div className="p-4 bg-muted/50 rounded-lg text-sm whitespace-pre-wrap">
-                  {summary.summary}
-                </div>
-              )}
             </div>
           </div>
         </div>
@@ -278,6 +264,14 @@ export default function DocumentDetailPage() {
           onSigned={async () => {
             await fetchDetalle(detalle.id);
           }}
+        />
+      )}
+      {detalle && (
+        <DocumentSummaryDialog
+          ref={summaryDialogRef}
+          documentId={detalle.id}
+          cuadroFirmasId={detalle.id}
+          pdfUrl={detalle.urlCuadroFirmasPDF}
         />
       )}
     </div>
