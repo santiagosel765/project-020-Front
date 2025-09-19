@@ -29,12 +29,10 @@ export default function UsuariosPage() {
     const handler = window.setTimeout(() => {
       const term = searchInput.trim();
       setSearch(term);
-      if (page !== 1) {
-        setPage(1);
-      }
+      setPage(1);
     }, 300);
     return () => window.clearTimeout(handler);
-  }, [page, searchInput, setPage]);
+  }, [searchInput, setPage, setSearch]);
 
   const usersQuery = useQuery({
     queryKey: ['users', { page, limit, sort, search }],
