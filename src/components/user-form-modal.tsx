@@ -170,6 +170,30 @@ export function UserFormModal({
   }, [isOpen]);
 
   useEffect(() => {
+    if (!isOpen || !rolesCatalog.length) {
+      return;
+    }
+
+    const currentRoleId = form.getValues("roleId");
+    if (currentRoleId) {
+      return;
+    }
+
+    const userRoles = Array.isArray(user?.roles) ? user.roles : [];
+    const firstRole = userRoles.find((role) => role && role.id != null);
+    if (!firstRole) {
+      return;
+    }
+
+    const roleId =
+      typeof firstRole.id === "number" ? firstRole.id : Number(firstRole.id);
+
+    if (Number.isFinite(roleId) && rolesCatalog.some((role) => role.id === roleId)) {
+      form.setValue("roleId", String(roleId));
+    }
+  }, [form, isOpen, rolesCatalog, user]);
+
+  useEffect(() => {
     return () => {
       if (previewUrl && previewUrl.startsWith("blob:")) {
         URL.revokeObjectURL(previewUrl);
@@ -363,7 +387,7 @@ export function UserFormModal({
                         <FormItem>
                           <FormLabel>Posición</FormLabel>
                           <Select
-                            disabled={isLoadingCatalogs && posiciones.length === 0}
+                            disabled={isLoadingCatalogs}
                             onValueChange={field.onChange}
                             value={field.value || undefined}
                           >
@@ -401,7 +425,7 @@ export function UserFormModal({
                         <FormItem>
                           <FormLabel>Gerencia</FormLabel>
                           <Select
-                            disabled={isLoadingCatalogs && gerencias.length === 0}
+                            disabled={isLoadingCatalogs}
                             onValueChange={field.onChange}
                             value={field.value || undefined}
                           >
@@ -439,7 +463,7 @@ export function UserFormModal({
                         <FormItem>
                           <FormLabel>Rol</FormLabel>
                           <Select
-                            disabled={isLoadingCatalogs && rolesCatalog.length === 0}
+                            disabled={isLoadingCatalogs}
                             onValueChange={field.onChange}
                             value={field.value ? field.value : undefined}
                           >
@@ -447,21 +471,29 @@ export function UserFormModal({
                               <SelectTrigger>
                                 <SelectValue
                                   placeholder={
-                                    isLoadingCatalogs ? "Cargando roles..." : "Seleccione un rol"
+                                    isLoadingCatalogs
+                                      ? "Cargando…"
+                                      : rolesCatalog.length > 0
+                                      ? "Seleccione un rol"
+                                      : "No hay roles disponibles"
                                   }
                                 />
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
-                              {rolesCatalog.length ? (
+                              {isLoadingCatalogs ? (
+                                <SelectItem value="__role_loading" disabled>
+                                  Cargando…
+                                </SelectItem>
+                              ) : rolesCatalog.length ? (
                                 rolesCatalog.map((role) => (
                                   <SelectItem key={role.id} value={String(role.id)}>
                                     {role.nombre}
                                   </SelectItem>
                                 ))
                               ) : (
-                                <SelectItem value="__role_placeholder" disabled>
-                                  {isLoadingCatalogs ? "Cargando..." : "Sin roles disponibles"}
+                                <SelectItem value="__role_empty" disabled>
+                                  No hay roles disponibles
                                 </SelectItem>
                               )}
                             </SelectContent>
