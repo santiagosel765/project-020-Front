@@ -12,7 +12,7 @@ import type { SupervisionDoc, DocEstado } from '@/services/documentsService';
 import { PaginationBar } from './pagination/PaginationBar';
 
 interface SupervisionTableProps {
-  documents: SupervisionDoc[];
+  items: SupervisionDoc[];
   title: string;
   description: string;
   searchTerm: string;
@@ -23,6 +23,9 @@ interface SupervisionTableProps {
   onSortOrderChange: (value: 'asc' | 'desc') => void;
   statusCounts?: Record<DocEstado | 'Todos', number>;
   total: number;
+  pages: number;
+  hasPrev: boolean;
+  hasNext: boolean;
   page: number;
   pageSize: number;
   onPageChange: (page: number) => void;
@@ -62,7 +65,7 @@ const getButtonStatusClass = (status: DocEstado | 'Todos', current: DocEstado | 
 };
 
 export function SupervisionTable({
-  documents: docs,
+  items,
   title,
   description,
   searchTerm,
@@ -73,12 +76,15 @@ export function SupervisionTable({
   onSortOrderChange,
   statusCounts,
   total,
+  pages,
+  hasPrev,
+  hasNext,
   page,
   pageSize,
   onPageChange,
   onPageSizeChange,
 }: SupervisionTableProps) {
-  const documents = Array.isArray(docs) ? docs : [];
+  const documents = Array.isArray(items) ? items : [];
   const fallbackCounts = useMemo(
     () =>
       documents.reduce(
@@ -167,11 +173,13 @@ export function SupervisionTable({
       <PaginationBar
         total={total}
         page={page}
+        pages={pages}
         pageSize={pageSize}
+        hasPrev={hasPrev}
+        hasNext={hasNext}
         onPageChange={onPageChange}
         onPageSizeChange={onPageSizeChange}
       />
     </Card>
   );
 }
-

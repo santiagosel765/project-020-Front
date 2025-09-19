@@ -15,8 +15,11 @@ import { PaginationBar } from './pagination/PaginationBar';
 import { DateCell } from '@/components/DateCell';
 
 interface PagesTableProps {
-  pages: Page[];
+  items: Page[];
   total: number;
+  pages: number;
+  hasPrev: boolean;
+  hasNext: boolean;
   page: number;
   pageSize: number;
   onPageChange: (page: number) => void;
@@ -31,8 +34,11 @@ interface PagesTableProps {
 }
 
 export function PagesTable({
-  pages,
+  items,
   total,
+  pages,
+  hasPrev,
+  hasNext,
   page,
   pageSize,
   onPageChange,
@@ -47,6 +53,8 @@ export function PagesTable({
 }: PagesTableProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedPage, setSelectedPage] = useState<Page | undefined>(undefined);
+
+  const rows = Array.isArray(items) ? items : [];
 
   const openModal = (page?: Page) => {
     setSelectedPage(page);
@@ -106,18 +114,18 @@ export function PagesTable({
               </TableRow>
             </TableHeader>
             <TableBody>
-              {pages.map(page => (
-                <TableRow key={page.id}>
-                  <TableCell className="font-medium">{page.nombre}</TableCell>
-                  <TableCell className="hidden md:table-cell">{page.url}</TableCell>
-                  <TableCell className="hidden md:table-cell">{page.descripcion}</TableCell>
+              {rows.map(pageItem => (
+                <TableRow key={pageItem.id}>
+                  <TableCell className="font-medium">{pageItem.nombre}</TableCell>
+                  <TableCell className="hidden md:table-cell">{pageItem.url}</TableCell>
+                  <TableCell className="hidden md:table-cell">{pageItem.descripcion}</TableCell>
                   <TableCell>
-                    <Badge variant={page.activo ? 'default' : 'secondary'}>
-                      {page.activo ? 'Activa' : 'Inactiva'}
+                    <Badge variant={pageItem.activo ? 'default' : 'secondary'}>
+                      {pageItem.activo ? 'Activa' : 'Inactiva'}
                     </Badge>
                   </TableCell>
                   <TableCell className="hidden md:table-cell">
-                    <DateCell value={page.createdAt} />
+                    <DateCell value={pageItem.createdAt} />
                   </TableCell>
                   <TableCell>
                     <DropdownMenu>
@@ -128,17 +136,17 @@ export function PagesTable({
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => openModal(page)}>
+                        <DropdownMenuItem onClick={() => openModal(pageItem)}>
                           <Edit className="mr-2 h-4 w-4" />
                           <span>Editar</span>
                         </DropdownMenuItem>
-                        {page.activo ? (
-                          <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => onDeletePage(page.id!)}>
+                        {pageItem.activo ? (
+                          <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => onDeletePage(pageItem.id!)}>
                             <Trash2 className="mr-2 h-4 w-4" />
                             <span>Eliminar</span>
                           </DropdownMenuItem>
                         ) : (
-                          <DropdownMenuItem onClick={() => onRestorePage(page.id!)}>
+                          <DropdownMenuItem onClick={() => onRestorePage(pageItem.id!)}>
                             <RotateCcw className="mr-2 h-4 w-4" />
                             <span>Restaurar</span>
                           </DropdownMenuItem>
@@ -148,13 +156,23 @@ export function PagesTable({
                   </TableCell>
                 </TableRow>
               ))}
+              {rows.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center py-4 text-sm text-muted-foreground">
+                    No hay páginas.
+                  </TableCell>
+                </TableRow>
+              )}
             </TableBody>
           </Table>
         </CardContent>
         <PaginationBar
           total={total}
           page={page}
+          pages={pages}
           pageSize={pageSize}
+          hasPrev={hasPrev}
+          hasNext={hasNext}
           onPageChange={onPageChange}
           onPageSizeChange={onPageSizeChange}
         />
@@ -168,4 +186,3 @@ export function PagesTable({
     </>
   );
 }
-

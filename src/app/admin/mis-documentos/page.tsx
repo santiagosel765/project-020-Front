@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useMemo } from "react";
+import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { DocumentsTable } from "@/components/documents-table";
 import type { Document } from "@/lib/data";
 import { useToast } from "@/hooks/use-toast";
@@ -13,7 +14,7 @@ import {
 } from "@/services/documentsService";
 import { getMe } from "@/services/usersService";
 import { SignersModal } from "@/components/signers-modal";
-import { useServerPagination } from "@/hooks/useServerPagination";
+import { usePaginationState } from "@/hooks/usePaginationState";
 
 function toUiDocument(a: AsignacionDTO): Document {
   const cf = a.cuadro_firma;
@@ -65,102 +66,114 @@ function toUiDocument(a: AsignacionDTO): Document {
   return anyDoc as Document;
 }
 
+const defaultCounts: Record<Document["status"] | "Todos", number> = {
+  Todos: 0,
+  Pendiente: 0,
+  "En Progreso": 0,
+  Rechazado: 0,
+  Completado: 0,
+};
+
 export default function MisDocumentosPage() {
-  const [documents, setDocuments] = useState<Document[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [total, setTotal] = useState(0);
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<Document["status"] | "Todos">("Todos");
-  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const [firmantes, setFirmantes] = useState<any[]>([]);
   const [modalOpen, setModalOpen] = useState(false);
   const [modalLoading, setModalLoading] = useState(false);
-  const [userId, setUserId] = useState<number | null>(null);
-  const [counts, setCounts] = useState<
-    Record<Document["status"] | "Todos", number>
-  >({ Todos: 0, Pendiente: 0, "En Progreso": 0, Rechazado: 0, Completado: 0 });
   const { toast } = useToast();
-  const { page, limit, setPage, setLimit, setFromMeta } = useServerPagination();
+  const { page, limit, sort, setPage, setLimit, setSort } = usePaginationState({ sort: "desc" });
+  const sortOrder: "asc" | "desc" = sort === "asc" ? "asc" : "desc";
 
   useEffect(() => {
-    const handler = setTimeout(() => setSearch(searchInput), 300);
+    const handler = setTimeout(() => {
+      setSearch(searchInput);
+      if (page !== 1) setPage(1);
+    }, 300);
     return () => clearTimeout(handler);
-  }, [searchInput]);
+  }, [page, searchInput, setPage]);
 
-  const fetchUserId = useCallback(async () => {
-    if (userId != null) return userId;
-    try {
-      const me = await getMe();
-      const id = Number(me.id);
-      if (Number.isFinite(id)) {
-        setUserId(id);
-        return id;
-      }
-    } catch {
-      toast({
-        variant: "destructive",
-        title: "Error al cargar usuario",
-        description: "No se pudo obtener la información del usuario.",
-      });
-    }
-    return null;
-  }, [toast, userId]);
+  const meQuery = useQuery({
+    queryKey: ["me"],
+    queryFn: async () => getMe(),
+    retry: false,
+  });
 
-  const fetchDocuments = useCallback(async () => {
-    setIsLoading(true);
-    try {
-      const id = await fetchUserId();
-      if (!id) {
-        setDocuments([]);
-        setTotal(0);
-        return;
-      }
+  useEffect(() => {
+    if (!meQuery.error) return;
+    toast({
+      variant: "destructive",
+      title: "Error al cargar usuario",
+      description: "No se pudo obtener la información del usuario.",
+    });
+  }, [meQuery.error, toast]);
+
+  const userId = useMemo(() => {
+    const id = meQuery.data?.id;
+    const numeric = Number(id);
+    return Number.isFinite(numeric) && numeric > 0 ? numeric : undefined;
+  }, [meQuery.data?.id]);
+
+  const documentsQuery = useQuery({
+    queryKey: [
+      "documents",
+      "me",
+      userId,
+      {
+        page,
+        limit,
+        sort: sortOrder,
+        search,
+        status: statusFilter,
+      },
+    ],
+    enabled: userId != null,
+    queryFn: async () => {
+      if (!userId) throw new Error("No se encontró el usuario");
       const params: Record<string, any> = { page, limit, sort: sortOrder };
       if (search) params.search = search;
       if (statusFilter !== "Todos") params.estado = statusFilter;
-      const { items, meta } = await getDocumentsByUser(id, params);
-      setTotal(meta.total ?? 0);
-      if (meta.pages > 0 && page > meta.pages) {
-        setFromMeta(meta);
-        return;
-      }
-      setDocuments(items.map(toUiDocument));
-      setFromMeta(meta);
-    } catch (error) {
-      toast({
-        variant: "destructive",
-        title: "Error al cargar documentos",
-        description: "No se pudieron obtener los datos de los documentos.",
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  }, [fetchUserId, limit, page, search, statusFilter, sortOrder, setFromMeta, toast]);
+      const response = await getDocumentsByUser(userId, params);
+      return {
+        items: response.items.map(toUiDocument),
+        meta: response.meta,
+      };
+    },
+    placeholderData: keepPreviousData,
+    retry: false,
+  });
 
   useEffect(() => {
-    fetchDocuments();
-  }, [fetchDocuments]);
+    if (!documentsQuery.error) return;
+    toast({
+      variant: "destructive",
+      title: "Error al cargar documentos",
+      description: "No se pudieron obtener los datos de los documentos.",
+    });
+  }, [documentsQuery.error, toast]);
 
-  useEffect(() => {
-    const loadCounts = async () => {
-      const id = userId ?? (await fetchUserId());
-      if (!id) return;
-      try {
-        const resumen = await getByUserStats(id, { search });
-        setCounts({
-          Todos: resumen.Todos ?? 0,
-          Pendiente: resumen.Pendiente ?? 0,
-          "En Progreso": resumen["En Progreso"] ?? 0,
-          Rechazado: resumen.Rechazado ?? 0,
-          Completado: resumen.Completado ?? 0,
-        });
-      } catch {
-        /* ignore */
-      }
-    };
-    loadCounts();
-  }, [fetchUserId, search, userId]);
+  const countsQuery = useQuery({
+    queryKey: ["documents", "me", "stats", userId, { search }],
+    enabled: userId != null,
+    queryFn: async () => {
+      if (!userId) return defaultCounts;
+      const resumen = await getByUserStats(userId, { search });
+      return resumen;
+    },
+    retry: false,
+  });
+
+  const counts = useMemo(() => {
+    const resumen = countsQuery.data;
+    if (!resumen) return defaultCounts;
+    return {
+      Todos: resumen.Todos ?? 0,
+      Pendiente: resumen.Pendiente ?? 0,
+      "En Progreso": resumen["En Progreso"] ?? 0,
+      Rechazado: resumen.Rechazado ?? 0,
+      Completado: resumen.Completado ?? 0,
+    } as Record<Document["status"] | "Todos", number>;
+  }, [countsQuery.data]);
 
   const handleAsignadosClick = async (doc: Document) => {
     setModalOpen(true);
@@ -180,7 +193,9 @@ export default function MisDocumentosPage() {
     }
   };
 
-  if (isLoading) {
+  const isInitialLoading = meQuery.isPending || (documentsQuery.isPending && !documentsQuery.data);
+
+  if (isInitialLoading) {
     return (
       <div className="space-y-4">
         <div className="flex justify-between items-center">
@@ -192,10 +207,18 @@ export default function MisDocumentosPage() {
     );
   }
 
+  const documents = documentsQuery.data?.items ?? [];
+  const meta = documentsQuery.data?.meta;
+  const total = meta?.total ?? 0;
+  const totalPages = meta?.pages ?? 1;
+  const hasPrev = meta?.hasPrevPage ?? page > 1;
+  const hasNext = meta?.hasNextPage ?? page < totalPages;
+  const pageSize = meta?.limit ?? limit;
+
   return (
     <div className="h-full">
       <DocumentsTable
-        documents={documents}
+        items={documents}
         title="Mis Documentos"
         description="Documentos asignados a usted para revisar y firmar."
         searchTerm={searchInput}
@@ -203,18 +226,20 @@ export default function MisDocumentosPage() {
         statusFilter={statusFilter}
         onStatusFilterChange={(s) => {
           setStatusFilter(s);
-          setPage(1);
+          if (page !== 1) setPage(1);
         }}
         sortOrder={sortOrder}
         onSortOrderChange={(o) => {
-          setSortOrder(o);
-          setPage(1);
+          setSort(o);
         }}
         onAsignadosClick={handleAsignadosClick}
         statusCounts={counts}
         total={total}
+        pages={totalPages}
+        hasPrev={hasPrev}
+        hasNext={hasNext}
         page={page}
-        pageSize={limit}
+        pageSize={pageSize}
         onPageChange={setPage}
         onPageSizeChange={setLimit}
       />
@@ -227,4 +252,3 @@ export default function MisDocumentosPage() {
     </div>
   );
 }
-

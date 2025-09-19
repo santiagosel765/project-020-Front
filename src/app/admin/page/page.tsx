@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { PagesTable } from '@/components/pages-table';
 import {
   getPages,
@@ -13,49 +14,44 @@ import {
 } from '@/services/pageService';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useServerPagination } from '@/hooks/useServerPagination';
+import { usePaginationState } from '@/hooks/usePaginationState';
 
 export default function PageAdminPage() {
-  const [pages, setPages] = useState<Page[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [total, setTotal] = useState(0);
   const [showInactive, setShowInactive] = useState(false);
   const [searchInput, setSearchInput] = useState('');
   const [search, setSearch] = useState('');
   const { toast } = useToast();
-  const { page, limit, setPage, setLimit, setFromMeta } = useServerPagination();
+  const { page, limit, setPage, setLimit } = usePaginationState();
 
   useEffect(() => {
-    const handler = setTimeout(() => setSearch(searchInput), 300);
+    const handler = setTimeout(() => {
+      setSearch(searchInput);
+      if (page !== 1) setPage(1);
+    }, 300);
     return () => clearTimeout(handler);
-  }, [searchInput]);
+  }, [page, searchInput, setPage]);
 
-  const fetchPages = useCallback(async () => {
-    setIsLoading(true);
-    try {
+  const pagesQuery = useQuery({
+    queryKey: ['pages', { page, limit, search, showInactive }],
+    queryFn: async () => {
       const params: GetPagesParams = { page, limit, search, showInactive };
-      const { items, meta } = await getPages(params);
-      setTotal(meta.total ?? 0);
-      if (meta.pages > 0 && page > meta.pages) {
-        setFromMeta(meta);
-        return;
-      }
-      setPages(items);
-      setFromMeta(meta);
-    } catch (error) {
-      toast({
-        variant: 'destructive',
-        title: 'Error al cargar páginas',
-        description: 'No se pudieron obtener las páginas.',
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  }, [limit, page, search, setFromMeta, showInactive, toast]);
+      const result = await getPages(params);
+      return result;
+    },
+    placeholderData: keepPreviousData,
+    retry: false,
+  });
 
   useEffect(() => {
-    fetchPages();
-  }, [fetchPages]);
+    if (!pagesQuery.error) return;
+    toast({
+      variant: 'destructive',
+      title: 'Error al cargar páginas',
+      description: 'No se pudieron obtener las páginas.',
+    });
+  }, [pagesQuery.error, toast]);
+
+  const isInitialLoading = pagesQuery.isPending && !pagesQuery.data;
 
   const handleSavePage = async (pageData: Partial<Page>) => {
     try {
@@ -65,9 +61,12 @@ export default function PageAdminPage() {
       } else {
         await createPage(pageData as any);
         toast({ title: 'Página creada', description: 'La nueva página ha sido agregada.' });
-        setPage(1);
+        if (page !== 1) {
+          setPage(1);
+          return;
+        }
       }
-      await fetchPages();
+      await pagesQuery.refetch();
     } catch (error) {
       toast({
         variant: 'destructive',
@@ -82,7 +81,7 @@ export default function PageAdminPage() {
     try {
       await deletePage(id);
       toast({ variant: 'destructive', title: 'Página inactivada', description: 'La página ha sido marcada como inactiva.' });
-      await fetchPages();
+      await pagesQuery.refetch();
     } catch (error) {
       toast({
         variant: 'destructive',
@@ -96,7 +95,7 @@ export default function PageAdminPage() {
     try {
       await restorePage(id);
       toast({ title: 'Página restaurada', description: 'La página ha sido activada nuevamente.' });
-      await fetchPages();
+      await pagesQuery.refetch();
     } catch (error) {
       toast({
         variant: 'destructive',
@@ -106,7 +105,7 @@ export default function PageAdminPage() {
     }
   };
 
-  if (isLoading) {
+  if (isInitialLoading) {
     return (
       <div className="space-y-4">
         <div className="flex justify-between items-center">
@@ -121,13 +120,24 @@ export default function PageAdminPage() {
     );
   }
 
+  const items = pagesQuery.data?.items ?? [];
+  const meta = pagesQuery.data?.meta;
+  const total = meta?.total ?? 0;
+  const totalPages = meta?.pages ?? 1;
+  const hasPrev = meta?.hasPrevPage ?? page > 1;
+  const hasNext = meta?.hasNextPage ?? page < totalPages;
+  const pageSize = meta?.limit ?? limit;
+
   return (
     <div className="h-full">
       <PagesTable
-        pages={pages}
+        items={items}
         total={total}
+        pages={totalPages}
+        hasPrev={hasPrev}
+        hasNext={hasNext}
         page={page}
-        pageSize={limit}
+        pageSize={pageSize}
         onPageChange={setPage}
         onPageSizeChange={setLimit}
         searchTerm={searchInput}
@@ -135,7 +145,7 @@ export default function PageAdminPage() {
         showInactive={showInactive}
         onToggleInactive={(checked) => {
           setShowInactive(checked);
-          setPage(1);
+          if (page !== 1) setPage(1);
         }}
         onSavePage={handleSavePage}
         onDeletePage={handleDeletePage}
@@ -144,4 +154,3 @@ export default function PageAdminPage() {
     </div>
   );
 }
-

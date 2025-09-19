@@ -100,7 +100,7 @@ export default function GeneralPage() {
     return (
         <div className="h-full">
             <DocumentsTable
-                documents={paginatedDocuments}
+                items={paginatedDocuments}
                 title="Mis Documentos"
                 description="Documentos asignados a usted para revisar y firmar."
                 searchTerm={searchTerm}
@@ -111,6 +111,9 @@ export default function GeneralPage() {
                 onSortOrderChange={setSortOrder}
                 statusCounts={statusCounts}
                 total={total}
+                pages={totalPages}
+                hasPrev={currentPage > 1}
+                hasNext={currentPage < totalPages}
                 page={currentPage}
                 pageSize={pageSize}
                 onPageChange={setPage}

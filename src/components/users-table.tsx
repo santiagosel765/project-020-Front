@@ -17,8 +17,11 @@ import { useSession } from '@/lib/session';
 import { PaginationBar } from './pagination/PaginationBar';
 
 interface UsersTableProps {
-  users: User[];
+  items: User[];
   total: number;
+  pages: number;
+  hasPrev: boolean;
+  hasNext: boolean;
   page: number;
   pageSize: number;
   onPageChange: (page: number) => void;
@@ -39,8 +42,11 @@ const getInitials = (u: User) => {
 };
 
 export function UsersTable({
-  users,
+  items,
   total,
+  pages,
+  hasPrev,
+  hasNext,
   page,
   pageSize,
   onPageChange,
@@ -56,6 +62,8 @@ export function UsersTable({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { me } = useSession();
   const [passwordDialogUser, setPasswordDialogUser] = useState<{ user: User; requireCurrent: boolean } | null>(null);
+
+  const users = Array.isArray(items) ? items : [];
 
   const handleOpenModal = (user?: User) => {
     setSelectedUser(user);
@@ -143,8 +151,8 @@ export function UsersTable({
                 <TableHead className="hidden xl:table-cell">Correo</TableHead>
                 <TableHead>Acciones</TableHead>
               </TableRow>
-          </TableHeader>
-          <TableBody>
+            </TableHeader>
+            <TableBody>
               {users.map(user => (
                 <TableRow key={user.id}>
                   <TableCell>
@@ -208,13 +216,23 @@ export function UsersTable({
                   </TableCell>
                 </TableRow>
               ))}
+              {users.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={8} className="text-center py-4 text-sm text-muted-foreground">
+                    No hay usuarios.
+                  </TableCell>
+                </TableRow>
+              )}
             </TableBody>
           </Table>
         </CardContent>
         <PaginationBar
           total={total}
           page={page}
+          pages={pages}
           pageSize={pageSize}
+          hasPrev={hasPrev}
+          hasNext={hasNext}
           onPageChange={onPageChange}
           onPageSizeChange={onPageSizeChange}
         />

@@ -29,7 +29,7 @@ import { PaginationBar } from "./pagination/PaginationBar";
 import { DateCell } from "@/components/DateCell";
 
 interface DocumentsTableProps {
-  documents: Document[];
+  items: Document[];
   title: string;
   description: string;
   searchTerm: string;
@@ -40,8 +40,10 @@ interface DocumentsTableProps {
   onSortOrderChange: (value: "asc" | "desc") => void;
   onAsignadosClick?: (doc: Document) => void;
   statusCounts?: Record<Document["status"] | "Todos", number>;
-  dataSource?: "byUser" | "supervision";
   total: number;
+  pages: number;
+  hasPrev: boolean;
+  hasNext: boolean;
   page: number;
   pageSize: number;
   onPageChange: (page: number) => void;
@@ -91,9 +93,9 @@ const AvatarGroup: React.FC<{ users?: DocumentUser[] }> = ({ users = [] }) => (
   <div className="flex -space-x-2 overflow-hidden">
     {users.slice(0, 3).map((user, idx) => (
       <Avatar
-        key={`${user.id}-${user.responsibility ?? ''}-${idx}`}
+        key={`${user.id}-${user.responsibility ?? ""}-${idx}`}
         className="inline-block h-8 w-8 rounded-full ring-2 ring-background"
-        title={`${user.name} • ${user.responsibility ?? ''}`}
+        title={`${user.name} • ${user.responsibility ?? ""}`}
       >
         <AvatarImage src={user.avatar} data-ai-hint="person avatar" />
         <AvatarFallback>
@@ -110,7 +112,7 @@ const AvatarGroup: React.FC<{ users?: DocumentUser[] }> = ({ users = [] }) => (
 );
 
 export function DocumentsTable({
-  documents,
+  items,
   title,
   description,
   searchTerm,
@@ -121,8 +123,10 @@ export function DocumentsTable({
   onSortOrderChange,
   onAsignadosClick,
   statusCounts,
-  dataSource = "byUser",
   total,
+  pages,
+  hasPrev,
+  hasNext,
   page,
   pageSize,
   onPageChange,
@@ -145,6 +149,8 @@ export function DocumentsTable({
   const handleRowClick = (docId: string) => {
     router.push(`/documento/${docId}`);
   };
+
+  const documents = Array.isArray(items) ? items : [];
 
   return (
     <Card className="w-full h-full flex flex-col glassmorphism">
@@ -206,7 +212,7 @@ export function DocumentsTable({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {(documents ?? []).map((doc) => {
+            {documents.map((doc) => {
               const users = doc.assignedUsers ?? [];
               return (
                 <TableRow key={doc.id}>
@@ -246,17 +252,26 @@ export function DocumentsTable({
                 </TableRow>
               );
             })}
+            {documents.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={6} className="text-center py-4 text-sm text-muted-foreground">
+                  No hay documentos.
+                </TableCell>
+              </TableRow>
+            )}
           </TableBody>
         </Table>
       </CardContent>
       <PaginationBar
         total={total}
         page={page}
+        pages={pages}
         pageSize={pageSize}
+        hasPrev={hasPrev}
+        hasNext={hasNext}
         onPageChange={onPageChange}
         onPageSizeChange={onPageSizeChange}
       />
     </Card>
   );
 }
-
