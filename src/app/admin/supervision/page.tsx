@@ -53,10 +53,10 @@ export default function SupervisionPage() {
   useEffect(() => {
     const handler = setTimeout(() => {
       setSearch(searchInput);
-      if (page !== 1) setPage(1);
+      setPage(1);
     }, 300);
     return () => clearTimeout(handler);
-  }, [page, searchInput, setPage]);
+  }, [searchInput, setPage, setSearch]);
 
   const documentsQuery = useQuery({
     queryKey: [

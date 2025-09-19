@@ -1,0 +1,30 @@
+# Investigación de rebote de paginación
+
+## 1. Hook `usePaginationState`
+- Lee `page`, `limit` y `sort` desde los search params mediante `useSearchParams` y `useMemo`, aplicando `parsePositiveInteger` y `sanitizeSort` para garantizar números positivos y órdenes válidos (`src/hooks/usePaginationState.ts`, líneas 37-59).
+- El método interno `commit` normaliza los valores entrantes, compara contra los actuales y sólo hace `router.replace` cuando hay cambios reales, evitando loops (`src/hooks/usePaginationState.ts`, líneas 61-88).
+- Los setters (`setPage`, `setLimit`, `setSort`, `toggleSort`) delegan en `commit`; `setLimit` fuerza `page=1` porque un cambio de página/limit debe reiniciar la paginación (`src/hooks/usePaginationState.ts`, líneas 90-111).
+
+## 2. Efectos que normalizan filtros
+- Cada pantalla usa un `useEffect` con debounce para copiar `searchInput` → `search`. Antes del fix, el efecto dependía de `page` y ejecutaba `setPage(1)` cada vez que cambiaba la página, reescribiendo la URL a `?page=1` tras pulsar “Siguiente”.
+- Se actualizó el efecto en `documentos`, `mis-documentos`, `supervision`, `usuarios`, `roles` y `page` para depender sólo de `searchInput` y forzar `page=1` una vez por cambio de búsqueda (`src/app/admin/*/page.tsx`). Esto preserva `?page=2` al navegar y sigue resetando cuando cambia el término.
+
+## 3. React Query
+- Todas las queries incluyen `{ page, limit, sort }` en el `queryKey` y reenviados al backend (`getDocumentSupervision`, `getDocumentsByUser`, `getUsers`, `getRoles`, `getPages`).
+- Se usa `keepPreviousData: true` en todas las tablas listadas para evitar flicker y mantener la página montada durante los refetch.
+
+## 4. Tablas y `PaginationBar`
+- Las tablas consumen `data.items` y derivan `total`, `pages`, `page`, `hasPrev`, `hasNext`, `limit` del payload antes de pasarlos al `PaginationBar` (`src/components/*-table.tsx`).
+- El footer sólo invoca `onPageChange(page ± 1)` y `onLimitChange` (que internamente llama a `setLimit` + `setPage(1)`), sin duplicar handlers.
+
+## 5. Causa y fix
+- **Causa**: el debounce de búsqueda escuchaba `page`, así que al cambiar de página se ejecutaba de nuevo y forzaba `setPage(1)`, provocando el “rebote”.
+- **Fix**: eliminar `page` de las dependencias y confiar en el guard de `commit` (no reescribe la URL si ya estamos en `page=1`). Ahora “Siguiente” deja la URL en `?page=2`, mantiene los ítems de la página 2 y sólo vuelve a 1 cuando se modifica la búsqueda o filtros.
+
+## 6. Checklist de verificación
+- [x] Navegar con “Siguiente” mantiene la URL en la página destino.
+- [x] No hay renders que vuelvan a `?page=1` sin interacción.
+- [x] La segunda página muestra datos distintos si el backend los entrega.
+- [x] Cambiar `limit` resetea a `page=1` (lo hace `setLimit`).
+- [x] El sort preserve o resetea la página según la definición del handler (en documentos resetea explícitamente).
+
