@@ -194,7 +194,7 @@ export default function DocumentDetailPage() {
             ) : (
               <DocumentPdfViewer
                 key={detalle.urlCuadroFirmasPDF}
-                src={detalle.urlCuadroFirmasPDF}
+                pdfUrl={detalle.urlCuadroFirmasPDF}
                 onError={() => setPdfError(true)}
               />
             )}
@@ -271,7 +271,7 @@ export default function DocumentDetailPage() {
           ref={summaryDialogRef}
           documentId={detalle.id}
           cuadroFirmasId={detalle.id}
-          pdfUrl={detalle.urlCuadroFirmasPDF}
+          docData={detalle}
         />
       )}
     </div>

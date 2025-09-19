@@ -16,11 +16,12 @@ import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import type { CuadroFirmaDetalle } from '@/services/documentsService';
 
 export interface DocumentSummaryDialogProps {
   documentId: number;
   cuadroFirmasId: number;
-  pdfUrl: string;
+  docData: CuadroFirmaDetalle | null;
 }
 
 export interface DocumentSummaryDialogHandle {
@@ -30,7 +31,7 @@ export interface DocumentSummaryDialogHandle {
 }
 
 export const DocumentSummaryDialog = forwardRef<DocumentSummaryDialogHandle, DocumentSummaryDialogProps>(
-  ({ documentId, cuadroFirmasId, pdfUrl }, ref) => {
+  ({ documentId, cuadroFirmasId, docData }, ref) => {
     const { toast } = useToast();
     const [isOpen, setIsOpen] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
@@ -196,6 +197,8 @@ export const DocumentSummaryDialog = forwardRef<DocumentSummaryDialogHandle, Doc
       };
     }, [stopTTS]);
 
+    const pdfUrl = docData?.urlDocumento ?? docData?.urlCuadroFirmasPDF ?? '';
+
     return (
       <Dialog open={isOpen} onOpenChange={handleOpenChange}>
         <DialogContent className="max-w-6xl w-full">
@@ -204,7 +207,7 @@ export const DocumentSummaryDialog = forwardRef<DocumentSummaryDialogHandle, Doc
           </DialogHeader>
           <div className="flex flex-col gap-4 lg:flex-row">
             <div className="lg:w-1/2 w-full">
-              <DocumentPdfViewer src={pdfUrl} className="h-[60vh] lg:h-[70vh]" />
+              <DocumentPdfViewer pdfUrl={pdfUrl} className="h-[60vh] lg:h-[70vh]" />
             </div>
             <div className="lg:w-1/2 w-full flex flex-col gap-3">
               <div className="flex flex-wrap items-center justify-end gap-2">
