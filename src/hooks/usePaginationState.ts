@@ -16,25 +16,34 @@ const parsePositiveInteger = (value: string | number | null | undefined, fallbac
   return Math.floor(numeric);
 };
 
-const sanitizeSort = (value: string | null | undefined, fallback: string) => {
-  if (typeof value !== "string") return fallback;
-  const trimmed = value.trim();
-  return trimmed === "" ? fallback : trimmed;
+export type SortOrder = "asc" | "desc";
+
+const sanitizeSort = (
+  value: string | null | undefined,
+  fallback: SortOrder,
+): SortOrder => {
+  if (typeof value === "string") {
+    const trimmed = value.trim().toLowerCase();
+    if (trimmed === "asc" || trimmed === "desc") {
+      return trimmed;
+    }
+  }
+  return fallback;
 };
 
-export interface PaginationStateDefaults {
-  page?: number;
-  limit?: number;
-  sort?: string;
+export interface PaginationStateOptions {
+  defaultPage?: number;
+  defaultLimit?: number;
+  defaultSort?: SortOrder;
 }
 
-export const usePaginationState = (defaults: PaginationStateDefaults = {}) => {
+export const usePaginationState = (options: PaginationStateOptions = {}) => {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const defaultPage = defaults.page ?? 1;
-  const defaultLimit = defaults.limit ?? DEFAULT_LIMIT;
-  const defaultSort = defaults.sort ?? "";
+  const defaultPage = options.defaultPage ?? 1;
+  const defaultLimit = options.defaultLimit ?? DEFAULT_LIMIT;
+  const defaultSort = options.defaultSort ?? "desc";
 
   const page = useMemo(
     () => parsePositiveInteger(searchParams?.get("page"), defaultPage),
@@ -52,7 +61,7 @@ export const usePaginationState = (defaults: PaginationStateDefaults = {}) => {
   );
 
   const commit = useCallback(
-    (next: { page?: number; limit?: number; sort?: string }) => {
+    (next: { page?: number; limit?: number; sort?: SortOrder }) => {
       const nextPage = parsePositiveInteger(next.page ?? page, defaultPage);
       const nextLimit = parsePositiveInteger(next.limit ?? limit, defaultLimit);
       const nextSort = sanitizeSort(next.sort ?? sort, defaultSort);
@@ -62,10 +71,9 @@ export const usePaginationState = (defaults: PaginationStateDefaults = {}) => {
       const params = new URLSearchParams();
       params.set("page", String(nextPage));
       params.set("limit", String(nextLimit));
-      if (nextSort) params.set("sort", nextSort);
+      params.set("sort", nextSort);
 
-      const query = params.toString();
-      router.replace(query ? `?${query}` : "?", { scroll: false });
+      router.replace(`?${params.toString()}`, { scroll: false });
     },
     [defaultLimit, defaultPage, defaultSort, limit, page, router, sort],
   );
@@ -85,11 +93,15 @@ export const usePaginationState = (defaults: PaginationStateDefaults = {}) => {
   );
 
   const setSort = useCallback(
-    (value: string) => {
+    (value: SortOrder) => {
       commit({ sort: value });
     },
     [commit],
   );
+
+  const toggleSort = useCallback(() => {
+    commit({ sort: sort === "asc" ? "desc" : "asc" });
+  }, [commit, sort]);
 
   const params = useMemo(
     () => ({
@@ -104,7 +116,7 @@ export const usePaginationState = (defaults: PaginationStateDefaults = {}) => {
     const url = new URLSearchParams();
     url.set("page", String(page));
     url.set("limit", String(limit));
-    if (sort) url.set("sort", sort);
+    url.set("sort", sort);
     return url.toString();
   }, [limit, page, sort]);
 
@@ -115,6 +127,7 @@ export const usePaginationState = (defaults: PaginationStateDefaults = {}) => {
     setPage,
     setLimit,
     setSort,
+    toggleSort,
     params,
     queryString,
   } as const;

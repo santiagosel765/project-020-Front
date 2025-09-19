@@ -1,6 +1,6 @@
 import { api } from '@/lib/api';
-import { normalizeList, normalizeOne, unwrapPaginated } from '@/lib/apiEnvelope';
-import { hasPaginationMeta, normalizePaginationMeta, paginateArray, type PaginatedResult } from '@/lib/pagination';
+import { normalizeOne } from '@/lib/apiEnvelope';
+import { PageEnvelope } from '@/lib/pagination';
 
 export interface PaginaUI {
   id: number;
@@ -13,43 +13,51 @@ export interface PaginaUI {
 export interface GetPagesParams {
   page?: number;
   limit?: number;
+  sort?: 'asc' | 'desc';
   search?: string;
   showInactive?: boolean;
   [key: string]: unknown;
 }
 
-const filterPages = (pages: PaginaUI[], search: string, showInactive: boolean) => {
-  const term = search.trim().toLowerCase();
-  return pages
-    .filter((page) => {
-      if (!showInactive && page.activo === false) return false;
-      if (!term) return true;
-      const nombre = (page.nombre ?? '').toLowerCase();
-      const descripcion = (page.descripcion ?? '').toLowerCase();
-      const url = (page.url ?? '').toLowerCase();
-      return nombre.includes(term) || descripcion.includes(term) || url.includes(term);
-    })
-    .sort((a, b) => (a.nombre ?? '').localeCompare(b.nombre ?? ''));
-};
+const toPagina = (page: any): PaginaUI => ({
+  id: Number(page?.id ?? 0),
+  nombre: page?.nombre ?? '',
+  url: page?.url ?? '',
+  descripcion: page?.descripcion ?? page?.description ?? undefined,
+  createdAt: page?.createdAt ?? page?.created_at ?? undefined,
+  activo: page?.activo ?? page?.active ?? undefined,
+});
 
-export async function getPaginas(params: GetPagesParams = {}): Promise<PaginatedResult<PaginaUI>> {
-  const { page = 1, limit = 10, search = '', showInactive = false, ...rest } = params;
-  const query: Record<string, unknown> = { ...rest };
-  if (params.page != null) query.page = page;
-  if (params.limit != null) query.limit = limit;
-  if (search.trim() !== '') query.search = search.trim();
+export async function getPaginas(params: GetPagesParams = {}): Promise<PageEnvelope<PaginaUI>> {
+  const {
+    page = 1,
+    limit = 10,
+    sort = 'desc',
+    search,
+    showInactive = false,
+    ...rest
+  } = params;
 
-  const { data } = await api.get('/paginas', { params: query });
-  const pag = unwrapPaginated<PaginaUI>(data);
-  if (hasPaginationMeta(pag.meta)) {
-    const meta = normalizePaginationMeta(pag.meta, { page, limit });
-    const items = (pag.items.length ? pag.items : normalizeList<PaginaUI>(data)) as PaginaUI[];
-    return { items, meta };
+  const query: Record<string, unknown> = {
+    page,
+    limit,
+    sort,
+    showInactive,
+    ...rest,
+  };
+
+  if (typeof search === 'string' && search.trim() !== '') {
+    query.search = search.trim();
   }
 
-  const list = normalizeList<PaginaUI>(data);
-  const filtered = filterPages(list, search, showInactive);
-  return paginateArray(filtered, { page, limit });
+  const { data } = await api.get<PageEnvelope<any>>('/paginas', { params: query });
+  const envelope = data as PageEnvelope<any>;
+  const items = Array.isArray(envelope.items) ? envelope.items.map(toPagina) : [];
+
+  return {
+    ...envelope,
+    items,
+  };
 }
 
 export async function createPagina(body: any): Promise<PaginaUI> {

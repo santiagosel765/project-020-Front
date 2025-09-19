@@ -1,8 +1,7 @@
 import { api } from '@/lib/api';
-import { unwrapArray, unwrapPaginated, unwrapOne } from '@/lib/apiEnvelope';
-import { hasPaginationMeta, normalizePaginationMeta, paginateArray, type PaginatedResult } from '@/lib/pagination';
+import { unwrapArray, unwrapOne } from '@/lib/apiEnvelope';
+import { PageEnvelope } from '@/lib/pagination';
 import { initials, fullName, initialsFromFullName } from '@/lib/avatar';
-import { getTime } from '@/lib/date';
 
 export type DocEstado = 'Pendiente' | 'En Progreso' | 'Rechazado' | 'Completado';
 export type SupervisionDoc = {
@@ -211,7 +210,23 @@ const toSupervisionDoc = (d: any): SupervisionDoc => {
   };
 };
 
-const parseDateValue = (value?: string | null) => getTime(value);
+type PaginationRequest = {
+  page: number;
+  limit: number;
+  sort: 'asc' | 'desc';
+};
+
+export type DocumentSupervisionParams = PaginationRequest & {
+  search?: string;
+  estado?: string;
+  [key: string]: unknown;
+};
+
+export type DocumentsByUserParams = PaginationRequest & {
+  search?: string;
+  estado?: string;
+  [key: string]: unknown;
+};
 
 export async function createCuadroFirma(body: FormData) {
   const { data } = await api.post('/documents/cuadro-firmas', body, { timeout: 60000 });
@@ -236,51 +251,40 @@ export async function updateDocumentoAsignacion(
 }
 
 export async function getDocumentSupervision(
-  params: Record<string, any> = {},
-): Promise<PaginatedResult<DocumentoRow>> {
-  const { data } = await api.get<any>('/documents/cuadro-firmas/documentos/supervision', {
-    params,
-  });
-  const pag = unwrapPaginated<any>(data);
-  const source = pag.items.length
-    ? pag.items
-    : unwrapArray<any>(data?.data ?? data?.documentos ?? data);
+  params: DocumentSupervisionParams,
+): Promise<PageEnvelope<DocumentoRow>> {
+  const { page, limit, sort, search, estado, ...rest } = params;
+  const query: Record<string, unknown> = {
+    page,
+    limit,
+    sort,
+    ...rest,
+  };
 
-  if (hasPaginationMeta(pag.meta)) {
-    const meta = normalizePaginationMeta(pag.meta, {
-      page: Number(params?.page) || undefined,
-      limit: Number(params?.limit) || undefined,
-    });
-    return { items: source.map(toDocumentoRow), meta };
+  if (typeof search === 'string' && search.trim() !== '') {
+    query.search = search.trim();
   }
 
-  const search = typeof params?.search === 'string' ? params.search.trim().toLowerCase() : '';
-  const status =
-    typeof params?.estado === 'string' && params.estado !== 'Todos'
-      ? params.estado.toLowerCase()
-      : '';
-  const sortOrder = params?.sort === 'asc' ? 'asc' : 'desc';
+  if (typeof estado === 'string' && estado.trim() !== '' && estado !== 'Todos') {
+    query.estado = estado;
+  }
 
-  const mapped = source
-    .map(toDocumentoRow)
-    .filter((doc) => {
-      if (status && doc.estado?.nombre?.toLowerCase() !== status) return false;
-      if (!search) return true;
-      const titulo = (doc.titulo ?? '').toLowerCase();
-      const descripcion = (doc.descripcion ?? '').toLowerCase();
-      const empresa = (doc.empresa?.nombre ?? '').toLowerCase();
-      return titulo.includes(search) || descripcion.includes(search) || empresa.includes(search);
-    })
-    .sort((a, b) => {
-      const aDate = parseDateValue(a.add_date);
-      const bDate = parseDateValue(b.add_date);
-      return sortOrder === 'asc' ? aDate - bDate : bDate - aDate;
-    });
+  const { data } = await api.get<PageEnvelope<any>>(
+    '/documents/cuadro-firmas/documentos/supervision',
+    {
+      params: query,
+    },
+  );
 
-  return paginateArray(mapped, {
-    page: Number(params?.page) || 1,
-    limit: Number(params?.limit) || 10,
-  });
+  const envelope = data as PageEnvelope<any>;
+  const items = Array.isArray(envelope.items)
+    ? envelope.items.map(toDocumentoRow)
+    : [];
+
+  return {
+    ...envelope,
+    items,
+  };
 }
 
 export async function getSupervisionStats(params?: { search?: string }) {
@@ -294,48 +298,39 @@ export async function getSupervisionStats(params?: { search?: string }) {
 
 export async function getDocumentsByUser(
   userId: number,
-  params: Record<string, any> = {},
-): Promise<PaginatedResult<AsignacionDTO>> {
-  const { data } = await api.get<any>(`/documents/cuadro-firmas/by-user/${userId}`, { params });
-  const pag = unwrapPaginated<any>(data);
-  const asignaciones = pag.items.length
-    ? pag.items
-    : unwrapArray<any>(data?.data?.asignaciones ?? data?.asignaciones ?? []);
+  params: DocumentsByUserParams,
+): Promise<PageEnvelope<AsignacionDTO>> {
+  const { page, limit, sort, search, estado, ...rest } = params;
 
-  if (hasPaginationMeta(pag.meta)) {
-    const meta = normalizePaginationMeta(pag.meta, {
-      page: Number(params?.page) || undefined,
-      limit: Number(params?.limit) || undefined,
-    });
-    return { items: asignaciones as AsignacionDTO[], meta };
+  const query: Record<string, unknown> = {
+    page,
+    limit,
+    sort,
+    ...rest,
+  };
+
+  if (typeof search === 'string' && search.trim() !== '') {
+    query.search = search.trim();
   }
 
-  const search = typeof params?.search === 'string' ? params.search.trim().toLowerCase() : '';
-  const status =
-    typeof params?.estado === 'string' && params.estado !== 'Todos'
-      ? params.estado.toLowerCase()
-      : '';
-  const sortOrder = params?.sort === 'asc' ? 'asc' : 'desc';
+  if (typeof estado === 'string' && estado.trim() !== '' && estado !== 'Todos') {
+    query.estado = estado;
+  }
 
-  const filtered = (asignaciones as AsignacionDTO[]).filter((asignacion) => {
-    const cf: any = asignacion?.cuadro_firma ?? {};
-    if (status && String(cf?.estado_firma?.nombre ?? '').toLowerCase() !== status) return false;
-    if (!search) return true;
-    const titulo = String(cf?.titulo ?? '').toLowerCase();
-    const descripcion = String(cf?.descripcion ?? '').toLowerCase();
-    return titulo.includes(search) || descripcion.includes(search);
-  });
+  const { data } = await api.get<PageEnvelope<any>>(
+    `/documents/cuadro-firmas/by-user/${userId}`,
+    { params: query },
+  );
 
-  filtered.sort((a, b) => {
-    const aDate = parseDateValue(a?.cuadro_firma?.add_date ?? null);
-    const bDate = parseDateValue(b?.cuadro_firma?.add_date ?? null);
-    return sortOrder === 'asc' ? aDate - bDate : bDate - aDate;
-  });
+  const envelope = data as PageEnvelope<any>;
+  const items = Array.isArray(envelope.items)
+    ? (envelope.items as AsignacionDTO[])
+    : [];
 
-  return paginateArray(filtered, {
-    page: Number(params?.page) || 1,
-    limit: Number(params?.limit) || 10,
-  });
+  return {
+    ...envelope,
+    items,
+  };
 }
 
 export async function getByUserStats(userId: number, params?: { search?: string }) {

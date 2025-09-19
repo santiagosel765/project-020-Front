@@ -17,12 +17,12 @@ export interface PaginationBarProps {
   total: number;
   page: number;
   pages: number;
-  pageSize: number;
+  limit: number;
   hasPrev: boolean;
   hasNext: boolean;
   onPageChange: (page: number) => void;
-  onPageSizeChange: (pageSize: number) => void;
-  pageSizeOptions?: number[];
+  onLimitChange: (limit: number) => void;
+  limitOptions?: number[];
   className?: string;
 }
 
@@ -30,25 +30,28 @@ export function PaginationBar({
   total,
   page,
   pages,
-  pageSize,
+  limit,
   hasPrev,
   hasNext,
   onPageChange,
-  onPageSizeChange,
-  pageSizeOptions = DEFAULT_OPTIONS as unknown as number[],
+  onLimitChange,
+  limitOptions = DEFAULT_OPTIONS as unknown as number[],
   className,
 }: PaginationBarProps) {
-  const size = Number.isFinite(pageSize) && pageSize > 0 ? Math.floor(pageSize) : DEFAULT_OPTIONS[0];
-  const totalPages = Number.isFinite(pages) && pages > 0 ? Math.floor(pages) : Math.max(1, Math.ceil((Number.isFinite(total) ? Math.max(0, total) : 0) / size) || 1);
+  const size = Number.isFinite(limit) && limit > 0 ? Math.floor(limit) : DEFAULT_OPTIONS[0];
+  const totalPages =
+    Number.isFinite(pages) && pages > 0
+      ? Math.floor(pages)
+      : Math.max(1, Math.ceil(((Number.isFinite(total) ? Math.max(0, total) : 0) / size) || 0) || 1);
   const currentPage = Math.min(Math.max(1, Math.floor(page || 1)), totalPages);
 
   const options = useMemo(() => {
     const set = new Set<number>();
-    [...pageSizeOptions, size].forEach((value) => {
+    [...limitOptions, size].forEach((value) => {
       if (Number.isFinite(value) && value > 0) set.add(Math.floor(value));
     });
     return Array.from(set).sort((a, b) => a - b);
-  }, [pageSizeOptions, size]);
+  }, [limitOptions, size]);
 
   const handlePrev = () => {
     if (!hasPrev || currentPage <= 1) return;
@@ -77,7 +80,7 @@ export function PaginationBar({
             value={String(size)}
             onValueChange={(value) => {
               const next = Number(value);
-              if (Number.isFinite(next) && next > 0) onPageSizeChange(Math.floor(next));
+              if (Number.isFinite(next) && next > 0) onLimitChange(Math.floor(next));
             }}
           >
             <SelectTrigger className="w-[120px]" aria-label="Registros por página">

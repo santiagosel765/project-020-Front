@@ -20,7 +20,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Document, DocumentUser } from "@/lib/data";
-import { Search, ArrowUpDown } from "lucide-react";
+import { Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "./ui/button";
 import { useRouter } from "next/navigation";
@@ -37,7 +37,7 @@ interface DocumentsTableProps {
   statusFilter: Document["status"] | "Todos";
   onStatusFilterChange: (value: Document["status"] | "Todos") => void;
   sortOrder: "asc" | "desc";
-  onSortOrderChange: (value: "asc" | "desc") => void;
+  onSortToggle: () => void;
   onAsignadosClick?: (doc: Document) => void;
   statusCounts?: Record<Document["status"] | "Todos", number>;
   total: number;
@@ -45,9 +45,10 @@ interface DocumentsTableProps {
   hasPrev: boolean;
   hasNext: boolean;
   page: number;
-  pageSize: number;
+  limit: number;
   onPageChange: (page: number) => void;
-  onPageSizeChange: (pageSize: number) => void;
+  onLimitChange: (limit: number) => void;
+  loading?: boolean;
 }
 
 const getStatusClass = (status: Document["status"]): string => {
@@ -120,7 +121,7 @@ export function DocumentsTable({
   statusFilter,
   onStatusFilterChange,
   sortOrder,
-  onSortOrderChange,
+  onSortToggle,
   onAsignadosClick,
   statusCounts,
   total,
@@ -128,15 +129,12 @@ export function DocumentsTable({
   hasPrev,
   hasNext,
   page,
-  pageSize,
+  limit,
   onPageChange,
-  onPageSizeChange,
+  onLimitChange,
+  loading = false,
 }: DocumentsTableProps) {
   const router = useRouter();
-
-  const handleSort = () => {
-    onSortOrderChange(sortOrder === "asc" ? "desc" : "asc");
-  };
 
   const statusButtons: (Document["status"] | "Todos")[] = [
     "Todos",
@@ -198,12 +196,13 @@ export function DocumentsTable({
               <TableHead>Nombre Doc.</TableHead>
               <TableHead className="hidden md:table-cell">Descripción</TableHead>
               <TableHead
-                className="hidden sm:table-cell cursor-pointer"
-                onClick={handleSort}
+                className="hidden sm:table-cell cursor-pointer select-none"
+                onClick={() => {
+                  onSortToggle();
+                }}
               >
                 <div className="flex items-center gap-2">
-                  Fecha Envío
-                  <ArrowUpDown className="h-4 w-4" />
+                  Fecha Envío {sortOrder === "desc" ? "↓" : "↑"}
                 </div>
               </TableHead>
               <TableHead>Estado</TableHead>
@@ -252,7 +251,7 @@ export function DocumentsTable({
                 </TableRow>
               );
             })}
-            {documents.length === 0 && (
+            {!loading && documents.length === 0 && (
               <TableRow>
                 <TableCell colSpan={6} className="text-center py-4 text-sm text-muted-foreground">
                   No hay documentos.
@@ -266,11 +265,11 @@ export function DocumentsTable({
         total={total}
         page={page}
         pages={pages}
-        pageSize={pageSize}
+        limit={limit}
         hasPrev={hasPrev}
         hasNext={hasNext}
         onPageChange={onPageChange}
-        onPageSizeChange={onPageSizeChange}
+        onLimitChange={onLimitChange}
       />
     </Card>
   );

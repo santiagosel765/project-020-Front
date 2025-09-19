@@ -1,6 +1,6 @@
 import { api } from '@/lib/api';
-import { normalizeList, normalizeOne, unwrapPaginated } from '@/lib/apiEnvelope';
-import { hasPaginationMeta, normalizePaginationMeta, paginateArray, type PaginatedResult } from '@/lib/pagination';
+import { normalizeOne } from '@/lib/apiEnvelope';
+import { PageEnvelope } from '@/lib/pagination';
 
 export interface Role {
   id?: string | number;
@@ -13,42 +13,50 @@ export interface Role {
 export interface GetRolesParams {
   page?: number;
   limit?: number;
+  sort?: 'asc' | 'desc';
   search?: string;
   showInactive?: boolean;
   [key: string]: unknown;
 }
 
-const filterRoles = (roles: Role[], search: string, showInactive: boolean) => {
-  const term = search.trim().toLowerCase();
-  return roles
-    .filter((role) => {
-      if (!showInactive && role.activo === false) return false;
-      if (!term) return true;
-      const name = (role.nombre ?? '').toLowerCase();
-      const description = (role.descripcion ?? '').toLowerCase();
-      return name.includes(term) || description.includes(term);
-    })
-    .sort((a, b) => (a.nombre ?? '').localeCompare(b.nombre ?? ''));
-};
+const toRole = (role: any): Role => ({
+  id: role?.id,
+  nombre: role?.nombre ?? role?.name ?? '',
+  descripcion: role?.descripcion ?? role?.description ?? undefined,
+  activo: role?.activo ?? role?.active ?? undefined,
+  createdAt: role?.createdAt ?? role?.created_at ?? undefined,
+});
 
-export async function getRoles(params: GetRolesParams = {}): Promise<PaginatedResult<Role>> {
-  const { page = 1, limit = 10, search = '', showInactive = false, ...rest } = params;
-  const query: Record<string, unknown> = { ...rest };
-  if (params.page != null) query.page = page;
-  if (params.limit != null) query.limit = limit;
-  if (search.trim() !== '') query.search = search.trim();
+export async function getRoles(params: GetRolesParams = {}): Promise<PageEnvelope<Role>> {
+  const {
+    page = 1,
+    limit = 10,
+    sort = 'desc',
+    search,
+    showInactive = false,
+    ...rest
+  } = params;
 
-  const { data } = await api.get('/roles', { params: query });
-  const pag = unwrapPaginated<Role>(data);
-  if (hasPaginationMeta(pag.meta)) {
-    const meta = normalizePaginationMeta(pag.meta, { page, limit });
-    const items = (pag.items.length ? pag.items : normalizeList<Role>(data)) as Role[];
-    return { items, meta };
+  const query: Record<string, unknown> = {
+    page,
+    limit,
+    sort,
+    showInactive,
+    ...rest,
+  };
+
+  if (typeof search === 'string' && search.trim() !== '') {
+    query.search = search.trim();
   }
 
-  const list = normalizeList<Role>(data);
-  const filtered = filterRoles(list, search, showInactive);
-  return paginateArray(filtered, { page, limit });
+  const { data } = await api.get<PageEnvelope<any>>('/roles', { params: query });
+  const envelope = data as PageEnvelope<any>;
+  const items = Array.isArray(envelope.items) ? envelope.items.map(toRole) : [];
+
+  return {
+    ...envelope,
+    items,
+  };
 }
 
 export async function createRole(body: any) {
