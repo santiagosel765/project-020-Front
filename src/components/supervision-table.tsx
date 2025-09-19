@@ -11,6 +11,8 @@ import { Button } from './ui/button';
 import type { SupervisionDoc, DocEstado } from '@/services/documentsService';
 import { PaginationBar } from './pagination/PaginationBar';
 import type { PageEnvelope } from '@/lib/pagination';
+import { ElapsedDaysCell } from '@/components/ElapsedDaysCell';
+import { formatGTDateTime } from '@/lib/date';
 
 interface SupervisionTableProps {
   data?: PageEnvelope<SupervisionDoc>;
@@ -150,17 +152,25 @@ export function SupervisionTable({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {documents.map((d) => (
-              <TableRow key={d.id}>
-                <TableCell className="font-medium">{d.titulo}</TableCell>
-                <TableCell className="text-muted-foreground">{d.empresa?.nombre ?? ''}</TableCell>
-                <TableCell>
-                  <Badge className={cn('border', getStatusClass(d.estado))}>{d.estado}</Badge>
-                </TableCell>
-                <TableCell>{d.diasTranscurridos ?? 0}</TableCell>
-                <TableCell className="text-muted-foreground">{d.descripcionEstado ?? ''}</TableCell>
-              </TableRow>
-            ))}
+            {documents.map((d) => {
+              const addDateTooltip = formatGTDateTime(d.addDate, { ampm: 'upper' });
+              return (
+                <TableRow key={d.id}>
+                  <TableCell className="font-medium">{d.titulo}</TableCell>
+                  <TableCell className="text-muted-foreground">{d.empresa?.nombre ?? ''}</TableCell>
+                  <TableCell>
+                    <Badge className={cn('border', getStatusClass(d.estado))}>{d.estado}</Badge>
+                  </TableCell>
+                  <TableCell>
+                    <ElapsedDaysCell
+                      fromISO={d.addDate ?? undefined}
+                      title={addDateTooltip ? `${addDateTooltip} GT` : undefined}
+                    />
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">{d.descripcionEstado ?? ''}</TableCell>
+                </TableRow>
+              );
+            })}
             {!loading && documents.length === 0 && (
               <TableRow>
                 <TableCell colSpan={5} className="text-center py-4 text-sm text-muted-foreground">
