@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { UsersTable } from '@/components/users-table';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -13,52 +14,47 @@ import {
   type GetUsersParams,
 } from '@/services/usersService';
 import type { User } from '@/lib/data';
-import { useServerPagination } from '@/hooks/useServerPagination';
+import { usePaginationState } from '@/hooks/usePaginationState';
 
 export default function UsuariosPage() {
-  const [users, setUsers] = useState<User[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [total, setTotal] = useState(0);
   const [searchInput, setSearchInput] = useState('');
   const [search, setSearch] = useState('');
   const { toast } = useToast();
-  const { page, limit, setPage, setLimit, setFromMeta } = useServerPagination();
+  const { page, limit, setPage, setLimit } = usePaginationState();
 
   useEffect(() => {
     const handler = window.setTimeout(() => {
-      setSearch(searchInput.trim());
-      setPage(1);
+      const term = searchInput.trim();
+      setSearch(term);
+      if (page !== 1) {
+        setPage(1);
+      }
     }, 300);
     return () => window.clearTimeout(handler);
-  }, [searchInput, setPage]);
+  }, [page, searchInput, setPage]);
 
-  const fetchUsers = useCallback(async () => {
-    setIsLoading(true);
-    try {
+  const usersQuery = useQuery({
+    queryKey: ['users', { page, limit, search }],
+    queryFn: async () => {
       const params: GetUsersParams = { page, limit };
       if (search) params.search = search;
-      const { items, meta } = await getUsers(params);
-      setTotal(meta.total ?? 0);
-      if (meta.pages > 0 && page > meta.pages) {
-        setFromMeta(meta);
-        return;
-      }
-      setUsers(items);
-      setFromMeta(meta);
-    } catch {
-      toast({
-        variant: 'destructive',
-        title: 'Error al cargar usuarios',
-        description: 'No se pudieron obtener los datos de los usuarios.',
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  }, [limit, page, search, setFromMeta, toast]);
+      const result = await getUsers(params);
+      return result;
+    },
+    placeholderData: keepPreviousData,
+    retry: false,
+  });
 
   useEffect(() => {
-    fetchUsers();
-  }, [fetchUsers]);
+    if (!usersQuery.error) return;
+    toast({
+      variant: 'destructive',
+      title: 'Error al cargar usuarios',
+      description: 'No se pudieron obtener los datos de los usuarios.',
+    });
+  }, [toast, usersQuery.error]);
+
+  const isInitialLoading = usersQuery.isPending && !usersQuery.data;
 
   const handleSaveUser = async ({ data, file }: { data: User; file?: File | null }) => {
     try {
@@ -69,12 +65,12 @@ export default function UsuariosPage() {
         if (page !== 1) {
           setPage(1);
         } else {
-          await fetchUsers();
+          await usersQuery.refetch();
         }
       } else {
         await updateUser(Number(data.id), formData);
         toast({ title: 'Usuario Actualizado', description: 'Los datos del usuario han sido actualizados.' });
-        await fetchUsers();
+        await usersQuery.refetch();
       }
     } catch {
       toast({ variant: 'destructive', title: 'Error al guardar', description: 'No se pudo guardar el usuario.' });
@@ -85,13 +81,13 @@ export default function UsuariosPage() {
     try {
       await deleteUser(Number(userId));
       toast({ variant: 'destructive', title: 'Usuario Eliminado', description: 'El usuario ha sido eliminado.' });
-      await fetchUsers();
+      await usersQuery.refetch();
     } catch {
       toast({ variant: 'destructive', title: 'Error al eliminar', description: 'No se pudo eliminar el usuario.' });
     }
   };
 
-  if (isLoading) {
+  if (isInitialLoading) {
     return (
       <div className="space-y-4">
         <div className="flex justify-between items-center">
@@ -106,12 +102,23 @@ export default function UsuariosPage() {
     );
   }
 
+  const users = usersQuery.data?.items ?? [];
+  const meta = usersQuery.data?.meta;
+  const total = meta?.total ?? 0;
+  const totalPages = meta?.pages ?? 1;
+  const hasPrev = meta?.hasPrevPage ?? page > 1;
+  const hasNext = meta?.hasNextPage ?? page < totalPages;
+  const pageSize = meta?.limit ?? limit;
+
   return (
     <UsersTable
-      users={users}
+      items={users}
       total={total}
+      pages={totalPages}
+      hasPrev={hasPrev}
+      hasNext={hasNext}
       page={page}
-      pageSize={limit}
+      pageSize={pageSize}
       onPageChange={setPage}
       onPageSizeChange={setLimit}
       searchTerm={searchInput}
@@ -121,4 +128,3 @@ export default function UsuariosPage() {
     />
   );
 }
-

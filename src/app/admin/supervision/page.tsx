@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { SupervisionTable } from "@/components/supervision-table";
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -11,7 +12,7 @@ import {
   type SupervisionDoc,
   type DocEstado,
 } from '@/services/documentsService';
-import { useServerPagination } from '@/hooks/useServerPagination';
+import { usePaginationState } from '@/hooks/usePaginationState';
 
 const toSupervisionDoc = (d: DocumentoRow): SupervisionDoc => {
   const x = d ?? (d as any)?.cuadro_firma ?? {};
@@ -38,70 +39,78 @@ const statusCountsDefault: Record<DocEstado | 'Todos', number> = {
 };
 
 export default function SupervisionPage() {
-  const [documents, setDocuments] = useState<SupervisionDoc[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [total, setTotal] = useState(0);
   const [searchInput, setSearchInput] = useState('');
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<DocEstado | 'Todos'>('Todos');
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
-  const [counts, setCounts] = useState(statusCountsDefault);
   const { toast } = useToast();
-  const { page, limit, setPage, setLimit, setFromMeta } = useServerPagination();
+  const { page, limit, sort, setPage, setLimit, setSort } = usePaginationState({ sort: 'desc' });
+  const sortOrder: 'asc' | 'desc' = sort === 'asc' ? 'asc' : 'desc';
 
   useEffect(() => {
-    const handler = setTimeout(() => setSearch(searchInput), 300);
+    const handler = setTimeout(() => {
+      setSearch(searchInput);
+      if (page !== 1) setPage(1);
+    }, 300);
     return () => clearTimeout(handler);
-  }, [searchInput]);
+  }, [page, searchInput, setPage]);
 
-  const fetchDocuments = useCallback(async () => {
-    setIsLoading(true);
-    try {
+  const documentsQuery = useQuery({
+    queryKey: [
+      'documents',
+      'supervision',
+      'table',
+      {
+        page,
+        limit,
+        sort: sortOrder,
+        search,
+        status: statusFilter,
+      },
+    ],
+    queryFn: async () => {
       const params: Record<string, any> = { page, limit, sort: sortOrder };
       if (search) params.search = search;
       if (statusFilter !== 'Todos') params.estado = statusFilter;
       const { items, meta } = await getDocumentSupervision(params);
-      setTotal(meta.total ?? 0);
-      if (meta.pages > 0 && page > meta.pages) {
-        setFromMeta(meta);
-        return;
-      }
-      setDocuments(items.map(toSupervisionDoc));
-      setFromMeta(meta);
-    } catch (error) {
-      toast({
-        variant: 'destructive',
-        title: 'Error al cargar datos',
-        description: 'No se pudieron obtener los datos para la supervisión.',
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  }, [limit, page, search, statusFilter, sortOrder, setFromMeta, toast]);
+      return {
+        items: items.map(toSupervisionDoc),
+        meta,
+      };
+    },
+    placeholderData: keepPreviousData,
+    retry: false,
+  });
 
   useEffect(() => {
-    fetchDocuments();
-  }, [fetchDocuments]);
+    if (!documentsQuery.error) return;
+    toast({
+      variant: 'destructive',
+      title: 'Error al cargar datos',
+      description: 'No se pudieron obtener los datos para la supervisión.',
+    });
+  }, [documentsQuery.error, toast]);
 
-  useEffect(() => {
-    const loadCounts = async () => {
-      try {
-        const resumen = await getSupervisionStats({ search });
-        setCounts({
-          Todos: resumen.Todos ?? 0,
-          Pendiente: resumen.Pendiente ?? 0,
-          'En Progreso': resumen['En Progreso'] ?? 0,
-          Rechazado: resumen.Rechazado ?? 0,
-          Completado: resumen.Completado ?? 0,
-        });
-      } catch {
-        setCounts(statusCountsDefault);
-      }
-    };
-    loadCounts();
-  }, [search]);
+  const countsQuery = useQuery({
+    queryKey: ['documents', 'supervision', 'counts', { search }],
+    queryFn: async () => getSupervisionStats({ search }),
+    retry: false,
+  });
 
-  if (isLoading) {
+  const counts = useMemo(() => {
+    const resumen = countsQuery.data;
+    if (!resumen) return statusCountsDefault;
+    return {
+      Todos: resumen.Todos ?? 0,
+      Pendiente: resumen.Pendiente ?? 0,
+      'En Progreso': resumen['En Progreso'] ?? 0,
+      Rechazado: resumen.Rechazado ?? 0,
+      Completado: resumen.Completado ?? 0,
+    } as Record<DocEstado | 'Todos', number>;
+  }, [countsQuery.data]);
+
+  const isInitialLoading = documentsQuery.isPending && !documentsQuery.data;
+
+  if (isInitialLoading) {
     return (
       <div className="space-y-4">
         <div className="flex justify-between items-center">
@@ -119,10 +128,18 @@ export default function SupervisionPage() {
     );
   }
 
+  const documents = documentsQuery.data?.items ?? [];
+  const meta = documentsQuery.data?.meta;
+  const total = meta?.total ?? 0;
+  const totalPages = meta?.pages ?? 1;
+  const hasPrev = meta?.hasPrevPage ?? page > 1;
+  const hasNext = meta?.hasNextPage ?? page < totalPages;
+  const pageSize = meta?.limit ?? limit;
+
   return (
     <div className="h-full">
       <SupervisionTable
-        documents={documents}
+        items={documents}
         title="Supervisión de Documentos"
         description="Monitoree el estado y progreso de todos los documentos en tiempo real."
         searchTerm={searchInput}
@@ -130,21 +147,22 @@ export default function SupervisionPage() {
         statusFilter={statusFilter}
         onStatusFilterChange={(s) => {
           setStatusFilter(s);
-          setPage(1);
+          if (page !== 1) setPage(1);
         }}
         sortOrder={sortOrder}
         onSortOrderChange={(order) => {
-          setSortOrder(order);
-          setPage(1);
+          setSort(order);
         }}
         statusCounts={counts}
         total={total}
+        pages={totalPages}
+        hasPrev={hasPrev}
+        hasNext={hasNext}
         page={page}
-        pageSize={limit}
+        pageSize={pageSize}
         onPageChange={setPage}
         onPageSizeChange={setLimit}
       />
     </div>
   );
 }
-

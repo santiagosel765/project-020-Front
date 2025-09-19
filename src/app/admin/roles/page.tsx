@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { RolesTable } from '@/components/roles-table';
 import {
   getRoles,
@@ -13,50 +14,45 @@ import {
 } from '@/services/roleService';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useServerPagination } from '@/hooks/useServerPagination';
+import { usePaginationState } from '@/hooks/usePaginationState';
 import type { RoleForm } from '@/components/role-form-modal';
 
 export default function RolesPage() {
-  const [roles, setRoles] = useState<Role[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [total, setTotal] = useState(0);
   const [showInactive, setShowInactive] = useState(false);
   const [searchInput, setSearchInput] = useState('');
   const [search, setSearch] = useState('');
   const { toast } = useToast();
-  const { page, limit, setPage, setLimit, setFromMeta } = useServerPagination();
+  const { page, limit, setPage, setLimit } = usePaginationState();
 
   useEffect(() => {
-    const handler = setTimeout(() => setSearch(searchInput), 300);
+    const handler = setTimeout(() => {
+      setSearch(searchInput);
+      if (page !== 1) setPage(1);
+    }, 300);
     return () => clearTimeout(handler);
-  }, [searchInput]);
+  }, [page, searchInput, setPage]);
 
-  const fetchRoles = useCallback(async () => {
-    setIsLoading(true);
-    try {
+  const rolesQuery = useQuery({
+    queryKey: ['roles', { page, limit, search, showInactive }],
+    queryFn: async () => {
       const params: GetRolesParams = { page, limit, search, showInactive };
-      const { items, meta } = await getRoles(params);
-      setTotal(meta.total ?? 0);
-      if (meta.pages > 0 && page > meta.pages) {
-        setFromMeta(meta);
-        return;
-      }
-      setRoles(items);
-      setFromMeta(meta);
-    } catch (error) {
-      toast({
-        variant: 'destructive',
-        title: 'Error al cargar roles',
-        description: 'No se pudieron obtener los roles.',
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  }, [limit, page, search, setFromMeta, showInactive, toast]);
+      const result = await getRoles(params);
+      return result;
+    },
+    placeholderData: keepPreviousData,
+    retry: false,
+  });
 
   useEffect(() => {
-    fetchRoles();
-  }, [fetchRoles]);
+    if (!rolesQuery.error) return;
+    toast({
+      variant: 'destructive',
+      title: 'Error al cargar roles',
+      description: 'No se pudieron obtener los roles.',
+    });
+  }, [rolesQuery.error, toast]);
+
+  const isInitialLoading = rolesQuery.isPending && !rolesQuery.data;
 
   const handleSaveRole = async (role: RoleForm) => {
     try {
@@ -75,9 +71,12 @@ export default function RolesPage() {
       } else {
         await createRole({ nombre: role.nombre, descripcion: role.descripcion });
         toast({ title: 'Rol creado', description: 'El nuevo rol ha sido agregado.' });
-        setPage(1);
+        if (page !== 1) {
+          setPage(1);
+          return;
+        }
       }
-      await fetchRoles();
+      await rolesQuery.refetch();
     } catch (error) {
       toast({
         variant: 'destructive',
@@ -101,7 +100,7 @@ export default function RolesPage() {
       }
       await deleteRole(roleId);
       toast({ variant: 'destructive', title: 'Rol inactivado', description: 'El rol ha sido marcado como inactivo.' });
-      await fetchRoles();
+      await rolesQuery.refetch();
     } catch (error) {
       toast({
         variant: 'destructive',
@@ -124,7 +123,7 @@ export default function RolesPage() {
       }
       await restoreRole(roleId);
       toast({ title: 'Rol restaurado', description: 'El rol ha sido activado nuevamente.' });
-      await fetchRoles();
+      await rolesQuery.refetch();
     } catch (error) {
       toast({
         variant: 'destructive',
@@ -134,7 +133,7 @@ export default function RolesPage() {
     }
   };
 
-  if (isLoading) {
+  if (isInitialLoading) {
     return (
       <div className="space-y-4">
         <div className="flex justify-between items-center">
@@ -149,13 +148,24 @@ export default function RolesPage() {
     );
   }
 
+  const roles = rolesQuery.data?.items ?? [];
+  const meta = rolesQuery.data?.meta;
+  const total = meta?.total ?? 0;
+  const totalPages = meta?.pages ?? 1;
+  const hasPrev = meta?.hasPrevPage ?? page > 1;
+  const hasNext = meta?.hasNextPage ?? page < totalPages;
+  const pageSize = meta?.limit ?? limit;
+
   return (
     <div className="h-full">
       <RolesTable
-        roles={roles}
+        items={roles}
         total={total}
+        pages={totalPages}
+        hasPrev={hasPrev}
+        hasNext={hasNext}
         page={page}
-        pageSize={limit}
+        pageSize={pageSize}
         onPageChange={setPage}
         onPageSizeChange={setLimit}
         searchTerm={searchInput}
@@ -163,7 +173,7 @@ export default function RolesPage() {
         showInactive={showInactive}
         onToggleInactive={(checked) => {
           setShowInactive(checked);
-          setPage(1);
+          if (page !== 1) setPage(1);
         }}
         onSaveRole={handleSaveRole}
         onDeleteRole={handleDeleteRole}
@@ -172,4 +182,3 @@ export default function RolesPage() {
     </div>
   );
 }
-

@@ -16,7 +16,10 @@ const DEFAULT_OPTIONS = [10, 20, 50, 100] as const;
 export interface PaginationBarProps {
   total: number;
   page: number;
+  pages: number;
   pageSize: number;
+  hasPrev: boolean;
+  hasNext: boolean;
   onPageChange: (page: number) => void;
   onPageSizeChange: (pageSize: number) => void;
   pageSizeOptions?: number[];
@@ -26,15 +29,18 @@ export interface PaginationBarProps {
 export function PaginationBar({
   total,
   page,
+  pages,
   pageSize,
+  hasPrev,
+  hasNext,
   onPageChange,
   onPageSizeChange,
   pageSizeOptions = DEFAULT_OPTIONS as unknown as number[],
   className,
 }: PaginationBarProps) {
   const size = Number.isFinite(pageSize) && pageSize > 0 ? Math.floor(pageSize) : DEFAULT_OPTIONS[0];
-  const pages = Math.max(1, Math.ceil((Number.isFinite(total) ? Math.max(0, total) : 0) / size) || 1);
-  const currentPage = Math.min(Math.max(1, Math.floor(page || 1)), pages);
+  const totalPages = Number.isFinite(pages) && pages > 0 ? Math.floor(pages) : Math.max(1, Math.ceil((Number.isFinite(total) ? Math.max(0, total) : 0) / size) || 1);
+  const currentPage = Math.min(Math.max(1, Math.floor(page || 1)), totalPages);
 
   const options = useMemo(() => {
     const set = new Set<number>();
@@ -44,17 +50,14 @@ export function PaginationBar({
     return Array.from(set).sort((a, b) => a - b);
   }, [pageSizeOptions, size]);
 
-  const handleFirst = () => {
-    if (currentPage > 1) onPageChange(1);
-  };
   const handlePrev = () => {
-    if (currentPage > 1) onPageChange(currentPage - 1);
+    if (!hasPrev || currentPage <= 1) return;
+    onPageChange(currentPage - 1);
   };
+
   const handleNext = () => {
-    if (currentPage < pages) onPageChange(currentPage + 1);
-  };
-  const handleLast = () => {
-    if (currentPage < pages) onPageChange(pages);
+    if (!hasNext || currentPage >= totalPages) return;
+    onPageChange(currentPage + 1);
   };
 
   return (
@@ -65,7 +68,7 @@ export function PaginationBar({
       )}
     >
       <span className="text-sm text-muted-foreground">
-        Página {currentPage} de {pages} — {total ?? 0} registros
+        Página {currentPage} de {totalPages} — {total ?? 0} registros
       </span>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
         <div className="flex items-center gap-2">
@@ -94,18 +97,8 @@ export function PaginationBar({
             type="button"
             variant="outline"
             size="sm"
-            onClick={handleFirst}
-            disabled={currentPage <= 1}
-            aria-label="Primera página"
-          >
-            ⏮︎
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
             onClick={handlePrev}
-            disabled={currentPage <= 1}
+            disabled={!hasPrev || currentPage <= 1}
             aria-label="Página anterior"
           >
             ⟨ Anterior
@@ -115,24 +108,13 @@ export function PaginationBar({
             variant="outline"
             size="sm"
             onClick={handleNext}
-            disabled={currentPage >= pages}
+            disabled={!hasNext || currentPage >= totalPages}
             aria-label="Página siguiente"
           >
             Siguiente ⟩
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={handleLast}
-            disabled={currentPage >= pages}
-            aria-label="Última página"
-          >
-            ⏭︎
           </Button>
         </div>
       </div>
     </div>
   );
 }
-

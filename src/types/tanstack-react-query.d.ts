@@ -5,4 +5,5 @@ declare module '@tanstack/react-query' {
   export const QueryClientProvider: any
   export function useQuery(options: any): any
   export function useQueryClient(): any
+  export const keepPreviousData: any
 }

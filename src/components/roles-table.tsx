@@ -15,8 +15,11 @@ import { PaginationBar } from './pagination/PaginationBar';
 import { DateCell } from '@/components/DateCell';
 
 interface RolesTableProps {
-  roles: Role[];
+  items: Role[];
   total: number;
+  pages: number;
+  hasPrev: boolean;
+  hasNext: boolean;
   page: number;
   pageSize: number;
   onPageChange: (page: number) => void;
@@ -31,8 +34,11 @@ interface RolesTableProps {
 }
 
 export function RolesTable({
-  roles,
+  items,
   total,
+  pages,
+  hasPrev,
+  hasNext,
   page,
   pageSize,
   onPageChange,
@@ -47,6 +53,8 @@ export function RolesTable({
 }: RolesTableProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedRole, setSelectedRole] = useState<Role | null>(null);
+
+  const roles = Array.isArray(items) ? items : [];
 
   const openModal = (role?: Role) => {
     setSelectedRole(role ?? null);
@@ -149,13 +157,23 @@ export function RolesTable({
                   </TableCell>
                 </TableRow>
               ))}
+              {roles.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={5} className="text-center py-4 text-sm text-muted-foreground">
+                    No hay roles.
+                  </TableCell>
+                </TableRow>
+              )}
             </TableBody>
           </Table>
         </CardContent>
         <PaginationBar
           total={total}
           page={page}
+          pages={pages}
           pageSize={pageSize}
+          hasPrev={hasPrev}
+          hasNext={hasNext}
           onPageChange={onPageChange}
           onPageSizeChange={onPageSizeChange}
         />
@@ -169,4 +187,3 @@ export function RolesTable({
     </>
   );
 }
-
