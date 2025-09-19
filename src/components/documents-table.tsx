@@ -27,6 +27,8 @@ import { useRouter } from "next/navigation";
 import { initialsFromUser } from "@/lib/avatar";
 import { PaginationBar } from "./pagination/PaginationBar";
 import { DateCell } from "@/components/DateCell";
+import { ElapsedDaysCell } from "@/components/ElapsedDaysCell";
+import { formatGTDateTime } from "@/lib/date";
 import type { PageEnvelope } from "@/lib/pagination";
 
 interface DocumentsTableProps {
@@ -208,6 +210,7 @@ export function DocumentsTable({
           <TableBody>
             {documents.map((doc) => {
               const users = doc.assignedUsers ?? [];
+              const sendDateTooltip = formatGTDateTime(doc.sendDate, { ampm: "upper" });
               return (
                 <TableRow key={doc.id}>
                   <TableCell className="font-medium">
@@ -230,7 +233,10 @@ export function DocumentsTable({
                     </Badge>
                   </TableCell>
                   <TableCell className="text-center">
-                    {doc.businessDays}
+                    <ElapsedDaysCell
+                      fromISO={doc.sendDate}
+                      title={sendDateTooltip ? `${sendDateTooltip} GT` : undefined}
+                    />
                   </TableCell>
                   <TableCell>
                     <button
