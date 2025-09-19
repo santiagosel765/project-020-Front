@@ -10,6 +10,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { pageDebug } from "@/lib/page-debug";
 
 const DEFAULT_OPTIONS = [10, 20, 50, 100] as const;
 
@@ -52,11 +53,19 @@ export function PaginationBar({
 
   const handlePrev = () => {
     if (!hasPrev || currentPage <= 1) return;
+    pageDebug("src/components/pagination/PaginationBar.tsx:56:onPageChange", {
+      from: currentPage,
+      to: currentPage - 1,
+    });
     onPageChange(currentPage - 1);
   };
 
   const handleNext = () => {
     if (!hasNext) return;
+    pageDebug("src/components/pagination/PaginationBar.tsx:65:onPageChange", {
+      from: currentPage,
+      to: currentPage + 1,
+    });
     onPageChange(currentPage + 1);
   };
 

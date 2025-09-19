@@ -15,10 +15,11 @@ import {
 } from '@/services/usersService';
 import type { User } from '@/lib/data';
 import { usePaginationState } from '@/hooks/usePaginationState';
+import { pageDebug } from '@/lib/page-debug';
 
 export default function UsuariosPage() {
   const { toast } = useToast();
-  const { page, limit, sort, search, setPage, setLimit, setSearch } = usePaginationState({
+  const { page, limit, sort, search, setPage, setLimit, setSearch, isUserPagingRef } = usePaginationState({
     defaultLimit: 10,
     defaultSort: 'desc',
   });
@@ -41,6 +42,20 @@ export default function UsuariosPage() {
         }
       }
       setSearch(searchInput);
+      if (isUserPagingRef.current) {
+        pageDebug('src/app/admin/usuarios/page.tsx:46:setPage(skip)', {
+          reason: 'userPaging',
+          from: page,
+          to: 1,
+          searchInput,
+        });
+        return;
+      }
+      pageDebug('src/app/admin/usuarios/page.tsx:54:setPage', {
+        from: page,
+        to: 1,
+        searchInput,
+      });
       setPage(1);
     }, 300);
     return () => window.clearTimeout(handler);
@@ -75,6 +90,18 @@ export default function UsuariosPage() {
         await createUser(formData);
         toast({ title: 'Usuario Creado', description: 'El nuevo usuario ha sido agregado exitosamente.' });
         if (page !== 1) {
+          if (isUserPagingRef.current) {
+            pageDebug('src/app/admin/usuarios/page.tsx:94:setPage(skip)', {
+              reason: 'userPaging',
+              from: page,
+              to: 1,
+            });
+            return;
+          }
+          pageDebug('src/app/admin/usuarios/page.tsx:101:setPage', {
+            from: page,
+            to: 1,
+          });
           setPage(1);
         } else {
           await usersQuery.refetch();

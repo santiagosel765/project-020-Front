@@ -15,12 +15,13 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { usePaginationState } from '@/hooks/usePaginationState';
+import { pageDebug } from '@/lib/page-debug';
 import type { RoleForm } from '@/components/role-form-modal';
 
 export default function RolesPage() {
   const [showInactive, setShowInactive] = useState(false);
   const { toast } = useToast();
-  const { page, limit, sort, search, setPage, setLimit, setSearch } = usePaginationState({
+  const { page, limit, sort, search, setPage, setLimit, setSearch, isUserPagingRef } = usePaginationState({
     defaultLimit: 10,
     defaultSort: 'desc',
   });
@@ -43,6 +44,20 @@ export default function RolesPage() {
         }
       }
       setSearch(searchInput);
+      if (isUserPagingRef.current) {
+        pageDebug('src/app/admin/roles/page.tsx:48:setPage(skip)', {
+          reason: 'userPaging',
+          from: page,
+          to: 1,
+          searchInput,
+        });
+        return;
+      }
+      pageDebug('src/app/admin/roles/page.tsx:56:setPage', {
+        from: page,
+        to: 1,
+        searchInput,
+      });
       setPage(1);
     }, 300);
     return () => clearTimeout(handler);
@@ -88,6 +103,18 @@ export default function RolesPage() {
         await createRole({ nombre: role.nombre, descripcion: role.descripcion });
         toast({ title: 'Rol creado', description: 'El nuevo rol ha sido agregado.' });
         if (page !== 1) {
+          if (isUserPagingRef.current) {
+            pageDebug('src/app/admin/roles/page.tsx:107:setPage(skip)', {
+              reason: 'userPaging',
+              from: page,
+              to: 1,
+            });
+            return;
+          }
+          pageDebug('src/app/admin/roles/page.tsx:114:setPage', {
+            from: page,
+            to: 1,
+          });
           setPage(1);
           return;
         }
@@ -177,7 +204,23 @@ export default function RolesPage() {
         showInactive={showInactive}
         onToggleInactive={(checked) => {
           setShowInactive(checked);
-          if (page !== 1) setPage(1);
+          if (page !== 1) {
+            if (isUserPagingRef.current) {
+              pageDebug('src/app/admin/roles/page.tsx:209:setPage(skip)', {
+                reason: 'userPaging',
+                from: page,
+                to: 1,
+                showInactive: checked,
+              });
+              return;
+            }
+            pageDebug('src/app/admin/roles/page.tsx:217:setPage', {
+              from: page,
+              to: 1,
+              showInactive: checked,
+            });
+            setPage(1);
+          }
         }}
         onSaveRole={handleSaveRole}
         onDeleteRole={handleDeleteRole}

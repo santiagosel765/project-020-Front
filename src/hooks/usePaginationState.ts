@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { pageDebug } from "@/lib/page-debug";
 
 const DEFAULT_LIMIT = 10;
 
@@ -41,6 +42,7 @@ export interface PaginationStateOptions {
 export const usePaginationState = (options: PaginationStateOptions = {}) => {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const isUserPagingRef = useRef(false);
 
   const defaultPage = options.defaultPage ?? 1;
   const defaultLimit = options.defaultLimit ?? DEFAULT_LIMIT;
@@ -76,6 +78,11 @@ export const usePaginationState = (options: PaginationStateOptions = {}) => {
       const nextLimit = parsePositiveInteger(next.limit ?? limit, defaultLimit);
       const nextSort = sanitizeSort(next.sort ?? sort, defaultSort);
       const nextSearch = typeof next.search === "string" ? next.search : search;
+
+      pageDebug("src/hooks/usePaginationState.ts:commit", {
+        from: { page, limit, sort, search },
+        to: { page: nextPage, limit: nextLimit, sort: nextSort, search: nextSearch },
+      });
 
       if (
         nextPage === page &&
@@ -115,9 +122,22 @@ export const usePaginationState = (options: PaginationStateOptions = {}) => {
   const setPage = useCallback(
     (value: number) => {
       if (!Number.isFinite(value)) return;
-      commit({ page: Math.max(1, Math.floor(value)) });
+      const target = Math.max(1, Math.floor(value));
+      pageDebug("src/hooks/usePaginationState.ts:setPage", {
+        from: page,
+        to: target,
+      });
+      isUserPagingRef.current = true;
+      commit({ page: target });
+      if (typeof window !== "undefined") {
+        window.setTimeout(() => {
+          isUserPagingRef.current = false;
+        }, 0);
+      } else {
+        isUserPagingRef.current = false;
+      }
     },
-    [commit],
+    [commit, page],
   );
 
   const setLimit = useCallback(
@@ -178,6 +198,7 @@ export const usePaginationState = (options: PaginationStateOptions = {}) => {
     toggleSort,
     params,
     queryString,
+    isUserPagingRef,
   } as const;
 };
 
