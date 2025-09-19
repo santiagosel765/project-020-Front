@@ -288,7 +288,51 @@ export async function getGerencias({ all = 0 }: { all?: number } = {}): Promise<
   return normalizeList<ApiCatalogItem>(data).map(toCatalogItem);
 }
 
+type ApiRoleCatalogItem = ApiCatalogItem & { name?: string | null };
+
 export async function getRoles({ all = 0 }: { all?: number } = {}): Promise<CatalogoItem[]> {
   const { data } = await api.get(`/roles?all=${all}`);
-  return normalizeList<ApiCatalogItem>(data).map(toCatalogItem);
+
+  const extractItems = (payload: unknown): unknown[] => {
+    if (Array.isArray(payload)) {
+      return payload;
+    }
+
+    if (payload && typeof payload === 'object') {
+      const obj = payload as { items?: unknown; data?: unknown };
+
+      if (Array.isArray(obj.items)) {
+        return obj.items;
+      }
+
+      if (obj.data && typeof obj.data === 'object') {
+        const dataObj = obj.data as { items?: unknown };
+        if (Array.isArray(dataObj.items)) {
+          return dataObj.items;
+        }
+      }
+    }
+
+    return [];
+  };
+
+  const items = extractItems(data) as ApiRoleCatalogItem[];
+
+  return items
+    .map((item) => {
+      const id = Number(item?.id);
+      if (!Number.isFinite(id)) {
+        return null;
+      }
+
+      const nombre =
+        typeof item?.nombre === 'string'
+          ? item.nombre
+          : typeof item?.name === 'string'
+          ? item.name
+          : String(id);
+
+      return { id, nombre } satisfies CatalogoItem;
+    })
+    .filter((item): item is CatalogoItem => item !== null);
 }
