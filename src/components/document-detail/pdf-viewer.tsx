@@ -3,14 +3,14 @@
 import React from 'react';
 import { cn } from '@/lib/utils';
 
-interface DocumentPdfViewerProps extends React.IframeHTMLAttributes<HTMLIFrameElement> {
-  src: string;
-}
+type DocumentPdfViewerProps = Omit<React.IframeHTMLAttributes<HTMLIFrameElement>, 'src'> & {
+  pdfUrl: string;
+};
 
-export function DocumentPdfViewer({ src, className, ...props }: DocumentPdfViewerProps) {
+export function DocumentPdfViewer({ pdfUrl, className, ...props }: DocumentPdfViewerProps) {
   return (
     <iframe
-      src={src}
+      src={pdfUrl}
       className={cn('w-full h-[70vh] rounded-xl bg-muted', className)}
       referrerPolicy="no-referrer"
       {...props}
