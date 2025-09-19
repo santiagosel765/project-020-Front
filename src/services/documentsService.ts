@@ -418,6 +418,23 @@ export async function getDocumentDetail(id: number): Promise<DocumentDetail> {
   };
 }
 
+export async function fetchMergedPdf(
+  cuadroFirmasId: number,
+  opts?: { download?: boolean; signal?: AbortSignal },
+) {
+  const qs = opts?.download ? '?download=1' : '';
+  const res = await fetch(
+    `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/documents/cuadro-firmas/${cuadroFirmasId}/merged-pdf${qs}`,
+    {
+      method: 'GET',
+      credentials: 'include',
+      signal: opts?.signal,
+    },
+  );
+  if (!res.ok) throw new Error('No se pudo generar el PDF unificado');
+  return await res.blob();
+}
+
 export { getDocumentsByUser as getDocsByUser };
 
 export async function signDocument(payload: {

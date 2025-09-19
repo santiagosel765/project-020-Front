@@ -5,11 +5,12 @@ import { useParams } from 'next/navigation';
 import { GeneralHeader } from '@/components/general-header';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Download, Sparkles } from 'lucide-react';
+import { ChevronDown, Download, Loader2, Sparkles } from 'lucide-react';
 import { SignersPanel } from '@/components/document-detail/signers-panel';
 import {
   getCuadroFirmaDetalle,
   getFirmantes,
+  fetchMergedPdf,
   type CuadroFirmaDetalle,
   type SignerFull,
   type Signer,
@@ -24,6 +25,12 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { useAuth } from '@/store/auth';
 import { fullName, initials } from '@/lib/avatar';
 import { SignDialog } from '@/components/sign-dialog';
@@ -44,6 +51,7 @@ export default function DocumentDetailPage() {
   const [signOpen, setSignOpen] = useState(false);
   const [rejectOpen, setRejectOpen] = useState(false);
   const [rejectReason, setRejectReason] = useState('');
+  const [downloading, setDownloading] = useState(false);
   const summaryDialogRef = useRef<DocumentSummaryDialogHandle>(null);
 
   const fetchDetalle = async (id: number) => {
@@ -83,14 +91,58 @@ export default function DocumentDetailPage() {
     if (params?.id) fetchDetalle(Number(params.id));
   }, [params?.id]);
 
-  const handleDownload = () => {
-    if (!detalle?.urlDocumento) return;
-    const a = document.createElement('a');
-    a.href = detalle.urlDocumento;
-    a.download = '';
-    a.target = '_blank';
-    a.rel = 'noopener noreferrer';
-    a.click();
+  const handleOpenMerged = async () => {
+    if (!detalle?.id) return;
+    try {
+      setDownloading(true);
+      const blob = await fetchMergedPdf(detalle.id, { download: false });
+      const url = URL.createObjectURL(blob);
+      window.open(url, '_blank', 'noopener,noreferrer');
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    } catch (e) {
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'No se pudo abrir el PDF combinado.',
+      });
+    } finally {
+      setDownloading(false);
+    }
+  };
+
+  const handleDownloadMerged = async () => {
+    if (!detalle?.id) return;
+    try {
+      setDownloading(true);
+      const blob = await fetchMergedPdf(detalle.id, { download: true });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'documento-firmas.pdf';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'No se pudo descargar el PDF combinado.',
+      });
+    } finally {
+      setDownloading(false);
+    }
+  };
+
+  const handleDownloadButtonClick = async (
+    event: React.MouseEvent<HTMLButtonElement>,
+  ) => {
+    if (downloading) return;
+    if (event.altKey) {
+      await handleDownloadMerged();
+    } else {
+      await handleOpenMerged();
+    }
   };
 
   const handleSign = () => {
@@ -201,9 +253,44 @@ export default function DocumentDetailPage() {
           </div>
           <div className="col-span-12 md:col-span-4 space-y-4">
             <SignersPanel firmantes={signersPanel} progress={progress} />
-            <Button onClick={handleDownload} variant="outline">
-              <Download className="mr-2 h-4 w-4" /> Descargar PDF
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                onClick={handleDownloadButtonClick}
+                variant="outline"
+                disabled={downloading}
+                title="Abre el PDF del documento unido con el cuadro de firmas."
+              >
+                {downloading ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Download className="mr-2 h-4 w-4" />
+                )}
+                Descargar PDF
+              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    disabled={downloading}
+                    aria-label="Más opciones de descarga"
+                    title="Opciones de descarga"
+                  >
+                    <ChevronDown className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem
+                    onSelect={() => {
+                      void handleDownloadMerged();
+                    }}
+                    disabled={downloading}
+                  >
+                    Descargar .pdf
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
             <div className="flex gap-2">
               <Button
                 onClick={handleSign}
