@@ -9,7 +9,8 @@
     "build": "next build",
     "start": "next start -p 9002",
     "lint": "eslint .",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "node --import tsx --test src/lib/date.test.ts"
   },
   "dependencies": {
     "@genkit-ai/googleai": "^1.14.1",

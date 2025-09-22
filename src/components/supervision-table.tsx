@@ -153,7 +153,8 @@ export function SupervisionTable({
           </TableHeader>
           <TableBody>
             {documents.map((d) => {
-              const addDateTooltip = formatGTDateTime(d.addDate, { ampm: 'upper' });
+              const addDateTooltip = formatGTDateTime(d.addDate);
+              const addDateTitle = addDateTooltip !== '—' ? `${addDateTooltip} GT` : undefined;
               return (
                 <TableRow key={d.id}>
                   <TableCell className="font-medium">{d.titulo}</TableCell>
@@ -164,7 +165,7 @@ export function SupervisionTable({
                   <TableCell>
                     <ElapsedDaysCell
                       fromISO={d.addDate ?? undefined}
-                      title={addDateTooltip ? `${addDateTooltip} GT` : undefined}
+                      title={addDateTitle}
                     />
                   </TableCell>
                   <TableCell className="text-muted-foreground">{d.descripcionEstado ?? ''}</TableCell>

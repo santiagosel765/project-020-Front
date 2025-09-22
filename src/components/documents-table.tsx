@@ -210,7 +210,9 @@ export function DocumentsTable({
           <TableBody>
             {documents.map((doc) => {
               const users = doc.assignedUsers ?? [];
-              const sendDateTooltip = formatGTDateTime(doc.sendDate, { ampm: "upper" });
+              const sendDateTooltip = formatGTDateTime(doc.sendDate);
+              const sendDateTitle =
+                sendDateTooltip !== "—" ? `${sendDateTooltip} GT` : undefined;
               return (
                 <TableRow key={doc.id}>
                   <TableCell className="font-medium">
@@ -235,7 +237,7 @@ export function DocumentsTable({
                   <TableCell className="text-center">
                     <ElapsedDaysCell
                       fromISO={doc.sendDate}
-                      title={sendDateTooltip ? `${sendDateTooltip} GT` : undefined}
+                      title={sendDateTitle}
                     />
                   </TableCell>
                   <TableCell>
