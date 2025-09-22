@@ -1,3 +1,6 @@
+import { format, isValid, parse, parseISO } from 'date-fns';
+import { es } from 'date-fns/locale';
+
 const GT_TZ = 'America/Guatemala';
 
 const dayFormatterGT = new Intl.DateTimeFormat('es-GT', {
@@ -7,43 +10,60 @@ const dayFormatterGT = new Intl.DateTimeFormat('es-GT', {
   year: 'numeric',
 });
 
-function toDate(input?: string | Date | null) {
-  if (!input) return null;
-  return typeof input === 'string' ? new Date(input) : input;
+export function parseGTDate(
+  input: string | number | Date | null | undefined,
+): Date | null {
+  if (input == null) return null;
+  if (input instanceof Date) {
+    return isValid(input) ? input : null;
+  }
+  if (typeof input === 'number') {
+    const dateFromNumber = new Date(input);
+    return isValid(dateFromNumber) ? dateFromNumber : null;
+  }
+
+  const s = String(input).trim();
+  if (!s) return null;
+
+  try {
+    const iso = parseISO(s);
+    if (isValid(iso)) return iso;
+  } catch (error) {
+    // ignore parseISO range errors
+  }
+
+  const withComma = parse(s, 'dd/MM/yyyy, HH:mm:ss', new Date());
+  if (isValid(withComma)) return withComma;
+
+  const noComma = parse(s, 'dd/MM/yyyy HH:mm:ss', new Date());
+  if (isValid(noComma)) return noComma;
+
+  const onlyDate = parse(s, 'dd/MM/yyyy', new Date());
+  if (isValid(onlyDate)) return onlyDate;
+
+  return null;
 }
 
-export function formatGT(input?: string | Date | null) {
+function toDate(input?: string | number | Date | null) {
+  return parseGTDate(input ?? null);
+}
+
+export function formatGT(input?: string | number | Date | null) {
   const d = toDate(input);
-  if (!d) return '';
-  return dayFormatterGT.format(d);
+  if (!d) return '—';
+  return format(d, 'dd/MM/yyyy', { locale: es });
 }
 
 export function formatGTDateTime(
-  input?: string | Date | null,
-  opts?: { ampm?: 'upper' | 'locale' }
+  input?: string | number | Date | null,
+  fmt: string = 'dd/MM/yyyy HH:mm',
 ) {
   const d = toDate(input);
-  if (!d) return '';
-  let out = new Intl.DateTimeFormat('es-GT', {
-    timeZone: GT_TZ,
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: true,
-  }).format(d);
-
-  if (opts?.ampm === 'upper') {
-    // “a. m.” / “p. m.” -> “AM” / “PM”
-    out = out.replace(/\b(a\.?\s?m\.?|p\.?\s?m\.?)\b/gi, (m) =>
-      m.toUpperCase().replace(/[.\s]/g, '')
-    );
-  }
-  return out;
+  if (!d) return '—';
+  return format(d, fmt, { locale: es });
 }
 
-export function getTime(input?: string | Date | null) {
+export function getTime(input?: string | number | Date | null) {
   const d = toDate(input);
   return d ? d.getTime() : 0;
 }
@@ -59,7 +79,7 @@ function toStartOfDayISOStringGT(input: Date) {
 
 // Devuelve un Date en start-of-day de Guatemala
 export function startOfDayGT(d: Date | string | number): Date {
-  const base = new Date(d);
+  const base = parseGTDate(d as Date | string | number) ?? new Date(NaN);
   if (Number.isNaN(base.getTime())) {
     return new Date(NaN);
   }

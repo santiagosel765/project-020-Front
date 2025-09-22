@@ -15,8 +15,8 @@ export function ElapsedDaysCell({ fromISO, title }: Props) {
 
   const days = elapsedDaysGT(fromISO);
   const label = formatElapsedDaysLabel(days);
-  const formatted = formatGTDateTime(fromISO, { ampm: 'upper' });
-  const tooltip = title ?? (formatted ? `${formatted} GT` : label);
+  const formatted = formatGTDateTime(fromISO);
+  const tooltip = title ?? (formatted !== '—' ? `${formatted} GT` : label);
 
   return (
     <Tooltip>
