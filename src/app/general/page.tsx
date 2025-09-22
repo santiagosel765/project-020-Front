@@ -78,6 +78,20 @@ export default function GeneralPage() {
     const start = (currentPage - 1) * pageSize;
     const paginatedDocuments = filteredDocuments.slice(start, start + pageSize);
 
+    const tableData = useMemo(
+        () => ({
+            items: paginatedDocuments,
+            total,
+            pages: totalPages,
+            page: currentPage,
+            limit: pageSize,
+            sort: sortOrder,
+            hasPrev: currentPage > 1,
+            hasNext: currentPage < totalPages,
+        }),
+        [paginatedDocuments, total, totalPages, currentPage, pageSize, sortOrder],
+    );
+
     const statusCounts = useMemo(() => {
         return filteredDocuments.reduce(
             (acc, doc) => {
@@ -104,7 +118,7 @@ export default function GeneralPage() {
     return (
         <div className="h-full">
             <DocumentsTable
-                items={paginatedDocuments}
+                data={tableData}
                 title="Mis Documentos"
                 description="Documentos asignados a usted para revisar y firmar."
                 searchTerm={searchTerm}
@@ -114,12 +128,6 @@ export default function GeneralPage() {
                 sortOrder={sortOrder}
                 onSortToggle={() => setSortOrder((prev) => (prev === 'asc' ? 'desc' : 'asc'))}
                 statusCounts={statusCounts}
-                total={total}
-                pages={totalPages}
-                hasPrev={currentPage > 1}
-                hasNext={currentPage < totalPages}
-                page={currentPage}
-                limit={pageSize}
                 onPageChange={setPage}
                 onLimitChange={(size) => {
                     setPageSize(size);
