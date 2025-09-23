@@ -369,6 +369,14 @@ export default function DocumentDetailPage() {
           }}
         />
       )}
+      {detalle && (
+        <DocumentSummaryDialog
+          ref={summaryDialogRef}
+          documentId={detalle.id}
+          cuadroFirmasId={detalle.id}
+          docData={detalle}
+        />
+      )}
     </div>
   );
 }
