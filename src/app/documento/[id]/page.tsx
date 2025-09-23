@@ -5,7 +5,7 @@ import { useParams } from 'next/navigation';
 import { GeneralHeader } from '@/components/general-header';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ChevronDown, Download, Loader2, Sparkles } from 'lucide-react';
+import { ChevronDown, Download, Loader2 } from 'lucide-react';
 import { SignersPanel } from '@/components/document-detail/signers-panel';
 import {
   getCuadroFirmaDetalle,
@@ -367,14 +367,6 @@ export default function DocumentDetailPage() {
           onSigned={async () => {
             await fetchDetalle(detalle.id);
           }}
-        />
-      )}
-      {detalle && (
-        <DocumentSummaryDialog
-          ref={summaryDialogRef}
-          documentId={detalle.id}
-          cuadroFirmasId={detalle.id}
-          docData={detalle}
         />
       )}
     </div>
