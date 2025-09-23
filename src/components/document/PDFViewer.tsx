@@ -129,6 +129,8 @@ export function PDFViewer({
         src={src ?? undefined}
         className="h-full w-full"
         referrerPolicy="no-referrer"
+        allow="fullscreen"
+        allowFullScreen
         onLoad={handleLoad}
         onError={() => setStatus("failed")}
       />
