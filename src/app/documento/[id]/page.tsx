@@ -34,8 +34,11 @@ import {
 import { useAuth } from '@/store/auth';
 import { fullName, initials } from '@/lib/avatar';
 import { SignDialog } from '@/components/sign-dialog';
-import { DocumentTabs } from '@/components/document/DocumentTabs';
-import { api } from '@/lib/api';
+import { DocumentTabs, type DocumentTabValue } from '@/components/document/DocumentTabs';
+import {
+  DocumentSummaryDialog,
+  type DocumentSummaryDialogHandle,
+} from '@/components/ai/DocumentSummaryDialog';
 
 export default function DocumentDetailPage() {
   const params = useParams<{ id: string }>();
@@ -49,11 +52,8 @@ export default function DocumentDetailPage() {
   const [rejectReason, setRejectReason] = useState('');
   const [downloading, setDownloading] = useState(false);
   const [refreshingLinks, setRefreshingLinks] = useState(false);
-  const [summarizing, setSummarizing] = useState(false);
-  const [summaryStatus, setSummaryStatus] = useState<'idle' | 'success' | 'error'>('idle');
-  const [summaryError, setSummaryError] = useState<string | null>(null);
-  const [summaryText, setSummaryText] = useState<string | null>(null);
-  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'success' | 'error'>('idle');
+  const [activeTab, setActiveTab] = useState<DocumentTabValue>('firmas');
+  const summaryDialogRef = useRef<DocumentSummaryDialogHandle>(null);
 
   const fetchDetalle = async (id: number) => {
     setLoading(true);
@@ -91,10 +91,7 @@ export default function DocumentDetailPage() {
     if (params?.id) {
       fetchDetalle(Number(params.id));
     }
-    setSummaryStatus('idle');
-    setSummaryError(null);
-    setSummaryText(null);
-    setSaveStatus('idle');
+
   }, [params?.id]);
 
   const handleOpenMerged = async () => {
@@ -177,52 +174,9 @@ export default function DocumentDetailPage() {
     }
   };
 
-  const handleSummarize = async () => {
-    if (!detalle?.id || summarizing) return;
-    try {
-      setSummarizing(true);
-      setSummaryStatus('idle');
-      setSummaryError(null);
-      setSaveStatus('idle');
-      // TODO: Ajustar payload según contrato real del endpoint
-      const { data } = await api.post<{ summary?: string }>(
-        `/documents/${detalle.id}/summary`,
-      );
-      const summaryResponse = (data as any)?.summary ?? (data as any)?.data?.summary ?? null;
-      if (!summaryResponse) {
-        throw new Error('Resumen no disponible.');
-      }
-      setSummaryText(summaryResponse);
-      setSummaryStatus('success');
-    } catch (error) {
-      setSummaryStatus('error');
-      setSummaryError('No se pudo generar el resumen.');
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: 'No se pudo generar el resumen.',
-      });
-    } finally {
-      setSummarizing(false);
-    }
-  };
-
-  const handleSaveSummary = async () => {
-    if (!detalle?.id || !summaryText || saveStatus === 'saving') return;
-    try {
-      setSaveStatus('saving');
-      // TODO: Ajustar payload según contrato real del endpoint
-      await api.patch(`/documents/${detalle.id}/summary`, { summary: summaryText });
-      setSaveStatus('success');
-      toast({ title: 'Resumen guardado', description: 'El resumen se guardó correctamente.' });
-    } catch (error) {
-      setSaveStatus('error');
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: 'No se pudo guardar el resumen.',
-      });
-    }
+  const handleSummarize = () => {
+    if (!detalle) return;
+    summaryDialogRef.current?.open();
   };
 
   const progress = firmantes.length
@@ -309,13 +263,7 @@ export default function DocumentDetailPage() {
               urlDocumento={detalle.urlDocumento}
               onRefreshLinks={handleRefreshLinks}
               isRefreshingLinks={refreshingLinks}
-              onSummarize={handleSummarize}
-              summarizing={summarizing}
-              summaryStatus={summaryStatus}
-              summaryError={summaryError}
-              summaryText={summaryText}
-              onSaveSummary={summaryText ? handleSaveSummary : undefined}
-              saveStatus={saveStatus}
+              onTabChange={setActiveTab}
             />
           </div>
           <div className="col-span-12 space-y-4 md:col-span-4 xl:col-span-3">
@@ -391,11 +339,22 @@ export default function DocumentDetailPage() {
                     <Button onClick={handleReject}>Enviar</Button>
                   </DialogFooter>
                 </DialogContent>
-                </Dialog>
+              </Dialog>
+            </div>
+            {!canSign && blockMessage && (
+              <p className="text-xs text-muted-foreground">{blockMessage}</p>
+            )}
+            {activeTab === 'original' && (
+              <div className="pt-4 space-y-2">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="h-4 w-4 text-primary" aria-hidden="true" />
+                  <h3 className="font-medium">Resumen con IA</h3>
+                </div>
+                <Button onClick={handleSummarize} className="w-full">
+                  Resumir Documento
+                </Button>
               </div>
-              {!canSign && blockMessage && (
-                <p className="text-xs text-muted-foreground">{blockMessage}</p>
-              )}
+            )}
           </div>
         </div>
       </main>
