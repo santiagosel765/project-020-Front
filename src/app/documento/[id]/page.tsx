@@ -1,11 +1,11 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { GeneralHeader } from '@/components/general-header';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ChevronDown, Download, Loader2, Sparkles } from 'lucide-react';
+import { ChevronDown, Download, Loader2 } from 'lucide-react';
 import { SignersPanel } from '@/components/document-detail/signers-panel';
 import {
   getCuadroFirmaDetalle,
@@ -91,6 +91,7 @@ export default function DocumentDetailPage() {
     if (params?.id) {
       fetchDetalle(Number(params.id));
     }
+
   }, [params?.id]);
 
   const handleOpenMerged = async () => {
@@ -367,14 +368,6 @@ export default function DocumentDetailPage() {
           onSigned={async () => {
             await fetchDetalle(detalle.id);
           }}
-        />
-      )}
-      {detalle && (
-        <DocumentSummaryDialog
-          ref={summaryDialogRef}
-          documentId={detalle.id}
-          cuadroFirmasId={detalle.id}
-          docData={detalle}
         />
       )}
     </div>
