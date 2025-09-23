@@ -5,7 +5,7 @@ import { useParams } from 'next/navigation';
 import { GeneralHeader } from '@/components/general-header';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ChevronDown, Download, Loader2 } from 'lucide-react';
+import { ChevronDown, Download, Loader2, Wand2 } from 'lucide-react';
 import { SignersPanel } from '@/components/document-detail/signers-panel';
 import {
   getCuadroFirmaDetalle,
@@ -346,7 +346,7 @@ export default function DocumentDetailPage() {
             {activeTab === 'original' && (
               <div className="pt-4 space-y-2">
                 <div className="flex items-center gap-2">
-                  <Sparkles className="h-4 w-4 text-primary" aria-hidden="true" />
+                  <Wand2 className="h-4 w-4 text-primary" aria-hidden="true" />
                   <h3 className="font-medium">Resumen con IA</h3>
                 </div>
                 <Button onClick={handleSummarize} className="w-full">
