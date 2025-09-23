@@ -1,6 +1,6 @@
-"use client";
+'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type MouseEvent } from 'react';
 import { useParams } from 'next/navigation';
 import { GeneralHeader } from '@/components/general-header';
 import { Button } from '@/components/ui/button';
@@ -34,11 +34,11 @@ import {
 import { useAuth } from '@/store/auth';
 import { fullName, initials } from '@/lib/avatar';
 import { SignDialog } from '@/components/sign-dialog';
+import { DocumentTabs, type DocumentTabValue } from '@/components/document/DocumentTabs';
 import {
   DocumentSummaryDialog,
   type DocumentSummaryDialogHandle,
 } from '@/components/ai/DocumentSummaryDialog';
-import { DocumentPdfViewer } from '@/components/document-detail/pdf-viewer';
 
 export default function DocumentDetailPage() {
   const params = useParams<{ id: string }>();
@@ -47,16 +47,16 @@ export default function DocumentDetailPage() {
   const [detalle, setDetalle] = useState<CuadroFirmaDetalle | null>(null);
   const [firmantes, setFirmantes] = useState<SignerFull[]>([]);
   const [loading, setLoading] = useState(false);
-  const [pdfError, setPdfError] = useState(false);
   const [signOpen, setSignOpen] = useState(false);
   const [rejectOpen, setRejectOpen] = useState(false);
   const [rejectReason, setRejectReason] = useState('');
   const [downloading, setDownloading] = useState(false);
+  const [refreshingLinks, setRefreshingLinks] = useState(false);
+  const [activeTab, setActiveTab] = useState<DocumentTabValue>('firmas');
   const summaryDialogRef = useRef<DocumentSummaryDialogHandle>(null);
 
   const fetchDetalle = async (id: number) => {
     setLoading(true);
-    setPdfError(false);
     try {
       const det = await getCuadroFirmaDetalle(id, 3600);
       const fs = await getFirmantes(id);
@@ -88,7 +88,9 @@ export default function DocumentDetailPage() {
   };
 
   useEffect(() => {
-    if (params?.id) fetchDetalle(Number(params.id));
+    if (params?.id) {
+      fetchDetalle(Number(params.id));
+    }
   }, [params?.id]);
 
   const handleOpenMerged = async () => {
@@ -135,7 +137,7 @@ export default function DocumentDetailPage() {
   };
 
   const handleDownloadButtonClick = async (
-    event: React.MouseEvent<HTMLButtonElement>,
+    event: MouseEvent<HTMLButtonElement>,
   ) => {
     if (downloading) return;
     if (event.altKey) {
@@ -152,6 +154,23 @@ export default function DocumentDetailPage() {
   const handleReject = () => {
     toast({ title: 'Rechazar', description: 'Funcionalidad no implementada.' });
     setRejectOpen(false);
+  };
+
+  const handleRefreshLinks = async () => {
+    if (!detalle?.id || refreshingLinks) return;
+    try {
+      setRefreshingLinks(true);
+      const updated = await getCuadroFirmaDetalle(detalle.id, 3600);
+      setDetalle((prev) => (prev ? { ...prev, ...updated } : updated));
+    } catch (error) {
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'No se pudo actualizar el vínculo del documento.',
+      });
+    } finally {
+      setRefreshingLinks(false);
+    }
   };
 
   const handleSummarize = () => {
@@ -207,8 +226,8 @@ export default function DocumentDetailPage() {
         <main className="flex-1 p-4 md:p-6">
           <Skeleton className="h-8 w-1/2 mb-4" />
           <div className="grid grid-cols-12 gap-4">
-            <Skeleton className="col-span-8 h-[70vh]" />
-            <div className="col-span-4 space-y-4">
+            <Skeleton className="col-span-12 h-[70vh] md:col-span-8 xl:col-span-9" />
+            <div className="col-span-12 space-y-4 md:col-span-4 xl:col-span-3">
               <Skeleton className="h-6 w-1/2" />
               <Skeleton className="h-4 w-full" />
               {[...Array(4)].map((_, i) => (
@@ -237,21 +256,16 @@ export default function DocumentDetailPage() {
         <h1 className="text-2xl font-semibold">{detalle.titulo}</h1>
         {detalle.descripcion && <p className="text-muted-foreground">{detalle.descripcion}</p>}
         <div className="mt-4 grid grid-cols-12 gap-4">
-          <div className="col-span-12 md:col-span-8">
-            {pdfError ? (
-              <div className="w-full h-[70vh] rounded-xl bg-muted flex flex-col items-center justify-center">
-                <p className="mb-4 text-sm text-muted-foreground">No se pudo cargar el PDF.</p>
-                <Button onClick={() => detalle && fetchDetalle(detalle.id)}>Reintentar</Button>
-              </div>
-            ) : (
-              <DocumentPdfViewer
-                key={detalle.urlCuadroFirmasPDF}
-                pdfUrl={detalle.urlCuadroFirmasPDF}
-                onError={() => setPdfError(true)}
-              />
-            )}
+          <div className="col-span-12 space-y-4 md:col-span-8 xl:col-span-9">
+            <DocumentTabs
+              urlCuadroFirmasPDF={detalle.urlCuadroFirmasPDF}
+              urlDocumento={detalle.urlDocumento}
+              onRefreshLinks={handleRefreshLinks}
+              isRefreshingLinks={refreshingLinks}
+              onTabChange={setActiveTab}
+            />
           </div>
-          <div className="col-span-12 md:col-span-4 space-y-4">
+          <div className="col-span-12 space-y-4 md:col-span-4 xl:col-span-3">
             <SignersPanel firmantes={signersPanel} progress={progress} />
             <div className="flex items-center gap-2">
               <Button
@@ -324,20 +338,22 @@ export default function DocumentDetailPage() {
                     <Button onClick={handleReject}>Enviar</Button>
                   </DialogFooter>
                 </DialogContent>
-                </Dialog>
-              </div>
-              {!canSign && blockMessage && (
-                <p className="text-xs text-muted-foreground">{blockMessage}</p>
-              )}
-              <div className="pt-4 space-y-2">
-              <div className="flex items-center gap-2">
-                <Sparkles className="h-4 w-4 text-primary" />
-                <h3 className="font-medium">Resumen con IA</h3>
-              </div>
-              <Button onClick={handleSummarize} className="w-full">
-                Resumir Documento
-              </Button>
+              </Dialog>
             </div>
+            {!canSign && blockMessage && (
+              <p className="text-xs text-muted-foreground">{blockMessage}</p>
+            )}
+            {activeTab === 'original' && (
+              <div className="pt-4 space-y-2">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="h-4 w-4 text-primary" aria-hidden="true" />
+                  <h3 className="font-medium">Resumen con IA</h3>
+                </div>
+                <Button onClick={handleSummarize} className="w-full">
+                  Resumir Documento
+                </Button>
+              </div>
+            )}
           </div>
         </div>
       </main>
