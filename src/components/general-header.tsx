@@ -10,11 +10,12 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
-import { LogOut, Settings, Bell, ArrowLeft } from "lucide-react";
+import { LogOut, Settings, ArrowLeft } from "lucide-react";
 import { useRouter, usePathname } from "next/navigation";
 import { SettingsDialog } from "./settings-dialog";
 import { useSession } from "@/lib/session";
 import { UserAvatar } from "@/components/avatar/user-avatar";
+import { NotificationBell } from '@/components/notifications/NotificationBell';
 
 export function GeneralHeader() {
   const router = useRouter();
@@ -51,10 +52,7 @@ export function GeneralHeader() {
         <h1 className="text-lg font-semibold md:text-xl">{getTitle()}</h1>
       </div>
       <div className="ml-auto flex items-center gap-4">
-        <Button variant="ghost" size="icon" className="rounded-full">
-          <Bell className="h-5 w-5" />
-          <span className="sr-only">Notificaciones</span>
-        </Button>
+        <NotificationBell />
         <SettingsDialog>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>

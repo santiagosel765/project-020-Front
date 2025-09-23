@@ -2,6 +2,7 @@ import type {Metadata} from 'next';
 import './globals.css';
 import { Toaster } from "@/components/ui/toaster"
 import { ReactQueryProvider } from '@/lib/react-query';
+import { NotificationsProvider } from '@/components/notifications/NotificationsProvider';
 
 export const metadata: Metadata = {
   title: 'Génesis Sign',
@@ -22,11 +23,13 @@ export default function RootLayout({
       </head>
       <body className="font-body antialiased min-h-screen flex flex-col">
         <ReactQueryProvider>
-          <main className="flex-grow">{children}</main>
-          <footer className="py-4 px-6 text-center text-muted-foreground text-sm">
-            <div className="copyright">©2025 Génesis Sign • by MAC Génesis • <span id="blockchain-status">⛓️</span></div>
-          </footer>
-          <Toaster />
+          <NotificationsProvider>
+            <main className="flex-grow">{children}</main>
+            <footer className="py-4 px-6 text-center text-muted-foreground text-sm">
+              <div className="copyright">©2025 Génesis Sign • by MAC Génesis • <span id="blockchain-status">⛓️</span></div>
+            </footer>
+            <Toaster />
+          </NotificationsProvider>
         </ReactQueryProvider>
       </body>
     </html>
