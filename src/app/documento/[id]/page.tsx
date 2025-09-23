@@ -1,6 +1,6 @@
-"use client";
+'use client';
 
-import React, { useEffect, useState } from 'react';
+import { useEffect, useRef, useState, type MouseEvent } from 'react';
 import { useParams } from 'next/navigation';
 import { GeneralHeader } from '@/components/general-header';
 import { Button } from '@/components/ui/button';
@@ -91,7 +91,6 @@ export default function DocumentDetailPage() {
     if (params?.id) {
       fetchDetalle(Number(params.id));
     }
-
   }, [params?.id]);
 
   const handleOpenMerged = async () => {
@@ -138,7 +137,7 @@ export default function DocumentDetailPage() {
   };
 
   const handleDownloadButtonClick = async (
-    event: React.MouseEvent<HTMLButtonElement>,
+    event: MouseEvent<HTMLButtonElement>,
   ) => {
     if (downloading) return;
     if (event.altKey) {
