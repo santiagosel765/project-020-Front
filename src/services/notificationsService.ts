@@ -8,6 +8,7 @@ export type UINotification = {
   title: string;
   message?: string;
   createdAt: string;
+  updatedAt?: string;
   isRead: boolean;
   href?: string;
   icon?: string;
@@ -22,19 +23,36 @@ export function adaptNotification(n: BackendNotification): UINotification {
       n.fechaCreacion ??
         n.createdAt ??
         n.add_date ??
-        n.updated_at ??
         n.created_at ??
+        n.updated_at ??
         new Date().toISOString(),
     ),
+    updatedAt: n.fechaActualizacion ??
+      n.updatedAt ??
+      n.update_date ??
+      n.updated_at ??
+      undefined,
     isRead: Boolean(n.estaLeida ?? n.read ?? n.isRead ?? n.leida ?? false),
     href: n.url ?? n.href ?? n.referencia_url ?? undefined,
     icon: n.tipo ?? n.type ?? undefined,
   };
 }
 
-export async function getNotificationsByUser(userId: number): Promise<UINotification[]> {
+export type NotificationFetchOptions = {
+  page?: number;
+  limit?: number;
+};
+
+export async function getNotificationsByUser(
+  userId: number,
+  options: NotificationFetchOptions = {},
+): Promise<UINotification[]> {
+  const params = new URLSearchParams();
+  if (options.page) params.set("page", String(options.page));
+  if (options.limit) params.set("limit", String(options.limit));
+  const query = params.size > 0 ? `?${params.toString()}` : "";
   const response = await api.get<unknown>(
-    `/v1/documents/cuadro-firmas/notificaciones/${userId}`,
+    `/v1/documents/cuadro-firmas/notificaciones/${userId}${query}`,
   );
   const payload = response.data as any;
   const arr = Array.isArray(payload) ? payload : payload?.items ?? [];

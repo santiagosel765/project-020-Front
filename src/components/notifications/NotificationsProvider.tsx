@@ -9,18 +9,18 @@ import { adaptNotification } from '@/services/notificationsService';
 export function NotificationsProvider({ children }: { children: React.ReactNode }) {
   const { currentUser } = useAuth();
   const socket = useWebsocket();
-  const { fetch, receiveFromWS } = useNotifications();
+  const { fetch, upsertFromSocket } = useNotifications();
 
   useEffect(() => {
     if (!currentUser?.id) return;
-    void fetch(currentUser.id);
+    void fetch({ userId: currentUser.id, page: 1, limit: 10 });
 
     const id = window.setInterval(() => {
-      void fetch(currentUser.id);
+      void fetch({ page: 1, limit: 10, silent: true });
     }, 30_000);
 
     const onFocus = () => {
-      void fetch(currentUser.id);
+      void fetch({ page: 1, limit: 10, silent: true });
     };
 
     window.addEventListener('focus', onFocus);
@@ -50,7 +50,8 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
         .filter(Boolean);
 
       if (normalized.length > 0) {
-        receiveFromWS(normalized);
+        console.debug('[Notifications] Evento recibido (WS)', normalized.length);
+        upsertFromSocket(normalized);
       }
     };
 
@@ -59,7 +60,7 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
     return () => {
       socket.off('user-notifications-server', handleMessage);
     };
-  }, [socket, currentUser?.id, receiveFromWS]);
+  }, [socket, currentUser?.id, upsertFromSocket]);
 
   return <>{children}</>;
 }
