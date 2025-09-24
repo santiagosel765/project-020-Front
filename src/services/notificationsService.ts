@@ -55,7 +55,10 @@ export async function getNotificationsByUser(
     `/documents/cuadro-firmas/notificaciones/${userId}${query}`,
   );
   const payload = response.data as any;
-  const arr = Array.isArray(payload) ? payload : payload?.items ?? [];
+  const arr =
+    Array.isArray(payload)
+      ? payload
+      : payload?.data?.items ?? payload?.items ?? [];
   return arr.map(adaptNotification);
 }
 
