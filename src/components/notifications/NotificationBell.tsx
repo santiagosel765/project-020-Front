@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useMemo, useState } from "react";
+import { useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Bell, Loader2, Check, MailOpen } from "lucide-react";
@@ -37,8 +37,6 @@ export function NotificationBell() {
   } = useNotifications();
   const { toast } = useToast();
   const router = useRouter();
-  const [open, setOpen] = useState(false);
-  const menuId = useId();
 
   const count = unreadCount;
   const badge = useMemo(() => {
@@ -51,17 +49,6 @@ export function NotificationBell() {
       toast({ variant: "destructive", title: "Error", description: error });
     }
   }, [error, shouldToastError, toast]);
-
-  useEffect(() => {
-    if (open) {
-      void fetch({ silent: true, userId: currentUser?.id ?? undefined });
-    }
-  }, [open, fetch, currentUser?.id]);
-
-  const handleOpenChange = (nextOpen: boolean) => {
-    setOpen(nextOpen);
-    console.debug("[Notifications] dropdown", nextOpen ? "abierto" : "cerrado");
-  };
 
   const handleMarkAll = async () => {
     if (!currentUser?.id || loadingAction || count === 0) return;
@@ -82,7 +69,6 @@ export function NotificationBell() {
       success = await markRead(notification.id);
     }
     if (notification.href) {
-      setOpen(false);
       router.push(notification.href);
     } else if (!success) {
       await fetch({ silent: true });
@@ -90,15 +76,17 @@ export function NotificationBell() {
   };
 
   return (
-    <DropdownMenu open={open} onOpenChange={handleOpenChange}>
+    <DropdownMenu
+      onOpenChange={(open) => {
+        if (open) void fetch({ silent: true, userId: currentUser?.id });
+      }}
+    >
       <DropdownMenuTrigger asChild>
         <Button
+          type="button"
           variant="ghost"
           size="icon"
           aria-label="Ver notificaciones"
-          aria-haspopup="menu"
-          aria-expanded={open}
-          aria-controls={menuId}
           className="relative rounded-full"
           data-testid="notification-bell"
         >
@@ -118,7 +106,6 @@ export function NotificationBell() {
         align="end"
         className="z-[1000] w-96 overflow-hidden rounded-xl border bg-popover p-0 shadow-xl"
         sideOffset={8}
-        id={menuId}
       >
         <div className="flex max-h-[60vh] flex-col" role="region" aria-live="polite">
           <div className="flex items-center justify-between px-4 py-3">
@@ -162,8 +149,7 @@ export function NotificationBell() {
                   <li key={n.id}>
                     <DropdownMenuItem
                       className="focus:bg-muted/60 data-[state=open]:bg-muted/60"
-                      onSelect={(e) => {
-                        e.preventDefault();
+                      onSelect={() => {
                         void handleItemSelect(n);
                       }}
                     >
