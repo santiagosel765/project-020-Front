@@ -1,10 +1,6 @@
 'use client';
 
-import axios from 'axios';
-
-if (!axios.defaults.baseURL) {
-  axios.defaults.baseURL = '/api';
-}
+import { api } from '@/lib/api';
 
 export type BackendNotification = Record<string, any>;
 export type UINotification = {
@@ -17,24 +13,34 @@ export type UINotification = {
   icon?: string;
 };
 
-function adapt(n: BackendNotification): UINotification {
+export function adaptNotification(n: BackendNotification): UINotification {
   return {
     id: Number(n.id ?? n.notificationId),
     title: String(n.titulo ?? n.title ?? 'Notificación'),
-    message: n.descripcion ?? n.message ?? '',
-    createdAt: String(n.fechaCreacion ?? n.createdAt ?? new Date().toISOString()),
-    isRead: Boolean(n.estaLeida ?? n.read ?? n.isRead ?? false),
-    href: n.url ?? n.href ?? undefined,
+    message: n.descripcion ?? n.message ?? n.contenido ?? '',
+    createdAt: String(
+      n.fechaCreacion ??
+        n.createdAt ??
+        n.add_date ??
+        n.updated_at ??
+        n.created_at ??
+        new Date().toISOString(),
+    ),
+    isRead: Boolean(n.estaLeida ?? n.read ?? n.isRead ?? n.leida ?? false),
+    href: n.url ?? n.href ?? n.referencia_url ?? undefined,
     icon: n.tipo ?? n.type ?? undefined,
   };
 }
 
 export async function getNotificationsByUser(userId: number): Promise<UINotification[]> {
-  const { data } = await axios.get(`/v1/documents/cuadro-firmas/notificaciones/${userId}`);
-  const arr = Array.isArray(data) ? data : data?.items ?? [];
-  return arr.map(adapt);
+  const response = await api.get<unknown>(
+    `/v1/documents/cuadro-firmas/notificaciones/${userId}`,
+  );
+  const payload = response.data as any;
+  const arr = Array.isArray(payload) ? payload : payload?.items ?? [];
+  return arr.map(adaptNotification);
 }
 
 export async function markNotificationAsRead(userId: number, notificationId: number): Promise<void> {
-  await axios.patch(`/v1/documents/cuadro-firmas/notificaciones/leer`, { userId, notificationId });
+  await api.patch(`/v1/documents/cuadro-firmas/notificaciones/leer`, { userId, notificationId });
 }
