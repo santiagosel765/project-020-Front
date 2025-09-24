@@ -3,7 +3,7 @@ import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
 import { ReactQueryProvider } from "@/lib/react-query";
 
-import AuthenticatedWebsocketProvider from "@/context/AuthenticatedWebsocketProvider";
+import { WebsocketProvider } from "@/context/WebsocketContext";
 import { NotificationsProvider } from "@/components/notifications/NotificationsProvider";
 
 export const metadata: Metadata = {
@@ -33,7 +33,7 @@ export default function RootLayout({
       </head>
       <body className="font-body antialiased min-h-screen flex flex-col">
         <ReactQueryProvider>
-          <AuthenticatedWebsocketProvider>
+          <WebsocketProvider>
             <NotificationsProvider>
               <main className="flex-grow">{children}</main>
             </NotificationsProvider>
@@ -44,7 +44,7 @@ export default function RootLayout({
               </div>
             </footer>
             <Toaster />
-          </AuthenticatedWebsocketProvider>
+          </WebsocketProvider>
         </ReactQueryProvider>
       </body>
     </html>

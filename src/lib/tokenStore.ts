@@ -8,9 +8,11 @@ function notify(token: string | null) {
   listeners.forEach((listener) => listener(token));
 }
 
-export function getToken() {
+export function getAccessToken() {
   return accessToken;
 }
+
+export const getToken = getAccessToken;
 
 export function setToken(t: string | null) {
   accessToken = t;

@@ -1,14 +1,8 @@
 "use client";
 
-import { useAuth } from "@/store/auth";
-import { getSocket, closeSocket } from "@/lib/websocket";
-import React, {
-  createContext,
-  useContext,
-  useEffect,
-  useRef,
-  useState,
-} from "react";
+import { ensureSocket } from "@/lib/websocket";
+import { getAccessToken, subscribeTokenChanges } from "@/lib/tokenStore";
+import React, { createContext, useContext, useEffect, useRef } from "react";
 import type { Socket } from "socket.io-client";
 
 const WebsocketContext = createContext<Socket | undefined>(undefined);
@@ -18,50 +12,48 @@ export const useWebsocket = () => useContext(WebsocketContext);
 export const WebsocketProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
-  const { currentUser } = useAuth();
-
-  const socketRef = useRef<Socket | undefined>(undefined);
-  const [ready, setReady] = useState(false);
+  const mounted = useRef(false);
+  const socketRef = useRef<Socket>(ensureSocket());
 
   useEffect(() => {
-    if (!currentUser) {
-      setReady(false);
-      return;
-    }
+    if (mounted.current) return;
+    mounted.current = true;
 
-    const socket = getSocket();
-    socketRef.current = socket;
+    const s = socketRef.current;
 
-    const handleConnect = () => {
-      console.log("Socket conectado:", socket.id);
-      setReady(true);
-    };
-    const handleConnectError = (err: Error) => {
-      console.error("Error de conexión socket.io:", err);
-    };
-    const handleDisconnect = (reason: string) => {
+    const onConnect = () => console.log("Socket conectado:", s.id);
+    const onDisconnect = (reason: string) =>
       console.log("Socket desconectado:", reason);
-      setReady(false);
+
+    s.on("connect", onConnect);
+    s.on("disconnect", onDisconnect);
+
+    const tryConnect = () => {
+      const token = getAccessToken();
+      if (!token) return;
+      s.auth = { token };
+      if (!s.connected) s.connect();
     };
 
-    socket.on("connect", handleConnect);
-    socket.on("connect_error", handleConnectError);
-    socket.on("disconnect", handleDisconnect);
+    tryConnect();
+
+    const unsub = subscribeTokenChanges((newToken) => {
+      if (!newToken) return;
+      s.auth = { token: newToken };
+      if (s.connected) s.disconnect();
+      s.connect();
+    });
 
     return () => {
-      socket.off("connect", handleConnect);
-      socket.off("connect_error", handleConnectError);
-      socket.off("disconnect", handleDisconnect);
-      socketRef.current = undefined;
-      closeSocket();
-      setReady(false);
+      unsub?.();
+      s.off("connect", onConnect);
+      s.off("disconnect", onDisconnect);
     };
-  }, [currentUser?.id]);
+  }, []);
 
-  // Solo renderiza el contexto cuando el socket está listo
   return (
     <WebsocketContext.Provider value={socketRef.current}>
-      {ready ? children : null}
+      {children}
     </WebsocketContext.Provider>
   );
 };
