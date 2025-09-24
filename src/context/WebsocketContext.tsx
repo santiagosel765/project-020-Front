@@ -1,7 +1,7 @@
 "use client";
 
-import Cookies from 'js-cookie';
 import { useAuth } from "@/store/auth";
+import { getSocket, closeSocket } from "@/lib/websocket";
 import React, {
   createContext,
   useContext,
@@ -9,14 +9,7 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { io, Socket } from "socket.io-client";
-
-function getCookie(name: string): string | undefined {
-  if (typeof document === "undefined") return undefined;
-  const value = `; ${document.cookie}`;
-  const parts = value.split(`; ${name}=`);
-  if (parts.length === 2) return parts.pop()?.split(";").shift();
-}
+import type { Socket } from "socket.io-client";
 
 const WebsocketContext = createContext<Socket | undefined>(undefined);
 
@@ -31,49 +24,39 @@ export const WebsocketProvider: React.FC<{ children: React.ReactNode }> = ({
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    
     if (!currentUser) {
-      console.log("Usuario no autenticado");
-      if(socketRef.current) {
-        socketRef.current = undefined;
-      }
       setReady(false);
       return;
     }
-    
-    socketRef.current = io(
-      process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:3200",
-      {
-        transports: ["websocket"],
-        withCredentials: true,
-      }
-    );
 
+    const socket = getSocket();
+    socketRef.current = socket;
 
-    const socket = socketRef.current;
-    if (socket) {
-      socket.on("connect", () => {
-        console.log("Socket conectado:", socket.id);
-        setReady(true);
-      });
-      socket.on("connect_error", (err) => {
-        console.error("Error de conexión socket.io:", err);
-      });
-      socket.on("disconnect", (reason) => {
-        console.log("Socket desconectado:", reason);
-      });
-    }
-
-    return () => {
-      if (socket) {
-        socket.off("connect");
-        socket.off("connect_error");
-        socket.off("disconnect");
-        socket.disconnect();
-      }
+    const handleConnect = () => {
+      console.log("Socket conectado:", socket.id);
+      setReady(true);
+    };
+    const handleConnectError = (err: Error) => {
+      console.error("Error de conexión socket.io:", err);
+    };
+    const handleDisconnect = (reason: string) => {
+      console.log("Socket desconectado:", reason);
       setReady(false);
     };
-  }, []);
+
+    socket.on("connect", handleConnect);
+    socket.on("connect_error", handleConnectError);
+    socket.on("disconnect", handleDisconnect);
+
+    return () => {
+      socket.off("connect", handleConnect);
+      socket.off("connect_error", handleConnectError);
+      socket.off("disconnect", handleDisconnect);
+      socketRef.current = undefined;
+      closeSocket();
+      setReady(false);
+    };
+  }, [currentUser?.id]);
 
   // Solo renderiza el contexto cuando el socket está listo
   return (
