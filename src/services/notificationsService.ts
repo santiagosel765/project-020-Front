@@ -52,7 +52,7 @@ export async function getNotificationsByUser(
   if (options.limit) params.set("limit", String(options.limit));
   const query = params.size > 0 ? `?${params.toString()}` : "";
   const response = await api.get<unknown>(
-    `/v1/documents/cuadro-firmas/notificaciones/${userId}${query}`,
+    `/documents/cuadro-firmas/notificaciones/${userId}${query}`,
   );
   const payload = response.data as any;
   const arr = Array.isArray(payload) ? payload : payload?.items ?? [];
@@ -60,5 +60,5 @@ export async function getNotificationsByUser(
 }
 
 export async function markNotificationAsRead(userId: number, notificationId: number): Promise<void> {
-  await api.patch(`/v1/documents/cuadro-firmas/notificaciones/leer`, { userId, notificationId });
+  await api.patch(`/documents/cuadro-firmas/notificaciones/leer`, { userId, notificationId });
 }
