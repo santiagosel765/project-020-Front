@@ -1,36 +1,16 @@
-import { io, Socket } from 'socket.io-client';
-import { getToken, subscribeTokenChanges } from '@/lib/tokenStore';
+import { io, Socket } from "socket.io-client";
 
 let socket: Socket | null = null;
-let unsubscribeTokenChanges: (() => void) | null = null;
 
-export function getSocket(): Socket {
+export function ensureSocket(): Socket {
   if (socket) return socket;
-
   socket = io(process.env.NEXT_PUBLIC_SOCKET_URL!, {
-    transports: ['websocket'],
+    transports: ["websocket"],
     withCredentials: true,
-    auth: { token: getToken() || '' },
-    autoConnect: true,
+    autoConnect: false,
+    reconnection: true,
+    reconnectionAttempts: Infinity,
+    reconnectionDelayMax: 5000,
   });
-
-  unsubscribeTokenChanges = subscribeTokenChanges((newToken) => {
-    if (!socket) return;
-    socket.auth = { token: newToken || '' };
-    if (socket.connected) socket.disconnect();
-    socket.connect();
-  });
-
   return socket;
-}
-
-export function closeSocket() {
-  if (unsubscribeTokenChanges) {
-    unsubscribeTokenChanges();
-    unsubscribeTokenChanges = null;
-  }
-  if (socket) {
-    socket.close();
-    socket = null;
-  }
 }

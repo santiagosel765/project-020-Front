@@ -19,13 +19,13 @@ export default function Home() {
       <div className="absolute inset-0 bg-black/50 -z-10"></div>
       <Card className="w-full max-w-md glassmorphism">
         <CardHeader className="text-center p-6">
-           <Image 
-            src="/genesissign.png" 
+          <Image
+            src="/genesissign.png"
             alt="Génesis Sign Logotipo"
-            width={250}
+            width={200}
             height={80}
             className="mx-auto mb-4"
-            style={{ width: '250px', height: 'auto' }}
+            style={{ height: "auto" }}
           />
         </CardHeader>
         <CardContent>
