@@ -1,8 +1,12 @@
+'use client'
+
 import { LoginForm } from '@/components/login-form';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import Image from 'next/image';
 
 export default function Home() {
+
+
   return (
     <div className="min-h-screen flex items-center justify-center p-4 relative">
       <Image
