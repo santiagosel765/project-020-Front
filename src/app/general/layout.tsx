@@ -6,6 +6,8 @@ import { useEffect } from "react";
 import { AuthGuard } from "@/components/auth-guard";
 import { useSession } from "@/lib/session";
 import { useToast } from "@/hooks/use-toast";
+import { useWebsocket } from "@/context/WebsocketContext";
+import { useNotificationsStore } from "@/store/notifications.store";
 
 export default function GeneralLayout({
   children,
@@ -17,13 +19,23 @@ export default function GeneralLayout({
   const { me, isLoading, error } = useSession();
   const { toast } = useToast();
 
+  const socket = useWebsocket();
+  const subscribeToSocket = useNotificationsStore((s) => s.subscribeToSocket);
+  const emitToSocket = useNotificationsStore((s) => s.emitToSocket);
+  useEffect(() => {
+    
+    if (!socket) return;
+    emitToSocket(socket, "user-notifications-client", {});
+    subscribeToSocket(socket);
+  }, [socket, emitToSocket, subscribeToSocket]);
+
   useEffect(() => {
     if (isLoading) return;
     const roles: string[] = me?.roles ?? [];
-    if (roles.includes('ADMIN')) {
-      router.replace('/admin/asignaciones');
-    } else if (roles.includes('SUPERVISOR')) {
-      router.replace('/admin/supervision');
+    if (roles.includes("ADMIN")) {
+      router.replace("/admin/asignaciones");
+    } else if (roles.includes("SUPERVISOR")) {
+      router.replace("/admin/supervision");
     }
   }, [isLoading, me, router]);
 
@@ -31,14 +43,18 @@ export default function GeneralLayout({
     if (error) {
       const status = (error as any)?.status;
       if (status === 401) {
-        router.replace('/');
+        router.replace("/");
       } else {
-        toast({ variant: 'destructive', title: 'Error', description: 'No se pudo cargar la sesión' });
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: "No se pudo cargar la sesión",
+        });
       }
     }
   }, [error, router, toast]);
 
-  const isDocumentDetailPage = pathname.startsWith('/documento/');
+  const isDocumentDetailPage = pathname.startsWith("/documento/");
 
   if (isDocumentDetailPage) {
     return <AuthGuard>{children}</AuthGuard>;
@@ -46,12 +62,13 @@ export default function GeneralLayout({
 
   return (
     <AuthGuard>
+      
       <div className="flex flex-col h-screen">
         <GeneralHeader />
-        <main className="flex-1 p-4 md:p-6 overflow-auto">
-          {children}
-        </main>
+        <main className="flex-1 p-4 md:p-6 overflow-auto">{children}</main>
       </div>
+      
+      
     </AuthGuard>
   );
 }

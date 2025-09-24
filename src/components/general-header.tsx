@@ -10,17 +10,23 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
-import { LogOut, Settings, ArrowLeft } from "lucide-react";
+import { LogOut, Settings, Bell, ArrowLeft } from "lucide-react";
 import { useRouter, usePathname } from "next/navigation";
 import { SettingsDialog } from "./settings-dialog";
 import { useSession } from "@/lib/session";
 import { UserAvatar } from "@/components/avatar/user-avatar";
-import { NotificationBell } from '@/components/notifications/NotificationBell';
+import { useAuth } from "@/store/auth";
+import { useWebsocket } from "@/context/WebsocketContext";
+import { useNotificationsStore } from "@/store/notifications.store";
 
 export function GeneralHeader() {
   const router = useRouter();
   const pathname = usePathname();
   const { signOut, me, avatarUrl } = useSession();
+  const auth = useAuth();
+
+  const socket = useWebsocket();
+  const disconnectFromSocket = useNotificationsStore((s) => s.disconnectFromSocket);
 
   const isDocumentDetailPage = pathname.startsWith("/documento/");
 
@@ -32,6 +38,8 @@ export function GeneralHeader() {
 
   async function handleLogout() {
     await signOut();
+    auth.currentUser = null;
+    if( socket ) disconnectFromSocket(socket);
     router.replace("/");
   }
 
@@ -52,7 +60,10 @@ export function GeneralHeader() {
         <h1 className="text-lg font-semibold md:text-xl">{getTitle()}</h1>
       </div>
       <div className="ml-auto flex items-center gap-4">
-        <NotificationBell />
+        <Button variant="ghost" size="icon" className="rounded-full">
+          <Bell className="h-5 w-5" />
+          <span className="sr-only">Notificaciones</span>
+        </Button>
         <SettingsDialog>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
