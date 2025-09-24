@@ -54,7 +54,7 @@ export function GeneralHeader() {
         )}
         <h1 className="text-lg font-semibold md:text-xl">{getTitle()}</h1>
       </div>
-      <div className="ml-auto flex items-center gap-4">
+      <div className="ml-auto flex items-center gap-4 overflow-visible">
         <NotificationBell />
         <SettingsDialog>
           <DropdownMenu>
