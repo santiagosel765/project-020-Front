@@ -1,20 +1,12 @@
 "use client";
 
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Bell, Loader2, Check, MailOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-  DropdownMenuPortal,
-} from "@/components/ui/dropdown-menu";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
@@ -38,6 +30,7 @@ export function NotificationBell() {
   } = useNotifications();
   const { toast } = useToast();
   const router = useRouter();
+  const [open, setOpen] = useState(false);
 
   const count = unreadCount;
   const badge = useMemo(
@@ -82,20 +75,22 @@ export function NotificationBell() {
     }
   };
 
+  const handleOpenChange = (next: boolean) => {
+    setOpen(next);
+    if (next) {
+      void fetch({ silent: true, userId: currentUser?.id });
+    }
+  };
+
   return (
-    <DropdownMenu
-      modal={false}
-      onOpenChange={(open) => {
-        if (open) void fetch({ silent: true, userId: currentUser?.id });
-      }}
-    >
-      <DropdownMenuTrigger asChild>
+    <Popover open={open} onOpenChange={handleOpenChange}>
+      <PopoverTrigger asChild>
         <Button
           type="button"
           variant="ghost"
           size="icon"
           aria-label="Ver notificaciones"
-          className="relative rounded-full"
+          className="relative rounded-full pointer-events-auto"
           data-testid="notification-bell"
         >
           <Bell className="h-5 w-5" aria-hidden="true" />
@@ -108,17 +103,16 @@ export function NotificationBell() {
             </span>
           )}
         </Button>
-      </DropdownMenuTrigger>
+      </PopoverTrigger>
 
-      <DropdownMenuPortal>
-        <DropdownMenuContent
-          align="end"
-          className="z-[1000] w-96 overflow-hidden rounded-xl border bg-popover p-0 shadow-xl"
-          sideOffset={8}
-        >
-          <div className="flex max-h-[60vh] flex-col" role="region" aria-live="polite">
+      <PopoverContent
+        align="end"
+        sideOffset={8}
+        className="z-[1000] w-96 overflow-hidden rounded-xl border bg-popover p-0 shadow-xl"
+      >
+        <div className="flex max-h-[60vh] flex-col" role="region" aria-live="polite">
             <div className="flex items-center justify-between px-4 py-3">
-              <DropdownMenuLabel className="p-0 text-base">Notificaciones</DropdownMenuLabel>
+              <p className="p-0 text-base font-medium">Notificaciones</p>
               <Button
                 variant="ghost"
                 size="sm"
@@ -133,7 +127,7 @@ export function NotificationBell() {
                 Marcar todas
               </Button>
             </div>
-            <DropdownMenuSeparator />
+            <Separator />
 
             <ScrollArea className="max-h-[50vh] min-h-[200px]">
               {loading ? (
@@ -156,9 +150,13 @@ export function NotificationBell() {
                 <ul className="py-1">
                   {items.map((n) => (
                     <li key={n.id}>
-                      <DropdownMenuItem
-                        className="focus:bg-muted/60 data-[state=open]:bg-muted/60"
-                        onSelect={() => void handleItemSelect(n)}
+                      <button
+                        type="button"
+                        className="w-full px-2 text-left hover:bg-muted/60 focus:bg-muted/60 focus-visible:bg-muted/60 focus-visible:outline-none"
+                        onClick={async () => {
+                          setOpen(false);
+                          await handleItemSelect(n);
+                        }}
                       >
                         <div className="flex items-start gap-3 py-1">
                           <div className="mt-0.5 text-muted-foreground" aria-hidden="true">
@@ -181,7 +179,7 @@ export function NotificationBell() {
                             </Badge>
                           )}
                         </div>
-                      </DropdownMenuItem>
+                      </button>
                       <Separator />
                     </li>
                   ))}
@@ -194,9 +192,8 @@ export function NotificationBell() {
                 Ver todas
               </Link>
             </div>
-          </div>
-        </DropdownMenuContent>
-      </DropdownMenuPortal>
-    </DropdownMenu>
+        </div>
+      </PopoverContent>
+    </Popover>
   );
 }
