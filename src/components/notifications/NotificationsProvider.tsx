@@ -1,10 +1,10 @@
-'use client';
+"use client";
 
-import { useEffect } from 'react';
-import { useAuth } from '@/store/auth';
-import { useNotifications } from '@/store/notifications';
-import { useWebsocket } from '@/context/WebsocketContext';
-import { adaptNotification } from '@/services/notificationsService';
+import { useEffect } from "react";
+import { useAuth } from "@/store/auth";
+import { useNotifications } from "@/store/notifications";
+import { useWebsocket } from "@/context/WebsocketContext";
+import { adaptNotification } from "@/services/notificationsService";
 
 export function NotificationsProvider({ children }: { children: React.ReactNode }) {
   const { currentUser } = useAuth();
@@ -23,10 +23,10 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
       void fetch({ page: 1, limit: 10, silent: true });
     };
 
-    window.addEventListener('focus', onFocus);
+    window.addEventListener("focus", onFocus);
 
     return () => {
-      window.removeEventListener('focus', onFocus);
+      window.removeEventListener("focus", onFocus);
       window.clearInterval(id);
     };
   }, [currentUser?.id, fetch]);
@@ -34,7 +34,7 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
   useEffect(() => {
     if (!socket || !currentUser?.id) return;
 
-    socket.emit('user-notifications-client', { userId: currentUser.id });
+    socket.emit("user-notifications-client", { userId: currentUser.id });
 
     const handleMessage = (payload: unknown) => {
       if (!payload) return;
@@ -50,15 +50,15 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
         .filter(Boolean);
 
       if (normalized.length > 0) {
-        console.debug('[Notifications] Evento recibido (WS)', normalized.length);
+        console.debug("[Notifications] Evento recibido (WS)", normalized.length);
         upsertFromSocket(normalized);
       }
     };
 
-    socket.on('user-notifications-server', handleMessage);
+    socket.on("user-notifications-server", handleMessage);
 
     return () => {
-      socket.off('user-notifications-server', handleMessage);
+      socket.off("user-notifications-server", handleMessage);
     };
   }, [socket, currentUser?.id, upsertFromSocket]);
 

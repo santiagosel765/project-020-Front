@@ -1,11 +1,11 @@
-'use client';
+"use client";
 
-import { useEffect, useId, useMemo, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import Link from 'next/link';
-import { Bell, Loader2, Check, MailOpen } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+import { useEffect, useId, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { Bell, Loader2, Check, MailOpen } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -13,14 +13,14 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Separator } from '@/components/ui/separator';
-import { useToast } from '@/hooks/use-toast';
-import { useAuth } from '@/store/auth';
-import { useNotifications } from '@/store/notifications';
-import { timeAgo } from '@/lib/time';
-import type { UINotification } from '@/services/notificationsService';
+} from "@/components/ui/dropdown-menu";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Separator } from "@/components/ui/separator";
+import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/store/auth";
+import { useNotifications } from "@/store/notifications";
+import { timeAgo } from "@/lib/time";
+import type { UINotification } from "@/services/notificationsService";
 
 export function NotificationBell() {
   const { currentUser } = useAuth();
@@ -43,12 +43,12 @@ export function NotificationBell() {
   const count = unreadCount;
   const badge = useMemo(() => {
     if (count <= 0) return null;
-    return count > 99 ? '99+' : count.toString();
+    return count > 99 ? "99+" : count.toString();
   }, [count]);
 
   useEffect(() => {
     if (error && shouldToastError(error)) {
-      toast({ variant: 'destructive', title: 'Error', description: error });
+      toast({ variant: "destructive", title: "Error", description: error });
     }
   }, [error, shouldToastError, toast]);
 
@@ -60,14 +60,14 @@ export function NotificationBell() {
 
   const handleOpenChange = (nextOpen: boolean) => {
     setOpen(nextOpen);
-    console.debug('[Notifications] dropdown', nextOpen ? 'abierto' : 'cerrado');
+    console.debug("[Notifications] dropdown", nextOpen ? "abierto" : "cerrado");
   };
 
   const handleMarkAll = async () => {
     if (!currentUser?.id || loadingAction || count === 0) return;
     const ok = await markAllRead();
     if (ok) {
-      toast({ title: 'Listo', description: 'Notificaciones marcadas como leídas' });
+      toast({ title: "Listo", description: "Notificaciones marcadas como leídas" });
     }
   };
 
@@ -172,7 +172,7 @@ export function NotificationBell() {
                           {n.isRead ? <MailOpen className="h-4 w-4" /> : <Bell className="h-4 w-4" />}
                         </div>
                         <div className="min-w-0 flex-1">
-                          <p className={`truncate text-sm ${n.isRead ? 'text-muted-foreground' : 'font-medium'}`}>
+                          <p className={`truncate text-sm ${n.isRead ? "text-muted-foreground" : "font-medium"}`}>
                             {n.title}
                           </p>
                           {n.message ? (

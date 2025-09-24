@@ -1,12 +1,12 @@
-'use client';
+"use client";
 
-import { useMemo, useSyncExternalStore } from 'react';
+import { useMemo, useSyncExternalStore } from "react";
 import {
   getNotificationsByUser,
   markNotificationAsRead,
   NotificationFetchOptions,
   UINotification,
-} from '@/services/notificationsService';
+} from "@/services/notificationsService";
 
 const MAX_NOTIFICATIONS = 50;
 
@@ -69,7 +69,7 @@ function emit() {
 
 function setState(update: Partial<State> | ((prev: State) => State)) {
   const nextState =
-    typeof update === 'function'
+    typeof update === "function"
       ? (update as (prev: State) => State)(state)
       : { ...state, ...update };
   if (!hasStateChanged(state, nextState)) {
@@ -104,10 +104,16 @@ function areNotificationsEqual(a: UINotification, b: UINotification): boolean {
   );
 }
 
+type MergeOptions = {
+  preserveReadState?: boolean;
+};
+
 function mergeNotifications(
   current: UINotification[],
   incoming: UINotification[],
+  options: MergeOptions = {},
 ): { next: UINotification[]; changed: boolean } {
+  const { preserveReadState = false } = options;
   if (incoming.length === 0 && current.length === 0) {
     return { next: current, changed: false };
   }
@@ -125,6 +131,9 @@ function mergeNotifications(
       continue;
     }
     const merged = { ...existing, ...item };
+    if (preserveReadState) {
+      merged.isRead = existing.isRead || item.isRead;
+    }
     if (!areNotificationsEqual(existing, merged)) {
       map.set(item.id, merged);
       changed = true;
@@ -182,7 +191,7 @@ const actions: Actions = {
     } catch (error) {
       setState({
         loading: false,
-        error: 'No se pudieron cargar las notificaciones',
+        error: "No se pudieron cargar las notificaciones",
       });
     }
   },
@@ -191,7 +200,9 @@ const actions: Actions = {
     const incoming = Array.isArray(payload) ? payload : [payload];
     if (incoming.length === 0) return;
     setState((prev) => {
-      const { next, changed } = mergeNotifications(prev.items, incoming);
+      const { next, changed } = mergeNotifications(prev.items, incoming, {
+        preserveReadState: true,
+      });
       if (!changed) {
         return prev;
       }
@@ -213,7 +224,7 @@ const actions: Actions = {
     } catch (error) {
       setState({
         items: prevItems,
-        error: 'No se pudo marcar la notificación como leída',
+        error: "No se pudo marcar la notificación como leída",
       });
       return false;
     }
@@ -239,7 +250,7 @@ const actions: Actions = {
       setState({ items: prevItems, loadingAction: false });
       await actions.fetch({ silent: true });
       setState({
-        error: 'No se pudieron marcar todas las notificaciones',
+        error: "No se pudieron marcar todas las notificaciones",
       });
       return false;
     }
