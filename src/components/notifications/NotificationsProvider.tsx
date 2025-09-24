@@ -3,26 +3,63 @@
 import { useEffect } from 'react';
 import { useAuth } from '@/store/auth';
 import { useNotifications } from '@/store/notifications';
+import { useWebsocket } from '@/context/WebsocketContext';
+import { adaptNotification } from '@/services/notificationsService';
 
 export function NotificationsProvider({ children }: { children: React.ReactNode }) {
   const { currentUser } = useAuth();
-  const { fetch } = useNotifications();
+  const socket = useWebsocket();
+  const { fetch, receiveFromWS } = useNotifications();
 
   useEffect(() => {
     if (!currentUser?.id) return;
     void fetch(currentUser.id);
-    const id = setInterval(() => {
+
+    const id = window.setInterval(() => {
       void fetch(currentUser.id);
     }, 30_000);
+
     const onFocus = () => {
       void fetch(currentUser.id);
     };
+
     window.addEventListener('focus', onFocus);
+
     return () => {
-      clearInterval(id);
       window.removeEventListener('focus', onFocus);
+      window.clearInterval(id);
     };
   }, [currentUser?.id, fetch]);
+
+  useEffect(() => {
+    if (!socket || !currentUser?.id) return;
+
+    socket.emit('user-notifications-client', { userId: currentUser.id });
+
+    const handleMessage = (payload: unknown) => {
+      if (!payload) return;
+
+      const rawItems = Array.isArray((payload as any)?.userNotifications)
+        ? (payload as any).userNotifications
+        : Array.isArray(payload)
+          ? payload
+          : [payload];
+
+      const normalized = rawItems
+        .map((item: unknown) => adaptNotification(item as Record<string, any>))
+        .filter(Boolean);
+
+      if (normalized.length > 0) {
+        receiveFromWS(normalized);
+      }
+    };
+
+    socket.on('user-notifications-server', handleMessage);
+
+    return () => {
+      socket.off('user-notifications-server', handleMessage);
+    };
+  }, [socket, currentUser?.id, receiveFromWS]);
 
   return <>{children}</>;
 }

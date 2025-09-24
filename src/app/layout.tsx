@@ -4,6 +4,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { ReactQueryProvider } from "@/lib/react-query";
 
 import AuthenticatedWebsocketProvider from "@/context/AuthenticatedWebsocketProvider";
+import { NotificationsProvider } from "@/components/notifications/NotificationsProvider";
 
 export const metadata: Metadata = {
   title: "Génesis Sign",
@@ -33,7 +34,9 @@ export default function RootLayout({
       <body className="font-body antialiased min-h-screen flex flex-col">
         <ReactQueryProvider>
           <AuthenticatedWebsocketProvider>
-            <main className="flex-grow">{children}</main>
+            <NotificationsProvider>
+              <main className="flex-grow">{children}</main>
+            </NotificationsProvider>
             <footer className="py-4 px-6 text-center text-muted-foreground text-sm">
               <div className="copyright">
                 ©2025 Génesis Sign • by MAC Génesis •{" "}

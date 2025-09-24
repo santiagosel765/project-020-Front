@@ -22,7 +22,15 @@ import { timeAgo } from '@/lib/time';
 
 export function NotificationBell() {
   const { currentUser } = useAuth();
-  const { items, loading, unreadCount, markRead, markAllRead, error } = useNotifications();
+  const {
+    items,
+    loading,
+    unreadCount,
+    markRead,
+    markAllRead,
+    error,
+    shouldToastError,
+  } = useNotifications();
   const { toast } = useToast();
   const router = useRouter();
   const [busy, setBusy] = useState(false);
@@ -31,10 +39,10 @@ export function NotificationBell() {
   const badge = useMemo(() => (count > 99 ? '99+' : count.toString()), [count]);
 
   useEffect(() => {
-    if (error) {
+    if (error && shouldToastError()) {
       toast({ variant: 'destructive', title: 'Error', description: error });
     }
-  }, [error, toast]);
+  }, [error, shouldToastError, toast]);
 
   const handleMarkAll = async () => {
     if (!currentUser?.id || busy || unreadCount() === 0) return;
@@ -52,11 +60,16 @@ export function NotificationBell() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon" aria-label="Notificaciones" className="relative rounded-full">
+        <Button
+          variant="ghost"
+          size="icon"
+          aria-label="Ver notificaciones"
+          className="relative rounded-full"
+        >
           <Bell className="h-5 w-5" aria-hidden="true" />
           {count > 0 && (
             <span
-              aria-label={`${count} notificaciones sin leer`}
+              aria-label={`${badge} notificaciones sin leer`}
               className="absolute -right-0 -top-0 min-w-[1.25rem] rounded-full bg-primary px-1.5 text-[10px] font-bold leading-4 text-primary-foreground"
             >
               {badge}
@@ -65,11 +78,21 @@ export function NotificationBell() {
         </Button>
       </DropdownMenuTrigger>
 
-      <DropdownMenuContent align="end" className="w-96 p-0" sideOffset={8} role="region" aria-live="polite">
+      <DropdownMenuContent
+        align="end"
+        className="w-96 p-0"
+        sideOffset={8}
+        role="region"
+        aria-live="polite"
+      >
         <div className="flex items-center justify-between px-3 py-2">
           <DropdownMenuLabel className="p-0 text-base">Notificaciones</DropdownMenuLabel>
           <Button variant="ghost" size="sm" onClick={handleMarkAll} disabled={busy || count === 0}>
-            {busy ? <Loader2 className="mr-1 h-4 w-4 animate-spin" aria-hidden="true" /> : <Check className="mr-1 h-4 w-4" aria-hidden="true" />}
+            {busy ? (
+              <Loader2 className="mr-1 h-4 w-4 animate-spin" aria-hidden="true" />
+            ) : (
+              <Check className="mr-1 h-4 w-4" aria-hidden="true" />
+            )}
             Marcar todas
           </Button>
         </div>
