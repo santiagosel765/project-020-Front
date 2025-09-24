@@ -13,6 +13,7 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
+  DropdownMenuPortal,
 } from "@/components/ui/dropdown-menu";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
@@ -39,16 +40,22 @@ export function NotificationBell() {
   const router = useRouter();
 
   const count = unreadCount;
-  const badge = useMemo(() => {
-    if (count <= 0) return null;
-    return count > 99 ? "99+" : count.toString();
-  }, [count]);
+  const badge = useMemo(
+    () => (count > 99 ? "99+" : count > 0 ? String(count) : null),
+    [count],
+  );
 
   useEffect(() => {
     if (error && shouldToastError(error)) {
       toast({ variant: "destructive", title: "Error", description: error });
     }
   }, [error, shouldToastError, toast]);
+
+  useEffect(() => {
+    if (currentUser?.id) {
+      void fetch({ silent: true, userId: currentUser.id });
+    }
+  }, [currentUser?.id, fetch]);
 
   const handleMarkAll = async () => {
     if (!currentUser?.id || loadingAction || count === 0) return;
@@ -77,6 +84,7 @@ export function NotificationBell() {
 
   return (
     <DropdownMenu
+      modal={false}
       onOpenChange={(open) => {
         if (open) void fetch({ silent: true, userId: currentUser?.id });
       }}
@@ -102,93 +110,93 @@ export function NotificationBell() {
         </Button>
       </DropdownMenuTrigger>
 
-      <DropdownMenuContent
-        align="end"
-        className="z-[1000] w-96 overflow-hidden rounded-xl border bg-popover p-0 shadow-xl"
-        sideOffset={8}
-      >
-        <div className="flex max-h-[60vh] flex-col" role="region" aria-live="polite">
-          <div className="flex items-center justify-between px-4 py-3">
-            <DropdownMenuLabel className="p-0 text-base">Notificaciones</DropdownMenuLabel>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleMarkAll}
-              disabled={loadingAction || count === 0}
-            >
-              {loadingAction ? (
-                <Loader2 className="mr-1 h-4 w-4 animate-spin" aria-hidden="true" />
+      <DropdownMenuPortal>
+        <DropdownMenuContent
+          align="end"
+          className="z-[1000] w-96 overflow-hidden rounded-xl border bg-popover p-0 shadow-xl"
+          sideOffset={8}
+        >
+          <div className="flex max-h-[60vh] flex-col" role="region" aria-live="polite">
+            <div className="flex items-center justify-between px-4 py-3">
+              <DropdownMenuLabel className="p-0 text-base">Notificaciones</DropdownMenuLabel>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleMarkAll}
+                disabled={loadingAction || count === 0}
+              >
+                {loadingAction ? (
+                  <Loader2 className="mr-1 h-4 w-4 animate-spin" aria-hidden="true" />
+                ) : (
+                  <Check className="mr-1 h-4 w-4" aria-hidden="true" />
+                )}
+                Marcar todas
+              </Button>
+            </div>
+            <DropdownMenuSeparator />
+
+            <ScrollArea className="max-h-[50vh] min-h-[200px]">
+              {loading ? (
+                <div className="p-6 text-center text-sm text-muted-foreground">Cargando…</div>
+              ) : error ? (
+                <div className="flex flex-col items-center gap-2 p-6 text-center text-sm text-muted-foreground">
+                  <p className="text-destructive">No se pudieron cargar las notificaciones.</p>
+                  <Button variant="link" size="sm" onClick={handleRefresh}>
+                    Reintentar
+                  </Button>
+                </div>
+              ) : items.length === 0 ? (
+                <div className="flex flex-col items-center gap-2 p-6 text-center text-sm text-muted-foreground">
+                  <p>Sin notificaciones</p>
+                  <Button variant="link" size="sm" onClick={handleRefresh}>
+                    Actualizar
+                  </Button>
+                </div>
               ) : (
-                <Check className="mr-1 h-4 w-4" aria-hidden="true" />
+                <ul className="py-1">
+                  {items.map((n) => (
+                    <li key={n.id}>
+                      <DropdownMenuItem
+                        className="focus:bg-muted/60 data-[state=open]:bg-muted/60"
+                        onSelect={() => void handleItemSelect(n)}
+                      >
+                        <div className="flex items-start gap-3 py-1">
+                          <div className="mt-0.5 text-muted-foreground" aria-hidden="true">
+                            {n.isRead ? <MailOpen className="h-4 w-4" /> : <Bell className="h-4 w-4" />}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className={`truncate text-sm ${n.isRead ? "text-muted-foreground" : "font-medium"}`}>
+                              {n.title}
+                            </p>
+                            {n.message ? (
+                              <p className="line-clamp-2 text-xs text-muted-foreground">{n.message}</p>
+                            ) : null}
+                            <p className="mt-0.5 text-[11px] text-muted-foreground">
+                              {timeAgo(n.createdAt)}
+                            </p>
+                          </div>
+                          {!n.isRead && (
+                            <Badge className="shrink-0" aria-label="Notificación nueva">
+                              Nuevo
+                            </Badge>
+                          )}
+                        </div>
+                      </DropdownMenuItem>
+                      <Separator />
+                    </li>
+                  ))}
+                </ul>
               )}
-              Marcar todas
-            </Button>
-          </div>
-          <DropdownMenuSeparator />
+            </ScrollArea>
 
-          <ScrollArea className="flex-1">
-            {loading ? (
-              <div className="p-6 text-center text-sm text-muted-foreground">Cargando…</div>
-            ) : error ? (
-              <div className="flex flex-col items-center gap-2 p-6 text-center text-sm text-muted-foreground">
-                <p className="text-destructive">No se pudieron cargar las notificaciones.</p>
-                <Button variant="link" size="sm" onClick={handleRefresh}>
-                  Reintentar
-                </Button>
-              </div>
-            ) : items.length === 0 ? (
-              <div className="flex flex-col items-center gap-2 p-6 text-center text-sm text-muted-foreground">
-                <p>Sin notificaciones</p>
-                <Button variant="link" size="sm" onClick={handleRefresh}>
-                  Actualizar
-                </Button>
-              </div>
-            ) : (
-              <ul className="py-1">
-                {items.map((n) => (
-                  <li key={n.id}>
-                    <DropdownMenuItem
-                      className="focus:bg-muted/60 data-[state=open]:bg-muted/60"
-                      onSelect={() => {
-                        void handleItemSelect(n);
-                      }}
-                    >
-                      <div className="flex items-start gap-3 py-1">
-                        <div className="mt-0.5 text-muted-foreground" aria-hidden="true">
-                          {n.isRead ? <MailOpen className="h-4 w-4" /> : <Bell className="h-4 w-4" />}
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <p className={`truncate text-sm ${n.isRead ? "text-muted-foreground" : "font-medium"}`}>
-                            {n.title}
-                          </p>
-                          {n.message ? (
-                            <p className="line-clamp-2 text-xs text-muted-foreground">{n.message}</p>
-                          ) : null}
-                          <p className="mt-0.5 text-[11px] text-muted-foreground">
-                            {timeAgo(n.createdAt)}
-                          </p>
-                        </div>
-                        {!n.isRead && (
-                          <Badge className="shrink-0" aria-label="Notificación nueva">
-                            Nuevo
-                          </Badge>
-                        )}
-                      </div>
-                    </DropdownMenuItem>
-                    <Separator />
-                  </li>
-                ))}
-              </ul>
-            )}
-          </ScrollArea>
-
-          <div className="flex items-center justify-end gap-2 border-t px-4 py-3">
-            <Link href="/notificaciones" className="text-xs text-primary underline underline-offset-2">
-              Ver todas
-            </Link>
+            <div className="flex items-center justify-end gap-2 border-t px-4 py-3">
+              <Link href="/notificaciones" className="text-xs text-primary underline underline-offset-2">
+                Ver todas
+              </Link>
+            </div>
           </div>
-        </div>
-      </DropdownMenuContent>
+        </DropdownMenuContent>
+      </DropdownMenuPortal>
     </DropdownMenu>
   );
 }
