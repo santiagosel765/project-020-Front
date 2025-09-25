@@ -42,9 +42,10 @@ export const DialogContent = React.forwardRef<
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content> & {
     /** Ajusta el ancho máximo del contenedor interno (px) */
     maxWidthPx?: number
+    size?: "sm" | "md" | "lg" | "xl"
   }
 >(function DialogContent(
-  { className, children, maxWidthPx = 640, ...props },
+  { className, children, maxWidthPx = 640, size, ...props },
   ref
 ) {
   const contentRef = React.useRef<HTMLDivElement | null>(null)
@@ -60,6 +61,15 @@ export const DialogContent = React.forwardRef<
     },
     [isIOS]
   )
+
+  const sizeToPx: Record<"sm" | "md" | "lg" | "xl", number> = {
+    sm: 480,
+    md: 640,
+    lg: 800,
+    xl: 960,
+  }
+
+  const widthLimit = size ? sizeToPx[size] ?? maxWidthPx : maxWidthPx
 
   return (
     <DialogPortal>
@@ -79,12 +89,12 @@ export const DialogContent = React.forwardRef<
           ref={contentRef}
           data-dialog-content
           className={cn(
-            "relative rounded-2xl bg-background",
-            "w-[calc(100vw-32px)]",
-            `max-w-[min(${maxWidthPx}px,100vw-32px)]`,
-            "max-h-[min(100dvh-32px,700px)]",
-            "overflow-y-auto p-4"
+            "relative w-full overflow-y-auto rounded-2xl bg-background p-4 mx-4"
           )}
+          style={{
+            maxWidth: `min(${widthLimit}px, calc(100vw - 32px))`,
+            maxHeight: "min(calc(100dvh - 32px), 700px)",
+          }}
         >
           <DialogPortalContainerContext.Provider value={contentRef.current}>
             {children}
