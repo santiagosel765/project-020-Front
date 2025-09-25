@@ -422,8 +422,8 @@ export const DocumentSummaryDialog = forwardRef<DocumentSummaryDialogHandle, Doc
             <DialogTitle>Resumen del documento</DialogTitle>
           </DialogHeader>
           <div className="flex flex-col gap-4 lg:flex-row">
-            <div className="lg:w-1/2 w-full">
-              <DocumentPdfViewer pdfUrl={pdfUrl} className="h-[60vh] lg:h-[70vh]" />
+            <div className="w-full max-h-[min(100dvh-32px,700px)] overflow-auto overscroll-y-contain touch-pan-y lg:w-1/2">
+              <DocumentPdfViewer pdfUrl={pdfUrl} className="min-h-[60vh]" />
             </div>
             <div className="lg:w-1/2 w-full flex flex-col gap-3">
               <div className="flex flex-wrap items-center justify-end gap-2">

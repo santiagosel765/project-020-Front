@@ -11,7 +11,7 @@ export function DocumentPdfViewer({ pdfUrl, className, ...props }: DocumentPdfVi
   return (
     <iframe
       src={pdfUrl}
-      className={cn('w-full h-[70vh] rounded-xl bg-muted', className)}
+      className={cn('block w-full min-h-full rounded-xl bg-muted', className)}
       referrerPolicy="no-referrer"
       {...props}
     />
