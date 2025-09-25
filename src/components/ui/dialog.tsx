@@ -6,6 +6,11 @@ import { X } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 
+const DialogPortalContainerContext = React.createContext<HTMLElement | null>(null)
+
+export const useDialogPortalContainer = () =>
+  React.useContext(DialogPortalContainerContext)
+
 export const Dialog = DialogPrimitive.Root
 
 export const DialogTrigger = DialogPrimitive.Trigger
@@ -42,9 +47,19 @@ export const DialogContent = React.forwardRef<
   { className, children, maxWidthPx = 640, ...props },
   ref
 ) {
-  const handleOpenAutoFocus = React.useCallback((e: Event) => {
-    e.preventDefault()
-  }, [])
+  const contentRef = React.useRef<HTMLDivElement | null>(null)
+  const isIOS =
+    typeof navigator !== "undefined" &&
+    (/iPad|iPhone|iPod/.test(navigator.userAgent) ||
+      (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1))
+  const handleOpenAutoFocus = React.useCallback(
+    (e: Event) => {
+      if (isIOS) {
+        e.preventDefault()
+      }
+    },
+    [isIOS]
+  )
 
   return (
     <DialogPortal>
@@ -61,6 +76,8 @@ export const DialogContent = React.forwardRef<
         {...props}
       >
         <div
+          ref={contentRef}
+          data-dialog-content
           className={cn(
             "relative rounded-2xl bg-background",
             "w-[calc(100vw-32px)]",
@@ -69,7 +86,9 @@ export const DialogContent = React.forwardRef<
             "overflow-y-auto p-4"
           )}
         >
-          {children}
+          <DialogPortalContainerContext.Provider value={contentRef.current}>
+            {children}
+          </DialogPortalContainerContext.Provider>
 
           <DialogPrimitive.Close
             className={cn(

@@ -5,6 +5,7 @@ import * as PopoverPrimitive from "@radix-ui/react-popover"
 
 import { cn } from "@/lib/utils"
 import { useIsMobile } from "@/hooks/use-mobile"
+import { useDialogPortalContainer } from "@/components/ui/dialog"
 
 const Popover = PopoverPrimitive.Root
 
@@ -17,9 +18,10 @@ const PopoverContent = React.forwardRef<
   const isMobile = useIsMobile()
   const resolvedSideOffset = sideOffset ?? (isMobile ? 4 : 8)
   const resolvedCollisionPadding = collisionPadding ?? 16
+  const container = useDialogPortalContainer()
 
   return (
-    <PopoverPrimitive.Portal>
+    <PopoverPrimitive.Portal container={container ?? undefined}>
       <PopoverPrimitive.Content
         ref={ref}
         align={align}
