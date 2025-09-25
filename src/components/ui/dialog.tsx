@@ -5,6 +5,7 @@ import * as DialogPrimitive from "@radix-ui/react-dialog"
 import { X } from "lucide-react"
 
 import { cn } from "@/lib/utils"
+import { Button, type ButtonProps } from "@/components/ui/button"
 
 const DialogPortalContainerContext = React.createContext<HTMLElement | null>(null)
 
@@ -18,6 +19,19 @@ export const DialogTrigger = DialogPrimitive.Trigger
 export const DialogPortal = DialogPrimitive.Portal
 
 export const DialogClose = DialogPrimitive.Close
+
+export type DialogCloseButtonProps = ButtonProps
+
+export const DialogCloseButton = React.forwardRef<
+  HTMLButtonElement,
+  DialogCloseButtonProps
+>(function DialogCloseButton(props, ref) {
+  return (
+    <DialogClose asChild>
+      <Button ref={ref} {...props} />
+    </DialogClose>
+  )
+})
 
 export const DialogOverlay = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Overlay>,

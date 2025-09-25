@@ -10,6 +10,7 @@ import {
   DialogTitle,
   DialogTrigger as DialogPrimitiveTrigger,
   DialogFooter,
+  DialogCloseButton,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -358,7 +359,9 @@ export function SettingsDialog({ children }: { children: React.ReactNode }) {
 
         </div>
         <DialogFooter className="border-t pt-4">
-          <Button onClick={() => setOpen(false)}>Cerrar</Button>
+          <DialogCloseButton onClick={() => setOpen(false)}>
+            Cerrar
+          </DialogCloseButton>
         </DialogFooter>
       </DialogContent>
     </SettingsDialogRoot>
