@@ -4,23 +4,19 @@ import { useEffect, useRef, useState, type CSSProperties } from "react";
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
-import { SmartPDFViewer } from "./SmartPDFViewer";
+import SmartPDFViewer from "./SmartPDFViewer";
 
 export type DocumentTabValue = "firmas" | "original";
 
 type DocumentTabsProps = {
   urlCuadroFirmasPDF?: string | null;
   urlDocumento?: string | null;
-  onRefreshLinks: () => Promise<void>;
-  isRefreshingLinks?: boolean;
   onTabChange?: (tab: DocumentTabValue) => void;
 };
 
 export function DocumentTabs({
   urlCuadroFirmasPDF,
   urlDocumento,
-  onRefreshLinks,
-  isRefreshingLinks = false,
   onTabChange,
 }: DocumentTabsProps) {
   const [activeTab, setActiveTab] = useState<DocumentTabValue>("firmas");
@@ -99,23 +95,11 @@ export function DocumentTabs({
       </div>
 
       <TabsContent value="firmas" className="mt-0 flex flex-1 flex-col">
-        <SmartPDFViewer
-          title="Cuadro de firmas"
-          src={urlCuadroFirmasPDF ?? undefined}
-          onRefresh={onRefreshLinks}
-          isRefreshing={isRefreshingLinks}
-          className="flex-1"
-        />
+        <SmartPDFViewer srcPdf={urlCuadroFirmasPDF ?? null} className="flex-1" />
       </TabsContent>
 
       <TabsContent value="original" className="mt-0 flex flex-1 flex-col">
-        <SmartPDFViewer
-          title="Documento original"
-          src={urlDocumento ?? undefined}
-          onRefresh={onRefreshLinks}
-          isRefreshing={isRefreshingLinks}
-          className="flex-1"
-        />
+        <SmartPDFViewer srcPdf={urlDocumento ?? null} className="flex-1" />
       </TabsContent>
     </Tabs>
   );
