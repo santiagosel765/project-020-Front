@@ -1,15 +1,13 @@
 "use client";
 
-import React from 'react';
-
-import { SmartPDFViewer } from '@/components/document/SmartPDFViewer';
+import SmartPDFViewer from '@/components/document/SmartPDFViewer';
 
 type DocumentPdfViewerProps = {
   pdfUrl?: string | null;
-  title?: string;
   className?: string;
+  openLabel?: string;
 };
 
-export function DocumentPdfViewer({ pdfUrl, title, className }: DocumentPdfViewerProps) {
-  return <SmartPDFViewer src={pdfUrl ?? undefined} title={title} className={className} />;
+export function DocumentPdfViewer({ pdfUrl, className, openLabel }: DocumentPdfViewerProps) {
+  return <SmartPDFViewer srcPdf={pdfUrl ?? null} className={className} openLabel={openLabel} />;
 }

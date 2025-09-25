@@ -58,7 +58,6 @@ export default function DocumentDetailPage() {
   const [rejectOpen, setRejectOpen] = useState(false);
   const [rejectReason, setRejectReason] = useState('');
   const [downloading, setDownloading] = useState(false);
-  const [refreshingLinks, setRefreshingLinks] = useState(false);
   const [activeTab, setActiveTab] = useState<DocumentTabValue>('firmas');
   const summaryDialogRef = useRef<DocumentSummaryDialogHandle>(null);
 
@@ -163,23 +162,6 @@ export default function DocumentDetailPage() {
     setRejectOpen(false);
   };
 
-  const handleRefreshLinks = async () => {
-    if (!detalle?.id || refreshingLinks) return;
-    try {
-      setRefreshingLinks(true);
-      const updated = await getCuadroFirmaDetalle(detalle.id, 3600);
-      setDetalle((prev) => (prev ? { ...prev, ...updated } : updated));
-    } catch (error) {
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: 'No se pudo actualizar el vínculo del documento.',
-      });
-    } finally {
-      setRefreshingLinks(false);
-    }
-  };
-
   const handleSummarize = () => {
     if (!detalle) return;
     summaryDialogRef.current?.open();
@@ -265,13 +247,11 @@ export default function DocumentDetailPage() {
         <div className="mt-4 grid grid-cols-12 gap-4">
           <div className="col-span-12 md:col-span-8 xl:col-span-9">
             <div
-              className="h-[calc(100dvh-var(--app-header-h)-16px)] overflow-auto overscroll-y-contain touch-pan-y [scrollbar-gutter:stable] [-webkit-overflow-scrolling:touch]"
+              className="h-[calc(100dvh-var(--app-header-h)-theme(spacing.10))] overflow-auto overscroll-y-contain touch-pan-y [scrollbar-gutter:stable] [-webkit-overflow-scrolling:touch]"
             >
               <DocumentTabs
                 urlCuadroFirmasPDF={detalle.urlCuadroFirmasPDF}
                 urlDocumento={detalle.urlDocumento}
-                onRefreshLinks={handleRefreshLinks}
-                isRefreshingLinks={refreshingLinks}
                 onTabChange={setActiveTab}
               />
             </div>

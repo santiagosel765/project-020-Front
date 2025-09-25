@@ -11,7 +11,7 @@ import React, {
 import ReactMarkdown from 'react-markdown';
 import { Loader2, Copy, Download, Play, Pause, Square } from 'lucide-react';
 
-import { SmartPDFViewer } from '@/components/document/SmartPDFViewer';
+import SmartPDFViewer from '@/components/document/SmartPDFViewer';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -413,8 +413,7 @@ export const DocumentSummaryDialog = forwardRef<DocumentSummaryDialogHandle, Doc
       };
     }, [stopTTS]);
 
-    const pdfUrl = docData?.urlDocumento ?? docData?.urlCuadroFirmasPDF ?? '';
-    const viewerTitle = docData?.titulo ?? 'Documento';
+    const pdfUrl = docData?.urlDocumento ?? docData?.urlCuadroFirmasPDF ?? null;
 
     return (
       <Dialog open={isOpen} onOpenChange={handleOpenChange}>
@@ -424,9 +423,11 @@ export const DocumentSummaryDialog = forwardRef<DocumentSummaryDialogHandle, Doc
           </DialogHeader>
           <div className="flex flex-col gap-4 p-4 lg:flex-row">
             <div className="w-full lg:w-1/2">
-              <div className="h-[calc(100dvh-220px)] overflow-auto overscroll-y-contain touch-pan-y [scrollbar-gutter:stable]">
-                <SmartPDFViewer src={pdfUrl || undefined} title={viewerTitle} className="h-full" />
-              </div>
+              <SmartPDFViewer
+                srcPdf={pdfUrl}
+                className="h-[min(70vh,calc(100dvh-12rem))]"
+                openLabel="Abrir documento"
+              />
             </div>
             <div className="w-full flex flex-col gap-3 lg:w-1/2">
               <div className="flex flex-wrap items-center justify-end gap-2">
