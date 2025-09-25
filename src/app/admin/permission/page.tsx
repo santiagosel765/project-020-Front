@@ -25,8 +25,8 @@ export default function PermissionPage() {
     const loadBase = async () => {
       try {
         const [{ items: rolesData }, { items: pagesData }] = await Promise.all([
-          getRoles({ page: 1, limit: 100, showInactive: true }),
-          getPages({ page: 1, limit: 200, showInactive: true }),
+          getRoles({ page: 1, limit: 100, includeInactive: true }),
+          getPages({ page: 1, limit: 200, includeInactive: true }),
         ]);
         setRoles(rolesData.filter(r => r.activo));
         setPages(pagesData.filter(p => p.activo));

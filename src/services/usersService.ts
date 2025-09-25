@@ -2,6 +2,7 @@ import { api } from '@/lib/api';
 import type { CatalogoItem, UiUser, User } from '@/lib/data';
 import { unwrapArray, unwrapOne, normalizeOne, normalizeList } from '@/lib/apiEnvelope';
 import { PageEnvelope } from '@/lib/pagination';
+import { buildListQuery, type ListParams } from '@/services/http-helpers';
 
 type ApiCatalogItem = {
   id: number;
@@ -120,38 +121,12 @@ const toUiUser = (u: ApiUser): UiUser => {
 } satisfies UiUser;
 };
 
-export interface GetUsersParams {
-  page?: number;
-  limit?: number;
-  sort?: 'asc' | 'desc';
-  search?: string;
-  includeInactive?: boolean;
-  [key: string]: unknown;
-}
+export type GetUsersParams = ListParams;
 
 export async function getUsers(params: GetUsersParams = {}): Promise<PageEnvelope<User>> {
-  const {
-    page = 1,
-    limit = 10,
-    sort = 'desc',
-    search,
-    includeInactive = false,
-    ...rest
-  } = params;
-
-  const query: Record<string, unknown> = {
-    page,
-    limit,
-    sort,
-    includeInactive,
-    ...rest,
-  };
-
-  if (typeof search === 'string' && search.trim() !== '') {
-    query.search = search.trim();
-  }
-
-  const { data } = await api.get<PageEnvelope<ApiUser>>('/users', { params: query });
+  const query = buildListQuery(params);
+  const url = query.length > 0 ? `/users?${query}` : '/users';
+  const { data } = await api.get<PageEnvelope<ApiUser>>(url);
   const envelope = data as PageEnvelope<ApiUser>;
   const items = Array.isArray(envelope.items) ? envelope.items.map(toUiUser) : [];
 

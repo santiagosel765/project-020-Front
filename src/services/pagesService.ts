@@ -1,6 +1,7 @@
 import { api } from '@/lib/api';
 import { normalizeOne } from '@/lib/apiEnvelope';
 import { PageEnvelope } from '@/lib/pagination';
+import { buildListQuery, type ListParams } from '@/services/http-helpers';
 
 export interface PaginaUI {
   id: number;
@@ -10,14 +11,7 @@ export interface PaginaUI {
   createdAt?: string;
   activo?: boolean;
 }
-export interface GetPagesParams {
-  page?: number;
-  limit?: number;
-  sort?: 'asc' | 'desc';
-  search?: string;
-  showInactive?: boolean;
-  [key: string]: unknown;
-}
+export type GetPagesParams = ListParams;
 
 const toPagina = (page: any): PaginaUI => ({
   id: Number(page?.id ?? 0),
@@ -29,28 +23,9 @@ const toPagina = (page: any): PaginaUI => ({
 });
 
 export async function getPaginas(params: GetPagesParams = {}): Promise<PageEnvelope<PaginaUI>> {
-  const {
-    page = 1,
-    limit = 10,
-    sort = 'desc',
-    search,
-    showInactive = false,
-    ...rest
-  } = params;
-
-  const query: Record<string, unknown> = {
-    page,
-    limit,
-    sort,
-    showInactive,
-    ...rest,
-  };
-
-  if (typeof search === 'string' && search.trim() !== '') {
-    query.search = search.trim();
-  }
-
-  const { data } = await api.get<PageEnvelope<any>>('/paginas', { params: query });
+  const query = buildListQuery(params);
+  const url = query.length > 0 ? `/paginas?${query}` : '/paginas';
+  const { data } = await api.get<PageEnvelope<any>>(url);
   const envelope = data as PageEnvelope<any>;
   const items = Array.isArray(envelope.items) ? envelope.items.map(toPagina) : [];
 

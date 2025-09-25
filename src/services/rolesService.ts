@@ -1,6 +1,7 @@
 import { api } from '@/lib/api';
 import { normalizeOne } from '@/lib/apiEnvelope';
 import { PageEnvelope } from '@/lib/pagination';
+import { buildListQuery, type ListParams } from '@/services/http-helpers';
 
 export interface Role {
   id?: string | number;
@@ -10,14 +11,7 @@ export interface Role {
   createdAt?: string;
 }
 
-export interface GetRolesParams {
-  page?: number;
-  limit?: number;
-  sort?: 'asc' | 'desc';
-  search?: string;
-  showInactive?: boolean;
-  [key: string]: unknown;
-}
+export type GetRolesParams = ListParams;
 
 const toRole = (role: any): Role => ({
   id: role?.id,
@@ -28,28 +22,9 @@ const toRole = (role: any): Role => ({
 });
 
 export async function getRoles(params: GetRolesParams = {}): Promise<PageEnvelope<Role>> {
-  const {
-    page = 1,
-    limit = 10,
-    sort = 'desc',
-    search,
-    showInactive = false,
-    ...rest
-  } = params;
-
-  const query: Record<string, unknown> = {
-    page,
-    limit,
-    sort,
-    showInactive,
-    ...rest,
-  };
-
-  if (typeof search === 'string' && search.trim() !== '') {
-    query.search = search.trim();
-  }
-
-  const { data } = await api.get<PageEnvelope<any>>('/roles', { params: query });
+  const query = buildListQuery(params);
+  const url = query.length > 0 ? `/roles?${query}` : '/roles';
+  const { data } = await api.get<PageEnvelope<any>>(url);
   const envelope = data as PageEnvelope<any>;
   const items = Array.isArray(envelope.items) ? envelope.items.map(toRole) : [];
 

@@ -16,6 +16,7 @@ import { UserPasswordDialog } from './user-password-dialog';
 import { useSession } from '@/lib/session';
 import { PaginationBar } from './pagination/PaginationBar';
 import type { PageEnvelope } from '@/lib/pagination';
+import { Switch } from '@/components/ui/switch';
 
 interface UsersTableProps {
   data?: PageEnvelope<User>;
@@ -23,6 +24,8 @@ interface UsersTableProps {
   onLimitChange: (limit: number) => void;
   searchTerm: string;
   onSearchChange: (value: string) => void;
+  includeInactive: boolean;
+  onToggleInactive: (checked: boolean) => void;
   onSaveUser: (payload: { data: User; file?: File | null }) => Promise<void> | void;
   onDeleteUser: (userId: string) => void;
   loading?: boolean;
@@ -43,6 +46,8 @@ export function UsersTable({
   onLimitChange,
   searchTerm,
   onSearchChange,
+  includeInactive,
+  onToggleInactive,
   onSaveUser,
   onDeleteUser,
   loading = false,
@@ -119,6 +124,10 @@ export function UsersTable({
                   value={searchTerm}
                   onChange={(e) => onSearchChange(e.target.value)}
                 />
+              </div>
+              <div className="flex items-center space-x-2">
+                <Switch id="show-inactive" checked={includeInactive} onCheckedChange={onToggleInactive} />
+                <label htmlFor="show-inactive" className="text-sm whitespace-nowrap">Mostrar inactivos</label>
               </div>
               <Input type="file" ref={fileInputRef} className="hidden" onChange={handleFileChange}
                 accept=".csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel"
