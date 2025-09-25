@@ -4,7 +4,9 @@ const API_BASE = process.env.NEXT_PUBLIC_API_BASE!;
 const isBodylessMethod = (m: string) => m === 'GET' || m === 'HEAD';
 
 export async function proxyRequest(req: NextRequest, targetPath: string) {
-  const target = `${API_BASE}${targetPath.startsWith('/') ? '' : '/'}${targetPath}`;
+  const search = req.nextUrl?.search ?? '';
+  const targetBase = `${API_BASE}${targetPath.startsWith('/') ? '' : '/'}${targetPath}`;
+  const target = `${targetBase}${search}`;
 
   const headers = new Headers(req.headers);
   const incomingCookie = req.headers.get('cookie');
