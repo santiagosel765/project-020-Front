@@ -112,14 +112,29 @@ export function CardList<T>({
             ? (item as { id?: React.Key }).id ?? index
             : index;
         const cardItem = isCardListItem(item) ? item : undefined;
+        const primaryContent = primary ? primary(item) : cardItem?.primary;
+        const formattedPrimary = React.isValidElement(primaryContent)
+          ? React.cloneElement(primaryContent, {
+              className: cn(
+                "line-clamp-2 break-words text-balance",
+                primaryContent.props.className,
+              ),
+            })
+          : primaryContent != null
+            ? (
+                <span className="line-clamp-2 break-words text-balance">
+                  {primaryContent}
+                </span>
+              )
+            : primaryContent;
 
         return (
           <Card key={key} className="shadow-sm">
             <CardContent className="p-4">
-              <div className="flex items-start justify-between gap-4">
-                <div className="space-y-2">
-                  <div className="text-base font-semibold leading-none tracking-tight">
-                    {primary ? primary(item) : cardItem?.primary}
+              <div className="grid grid-cols-[1fr_auto] items-start gap-3">
+                <div className="space-y-2 min-w-0">
+                  <div className="min-w-0 text-base font-semibold leading-none tracking-tight">
+                    {formattedPrimary}
                   </div>
                   {secondary || cardItem?.secondary ? (
                     <div className="text-sm text-muted-foreground">
@@ -133,7 +148,7 @@ export function CardList<T>({
                   ) : null}
                 </div>
                 {actions || cardItem?.actions ? (
-                  <div className="flex-shrink-0">
+                  <div className="shrink-0 self-start">
                     {actions ? actions(item) : renderActions(cardItem?.actions)}
                   </div>
                 ) : null}
