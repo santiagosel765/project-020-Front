@@ -113,6 +113,17 @@ body {
 
 @layer components {
   .glassmorphism {
-    @apply bg-card/60 backdrop-blur-lg border border-white/20 shadow-lg;
+    @apply bg-card/60 border border-white/20 shadow-lg;
+    @apply backdrop-blur-lg md:backdrop-blur-0;
+    @apply md:bg-card/95;
+  }
+}
+
+@layer utilities {
+  @screen md {
+    .no-blur-desktop {
+      backdrop-filter: none !important;
+      -webkit-backdrop-filter: none !important;
+    }
   }
 }
