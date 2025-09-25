@@ -32,6 +32,8 @@ import { formatGTDateTime } from "@/lib/date";
 import type { PageEnvelope } from "@/lib/pagination";
 import { FiltersBar, FilterChips, type FilterChip } from "./filters/filters-bar";
 import { FiltersDrawer } from "./filters/filters-drawer";
+import { CardList } from "@/components/responsive/card-list";
+import { useBreakpoint } from "@/hooks/use-breakpoint";
 
 interface DocumentsTableProps {
   data?: PageEnvelope<Document>;
@@ -128,6 +130,7 @@ export function DocumentsTable({
   loading = false,
 }: DocumentsTableProps) {
   const router = useRouter();
+  const isMdUp = useBreakpoint("md");
 
   const statusButtons: (Document["status"] | "Todos")[] = [
     "Todos",
@@ -148,6 +151,75 @@ export function DocumentsTable({
   const hasPrev = Boolean(data?.hasPrev);
   const hasNext = Boolean(data?.hasNext);
   const currentLimit = data?.limit ?? 10;
+
+  const toCardItem = (doc: Document) => {
+    const users = doc.assignedUsers ?? [];
+    const sendDateTooltip = formatGTDateTime(doc.sendDate);
+    const sendDateTitle = sendDateTooltip !== "—" ? `${sendDateTooltip} GT` : undefined;
+
+    return {
+      id: doc.id,
+      primary: (
+        <button
+          type="button"
+          onClick={() => handleRowClick(doc.id)}
+          className="max-w-full truncate text-left hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          {doc.name || "Sin título"}
+        </button>
+      ),
+      secondary: doc.description ? (
+        <span className="line-clamp-2 text-muted-foreground">{doc.description}</span>
+      ) : undefined,
+      meta: (
+        <div className="flex flex-col gap-3 text-sm text-muted-foreground">
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge className={cn("border", getStatusClass(doc.status))}>{doc.status}</Badge>
+            <span className="text-xs font-medium uppercase tracking-wide text-foreground/80">
+              Días: <ElapsedDaysCell fromISO={doc.sendDate} title={sendDateTitle} />
+            </span>
+          </div>
+          <div className="flex flex-col gap-0.5">
+            <span className="text-xs font-semibold uppercase tracking-wide text-foreground/80">
+              Fecha envío
+            </span>
+            <span className="text-sm text-foreground">
+              <DateCell value={doc.sendDate} withTime />
+            </span>
+          </div>
+          {users.length ? (
+            <button
+              type="button"
+              className="flex items-center gap-2 text-left"
+              onClick={(event) => {
+                event.stopPropagation();
+                onAsignadosClick?.(doc);
+              }}
+            >
+              <span className="text-xs font-semibold uppercase tracking-wide text-foreground/80">
+                Asignados
+              </span>
+              <AvatarGroup users={users} />
+            </button>
+          ) : null}
+        </div>
+      ),
+      actions: (
+        <div className="flex flex-col items-end gap-2">
+          <Button
+            type="button"
+            size="sm"
+            onClick={(event) => {
+              event.preventDefault();
+              handleRowClick(doc.id);
+            }}
+          >
+            Ver detalle
+          </Button>
+        </div>
+      ),
+    };
+  };
 
   const renderFilters = (variant: "bar" | "drawer") => {
     const isDrawer = variant === "drawer";
@@ -239,82 +311,103 @@ export function DocumentsTable({
         </div>
       </CardHeader>
       <CardContent className="flex-grow overflow-auto">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Nombre Doc.</TableHead>
-              <TableHead className="hidden md:table-cell">Descripción</TableHead>
-              <TableHead
-                className="hidden sm:table-cell cursor-pointer select-none"
-                onClick={() => {
-                  onSortToggle();
-                }}
-              >
-                <div className="flex items-center gap-2">
-                  Fecha Envío {sortOrder === "desc" ? "↓" : "↑"}
-                </div>
-              </TableHead>
-              <TableHead>Estado</TableHead>
-              <TableHead>Días Transcurridos</TableHead>
-              <TableHead>Asignados</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {documents.map((doc) => {
-              const users = doc.assignedUsers ?? [];
-              const sendDateTooltip = formatGTDateTime(doc.sendDate);
-              const sendDateTitle =
-                sendDateTooltip !== "—" ? `${sendDateTooltip} GT` : undefined;
-              return (
-                <TableRow key={doc.id}>
-                  <TableCell className="font-medium">
-                    <button
-                      onClick={() => handleRowClick(doc.id)}
-                      className="text-left hover:underline focus:outline-none focus:ring-2 focus:ring-ring rounded"
-                    >
-                      {doc.name}
-                    </button>
-                  </TableCell>
-                  <TableCell className="hidden md:table-cell text-muted-foreground">
-                    {doc.description}
-                  </TableCell>
-                  <TableCell className="hidden sm:table-cell">
-                    <DateCell value={doc.sendDate} withTime />
-                  </TableCell>
-                  <TableCell>
-                    <Badge className={cn("border", getStatusClass(doc.status))}>
-                      {doc.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-center">
-                    <ElapsedDaysCell
-                      fromISO={doc.sendDate}
-                      title={sendDateTitle}
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <button
-                      className="cursor-pointer"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onAsignadosClick?.(doc);
-                      }}
-                    >
-                      <AvatarGroup users={users} />
-                    </button>
+        {isMdUp ? (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Nombre Doc.</TableHead>
+                <TableHead className="hidden md:table-cell">Descripción</TableHead>
+                <TableHead
+                  className="hidden sm:table-cell cursor-pointer select-none"
+                  onClick={() => {
+                    onSortToggle();
+                  }}
+                >
+                  <div className="flex items-center gap-2">
+                    Fecha Envío {sortOrder === "desc" ? "↓" : "↑"}
+                  </div>
+                </TableHead>
+                <TableHead>Estado</TableHead>
+                <TableHead>Días Transcurridos</TableHead>
+                <TableHead>Asignados</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {documents.map((doc) => {
+                const users = doc.assignedUsers ?? [];
+                const sendDateTooltip = formatGTDateTime(doc.sendDate);
+                const sendDateTitle =
+                  sendDateTooltip !== "—" ? `${sendDateTooltip} GT` : undefined;
+                return (
+                  <TableRow key={doc.id}>
+                    <TableCell className="font-medium">
+                      <button
+                        onClick={() => handleRowClick(doc.id)}
+                        className="text-left hover:underline focus:outline-none focus:ring-2 focus:ring-ring rounded"
+                      >
+                        {doc.name}
+                      </button>
+                    </TableCell>
+                    <TableCell className="hidden md:table-cell text-muted-foreground">
+                      {doc.description}
+                    </TableCell>
+                    <TableCell className="hidden sm:table-cell">
+                      <DateCell value={doc.sendDate} withTime />
+                    </TableCell>
+                    <TableCell>
+                      <Badge className={cn("border", getStatusClass(doc.status))}>
+                        {doc.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <ElapsedDaysCell
+                        fromISO={doc.sendDate}
+                        title={sendDateTitle}
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <button
+                        className="cursor-pointer"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onAsignadosClick?.(doc);
+                        }}
+                      >
+                        <AvatarGroup users={users} />
+                      </button>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+              {!loading && documents.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center py-4 text-sm text-muted-foreground">
+                    No hay documentos.
                   </TableCell>
                 </TableRow>
-              );
-            })}
-            {!loading && documents.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={6} className="text-center py-4 text-sm text-muted-foreground">
+              )}
+            </TableBody>
+          </Table>
+        ) : (
+          <div className="flex flex-col gap-4">
+            {documents.length > 0 ? (
+              <CardList
+                items={documents.map(toCardItem)}
+                primary={(item) => item.primary}
+                secondary={(item) => item.secondary}
+                meta={(item) => item.meta}
+                actions={(item) => item.actions}
+                gridClassName="grid grid-cols-1 sm:grid-cols-2 gap-3"
+              />
+            ) : (
+              !loading && (
+                <p className="py-6 text-center text-sm text-muted-foreground">
                   No hay documentos.
-                </TableCell>
-              </TableRow>
+                </p>
+              )
             )}
-          </TableBody>
-        </Table>
+          </div>
+        )}
       </CardContent>
       <PaginationBar
         total={total}
