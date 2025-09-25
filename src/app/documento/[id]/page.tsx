@@ -259,12 +259,14 @@ export default function DocumentDetailPage() {
   return (
     <div className="flex flex-col h-screen">
       <GeneralHeader />
-      <main className="flex-1 p-4 md:p-6 overflow-auto">
+      <main className="flex-1 p-4 md:p-6">
         <h1 className="text-2xl font-semibold">{detalle.titulo}</h1>
         {detalle.descripcion && <p className="text-muted-foreground">{detalle.descripcion}</p>}
         <div className="mt-4 grid grid-cols-12 gap-4">
           <div className="col-span-12 md:col-span-8 xl:col-span-9">
-            <div className="h-[calc(100dvh-var(--app-header-h)-var(--tabbar-h)-16px)] overflow-auto overscroll-y-contain touch-pan-y">
+            <div
+              className="h-[calc(100dvh-var(--app-header-h)-16px)] overflow-auto overscroll-y-contain touch-pan-y [scrollbar-gutter:stable] [-webkit-overflow-scrolling:touch]"
+            >
               <DocumentTabs
                 urlCuadroFirmasPDF={detalle.urlCuadroFirmasPDF}
                 urlDocumento={detalle.urlDocumento}

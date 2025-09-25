@@ -11,7 +11,7 @@ import React, {
 import ReactMarkdown from 'react-markdown';
 import { Loader2, Copy, Download, Play, Pause, Square } from 'lucide-react';
 
-import { DocumentPdfViewer } from '@/components/document-detail/pdf-viewer';
+import { SmartPDFViewer } from '@/components/document/SmartPDFViewer';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -414,18 +414,21 @@ export const DocumentSummaryDialog = forwardRef<DocumentSummaryDialogHandle, Doc
     }, [stopTTS]);
 
     const pdfUrl = docData?.urlDocumento ?? docData?.urlCuadroFirmasPDF ?? '';
+    const viewerTitle = docData?.titulo ?? 'Documento';
 
     return (
       <Dialog open={isOpen} onOpenChange={handleOpenChange}>
-        <DialogContent>
+        <DialogContent className="max-h-[100dvh] overflow-hidden">
           <DialogHeader>
             <DialogTitle>Resumen del documento</DialogTitle>
           </DialogHeader>
-          <div className="flex flex-col gap-4 lg:flex-row">
-            <div className="w-full max-h-[min(100dvh-32px,700px)] overflow-auto overscroll-y-contain touch-pan-y lg:w-1/2">
-              <DocumentPdfViewer pdfUrl={pdfUrl} className="min-h-[60vh]" />
+          <div className="flex flex-col gap-4 p-4 lg:flex-row">
+            <div className="w-full lg:w-1/2">
+              <div className="h-[calc(100dvh-220px)] overflow-auto overscroll-y-contain touch-pan-y [scrollbar-gutter:stable]">
+                <SmartPDFViewer src={pdfUrl || undefined} title={viewerTitle} className="h-full" />
+              </div>
             </div>
-            <div className="lg:w-1/2 w-full flex flex-col gap-3">
+            <div className="w-full flex flex-col gap-3 lg:w-1/2">
               <div className="flex flex-wrap items-center justify-end gap-2">
                 <Button onClick={generateSummary} disabled={isLoading}>
                   {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
@@ -439,61 +442,61 @@ export const DocumentSummaryDialog = forwardRef<DocumentSummaryDialogHandle, Doc
                 </Button>
                 {isSpeechSupported ? (
                   <div className="flex items-center gap-2">
-                      {voices.length > 1 && (
-                        <select
-                          className="h-9 rounded-md border bg-background px-2 text-sm"
-                          value={selectedVoice?.voiceURI ?? ''}
-                          onChange={(event) => handleVoiceChange(event.target.value)}
-                          aria-label="Seleccionar voz para lectura"
-                        >
-                          {voices.map((voice) => (
-                            <option key={voice.voiceURI} value={voice.voiceURI}>
-                              {voice.name || voice.voiceURI}
-                            </option>
-                          ))}
-                        </select>
-                      )}
+                    {voices.length > 1 && (
+                      <select
+                        className="h-9 rounded-md border bg-background px-2 text-sm"
+                        value={selectedVoice?.voiceURI ?? ''}
+                        onChange={(event) => handleVoiceChange(event.target.value)}
+                        aria-label="Seleccionar voz para lectura"
+                      >
+                        {voices.map((voice) => (
+                          <option key={voice.voiceURI} value={voice.voiceURI}>
+                            {voice.name || voice.voiceURI}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={handlePlay}
+                      aria-label="Reproducir lectura en voz alta"
+                      disabled={!markdown.trim() || !selectedVoice || speechStatus !== 'idle'}
+                    >
+                      <Play className="h-4 w-4" />
+                    </Button>
+                    {speechStatus === 'playing' && (
                       <Button
                         variant="outline"
                         size="icon"
-                        onClick={handlePlay}
-                        aria-label="Reproducir lectura en voz alta"
-                        disabled={!markdown.trim() || !selectedVoice || speechStatus !== 'idle'}
+                        onClick={handlePause}
+                        aria-label="Pausar lectura en voz alta"
+                        disabled={speechStatus !== 'playing'}
+                      >
+                        <Pause className="h-4 w-4" />
+                      </Button>
+                    )}
+                    {speechStatus === 'paused' && (
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={handleResume}
+                        aria-label="Reanudar lectura en voz alta"
+                        disabled={speechStatus !== 'paused'}
                       >
                         <Play className="h-4 w-4" />
                       </Button>
-                      {speechStatus === 'playing' && (
-                        <Button
-                          variant="outline"
-                          size="icon"
-                          onClick={handlePause}
-                          aria-label="Pausar lectura en voz alta"
-                          disabled={speechStatus !== 'playing'}
-                        >
-                          <Pause className="h-4 w-4" />
-                        </Button>
-                      )}
-                      {speechStatus === 'paused' && (
-                        <Button
-                          variant="outline"
-                          size="icon"
-                          onClick={handleResume}
-                          aria-label="Reanudar lectura en voz alta"
-                          disabled={speechStatus !== 'paused'}
-                        >
-                          <Play className="h-4 w-4" />
-                        </Button>
-                      )}
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        onClick={handleStop}
-                        aria-label="Detener lectura en voz alta"
-                        disabled={speechStatus === 'idle'}
-                      >
-                        <Square className="h-4 w-4" />
-                      </Button>
-                    </div>
+                    )}
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={handleStop}
+                      aria-label="Detener lectura en voz alta"
+                      disabled={speechStatus === 'idle'}
+                    >
+                      <Square className="h-4 w-4" />
+                    </Button>
+                  </div>
                   ) : (
                     <Tooltip>
                       <TooltipTrigger asChild>

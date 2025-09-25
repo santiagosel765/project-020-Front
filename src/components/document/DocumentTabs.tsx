@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, type CSSProperties } from "react";
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
-import { PDFViewer } from "./PDFViewer";
+import { SmartPDFViewer } from "./SmartPDFViewer";
 
 export type DocumentTabValue = "firmas" | "original";
 
@@ -99,7 +99,7 @@ export function DocumentTabs({
       </div>
 
       <TabsContent value="firmas" className="mt-0 flex flex-1 flex-col">
-        <PDFViewer
+        <SmartPDFViewer
           title="Cuadro de firmas"
           src={urlCuadroFirmasPDF ?? undefined}
           onRefresh={onRefreshLinks}
@@ -109,7 +109,7 @@ export function DocumentTabs({
       </TabsContent>
 
       <TabsContent value="original" className="mt-0 flex flex-1 flex-col">
-        <PDFViewer
+        <SmartPDFViewer
           title="Documento original"
           src={urlDocumento ?? undefined}
           onRefresh={onRefreshLinks}

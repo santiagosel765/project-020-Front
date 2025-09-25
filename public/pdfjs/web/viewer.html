@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <title>Visor de PDF</title>
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.5.136/pdf_viewer.min.css"
+      crossorigin="anonymous"
+    />
+    <style>
+      :root {
+        color-scheme: light dark;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        height: 100%;
+        margin: 0;
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        background-color: #0f172a;
+        color: #0f172a;
+      }
+
+      body {
+        display: flex;
+        flex-direction: column;
+        background-color: #f8fafc;
+        color: #0f172a;
+      }
+
+      @media (prefers-color-scheme: dark) {
+        body {
+          background-color: #0f172a;
+          color: #e2e8f0;
+        }
+
+        #toolbar {
+          background: rgba(15, 23, 42, 0.85);
+          border-color: rgba(148, 163, 184, 0.2);
+        }
+
+        #toolbar button,
+        #toolbar input,
+        #toolbar select {
+          background-color: rgba(30, 41, 59, 0.7);
+          color: #e2e8f0;
+          border-color: rgba(148, 163, 184, 0.35);
+        }
+
+        #toolbar button:hover,
+        #toolbar button:focus-visible {
+          background-color: rgba(51, 65, 85, 0.85);
+        }
+
+        #viewerContainer {
+          background: #020617;
+        }
+      }
+
+      #toolbar {
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        align-items: center;
+        padding: calc(0.75rem + env(safe-area-inset-top, 0px)) 1rem 0.75rem 1rem;
+        background: rgba(248, 250, 252, 0.95);
+        border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+        backdrop-filter: blur(6px);
+      }
+
+      #toolbar h1 {
+        margin: 0;
+        font-size: 1rem;
+        font-weight: 600;
+      }
+
+      #toolbar .spacer {
+        flex: 1 1 auto;
+      }
+
+      #toolbar button,
+      #toolbar input,
+      #toolbar select,
+      #toolbar a {
+        font: inherit;
+        border: 1px solid rgba(15, 23, 42, 0.12);
+        border-radius: 0.5rem;
+        background: white;
+        color: inherit;
+        padding: 0.35rem 0.75rem;
+        line-height: 1.2;
+        min-height: 2.25rem;
+        transition: background-color 0.2s ease, border-color 0.2s ease;
+      }
+
+      #toolbar button,
+      #toolbar a {
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.25rem;
+      }
+
+      #toolbar button:hover,
+      #toolbar button:focus-visible,
+      #toolbar a:hover,
+      #toolbar a:focus-visible {
+        background-color: rgba(15, 23, 42, 0.06);
+        border-color: rgba(15, 23, 42, 0.18);
+        outline: none;
+      }
+
+      #toolbar input[type='number'] {
+        width: 4.5rem;
+      }
+
+      #toolbar input[type='search'] {
+        width: clamp(12rem, 40vw, 18rem);
+      }
+
+      #viewerContainer {
+        position: relative;
+        flex: 1 1 auto;
+        overflow: auto;
+        -webkit-overflow-scrolling: touch;
+        scroll-behavior: smooth;
+        scrollbar-gutter: stable;
+        background: #f1f5f9;
+        touch-action: pan-y pinch-zoom;
+      }
+
+      #viewer {
+        padding: 1rem;
+      }
+
+      #viewer .page {
+        margin: 0 auto 1rem auto;
+        box-shadow: 0 10px 30px rgba(15, 23, 42, 0.12);
+      }
+
+      #loadingIndicator,
+      #errorBanner {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        padding: 1rem 1.5rem;
+        border-radius: 0.75rem;
+        background: rgba(15, 23, 42, 0.85);
+        color: white;
+        display: none;
+        box-shadow: 0 10px 40px rgba(15, 23, 42, 0.3);
+      }
+
+      #loadingIndicator.active,
+      #errorBanner.active {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+      }
+
+      #errorBanner {
+        background: rgba(220, 38, 38, 0.9);
+      }
+
+      #findStatus {
+        font-size: 0.875rem;
+        opacity: 0.8;
+        min-width: 6rem;
+        text-align: right;
+      }
+
+      #pageCountDisplay {
+        font-size: 0.9rem;
+        opacity: 0.75;
+      }
+
+      #zoomValue {
+        min-width: 3.5rem;
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+      }
+
+      .sr-only {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border: 0;
+      }
+
+      .toolbar-group {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+      }
+
+      .toolbar-separator {
+        width: 1px;
+        align-self: stretch;
+        background: rgba(15, 23, 42, 0.12);
+        margin-inline: 0.25rem;
+      }
+
+      @media (max-width: 640px) {
+        #toolbar {
+          padding-inline: 0.75rem;
+        }
+
+        #toolbar input[type='search'] {
+          width: 100%;
+          max-width: 100%;
+        }
+
+        #viewer {
+          padding: 0.5rem;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="toolbar" role="toolbar" aria-label="Controles del visor de PDF">
+      <h1 id="documentTitle">Documento</h1>
+      <div class="spacer" aria-hidden="true"></div>
+      <div class="toolbar-group" role="group" aria-label="Zoom">
+        <button id="zoomOut" type="button" title="Reducir zoom">
+          −
+        </button>
+        <span id="zoomValue" aria-live="polite">100%</span>
+        <button id="zoomIn" type="button" title="Aumentar zoom">
+          +
+        </button>
+      </div>
+      <div class="toolbar-separator" aria-hidden="true"></div>
+      <div class="toolbar-group" role="group" aria-label="Navegación de páginas">
+        <label class="sr-only" for="pageNumber">Número de página</label>
+        <input
+          id="pageNumber"
+          type="number"
+          min="1"
+          value="1"
+          aria-label="Página actual"
+        />
+        <span id="pageCountDisplay" aria-live="polite">/ 1</span>
+      </div>
+      <div class="toolbar-separator" aria-hidden="true"></div>
+      <div class="toolbar-group" role="group" aria-label="Búsqueda">
+        <label class="sr-only" for="findInput">Buscar en el documento</label>
+        <input
+          id="findInput"
+          type="search"
+          placeholder="Buscar…"
+          enterkeyhint="search"
+          aria-label="Buscar en el PDF"
+        />
+        <button id="findPrev" type="button" title="Coincidencia anterior">
+          ↑
+        </button>
+        <button id="findNext" type="button" title="Coincidencia siguiente">
+          ↓
+        </button>
+        <span id="findStatus" aria-live="polite"></span>
+      </div>
+      <div class="toolbar-separator" aria-hidden="true"></div>
+      <a id="downloadButton" href="#" target="_blank" rel="noopener" role="button">
+        Descargar
+      </a>
+    </div>
+    <div id="viewerContainer" tabindex="0" aria-live="polite">
+      <div id="viewer" class="pdfViewer"></div>
+      <div id="loadingIndicator" role="status" aria-live="assertive">
+        <span>Cargando documento…</span>
+      </div>
+      <div id="errorBanner" role="alert">
+        <span>No se pudo cargar el PDF.</span>
+      </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.5.136/pdf.min.js" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.5.136/pdf_viewer.min.js" crossorigin="anonymous"></script>
+    <script>
+      (function () {
+        const params = new URLSearchParams(window.location.search);
+        const fileParam = params.get('file');
+        const hashZoom = (window.location.hash || '').split('&').find((part) => part.startsWith('zoom='));
+        const initialZoom = hashZoom ? hashZoom.split('=')[1] : 'page-width';
+        const viewerContainer = document.getElementById('viewerContainer');
+        const viewerElement = document.getElementById('viewer');
+        const pageNumberInput = document.getElementById('pageNumber');
+        const pageCountDisplay = document.getElementById('pageCountDisplay');
+        const zoomValueLabel = document.getElementById('zoomValue');
+        const zoomOutButton = document.getElementById('zoomOut');
+        const zoomInButton = document.getElementById('zoomIn');
+        const findInput = document.getElementById('findInput');
+        const findPrevButton = document.getElementById('findPrev');
+        const findNextButton = document.getElementById('findNext');
+        const findStatus = document.getElementById('findStatus');
+        const downloadButton = document.getElementById('downloadButton');
+        const loadingIndicator = document.getElementById('loadingIndicator');
+        const errorBanner = document.getElementById('errorBanner');
+        const documentTitle = document.getElementById('documentTitle');
+
+        if (!fileParam) {
+          loadingIndicator.classList.remove('active');
+          errorBanner.classList.add('active');
+          errorBanner.textContent = 'Sin documento para mostrar.';
+          return;
+        }
+
+        const decodedFile = decodeURIComponent(fileParam);
+        documentTitle.textContent = decodedFile.split('/').pop() || 'Documento';
+        downloadButton.href = decodedFile;
+
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.5.136/pdf.worker.min.js';
+
+        const eventBus = new pdfjsViewer.EventBus();
+        const linkService = new pdfjsViewer.PDFLinkService({ eventBus });
+        const findController = new pdfjsViewer.PDFFindController({ eventBus, linkService });
+
+        const pdfViewer = new pdfjsViewer.PDFViewer({
+          container: viewerContainer,
+          eventBus,
+          linkService,
+          findController,
+          l10n: pdfjsViewer.NullL10n,
+          useOnlyCssZoom: false,
+          textLayerMode: 1,
+          annotationMode: 2,
+        });
+
+        linkService.setViewer(pdfViewer);
+
+        function setLoading(isLoading) {
+          if (isLoading) {
+            loadingIndicator.classList.add('active');
+            errorBanner.classList.remove('active');
+          } else {
+            loadingIndicator.classList.remove('active');
+          }
+        }
+
+        function updateZoomValue(value) {
+          const percent = Math.round(value * 100);
+          zoomValueLabel.textContent = `${percent}%`;
+        }
+
+        function updatePageNumber(pageNumber) {
+          pageNumberInput.value = pageNumber;
+        }
+
+        function executeFind(command) {
+          const query = findInput.value.trim();
+          if (!query) {
+            findStatus.textContent = '';
+            return;
+          }
+          findController.executeCommand(command, {
+            query,
+            phraseSearch: true,
+            highlightAll: true,
+            findPrevious: command === 'findprevious',
+          });
+        }
+
+        eventBus.on('pagesinit', () => {
+          pdfViewer.currentScaleValue = initialZoom || 'page-width';
+          updateZoomValue(pdfViewer.currentScale);
+          updatePageNumber(pdfViewer.currentPageNumber);
+          viewerContainer.focus({ preventScroll: true });
+        });
+
+        eventBus.on('pagechanging', (evt) => {
+          updatePageNumber(evt.pageNumber);
+        });
+
+        eventBus.on('scalechanging', (evt) => {
+          updateZoomValue(evt.scale);
+        });
+
+        eventBus.on('textlayerrendered', () => {
+          if (!findInput.value.trim()) {
+            findStatus.textContent = '';
+          }
+        });
+
+        findController.onUpdateResultsCount = (matchCount) => {
+          if (matchCount.total) {
+            findStatus.textContent = `${matchCount.current}/${matchCount.total}`;
+          } else {
+            findStatus.textContent = '0/0';
+          }
+        };
+
+        findController.onUpdateState = (state, previous, matchesOutOfDate) => {
+          if (matchesOutOfDate) {
+            findStatus.textContent = '…';
+          } else if (state === pdfjsViewer.FindState.FOUND) {
+            findStatus.textContent = findStatus.textContent || '1/1';
+          } else if (state === pdfjsViewer.FindState.NOT_FOUND) {
+            findStatus.textContent = '0/0';
+          }
+        };
+
+        setLoading(true);
+        const loadingTask = pdfjsLib.getDocument({ url: decodedFile, withCredentials: true });
+        loadingTask.promise
+          .then((pdfDocument) => {
+            pdfViewer.setDocument(pdfDocument);
+            linkService.setDocument(pdfDocument, null);
+            findController.setDocument(pdfDocument);
+            pageCountDisplay.textContent = `/ ${pdfDocument.numPages}`;
+            setLoading(false);
+          })
+          .catch((error) => {
+            console.error('PDF load error', error);
+            setLoading(false);
+            errorBanner.classList.add('active');
+            errorBanner.textContent = 'No se pudo cargar el PDF.';
+          });
+
+        zoomOutButton.addEventListener('click', () => {
+          const newScale = pdfViewer.currentScale * 0.9;
+          pdfViewer.currentScale = Math.max(newScale, 0.1);
+        });
+
+        zoomInButton.addEventListener('click', () => {
+          const newScale = pdfViewer.currentScale * 1.1;
+          pdfViewer.currentScale = Math.min(newScale, 5);
+        });
+
+        pageNumberInput.addEventListener('change', () => {
+          const value = parseInt(pageNumberInput.value, 10);
+          if (!Number.isNaN(value)) {
+            const clamped = Math.min(Math.max(value, 1), pdfViewer.pagesCount || 1);
+            pdfViewer.currentPageNumber = clamped;
+            updatePageNumber(clamped);
+          }
+        });
+
+        findInput.addEventListener('keydown', (event) => {
+          if (event.key === 'Enter') {
+            event.preventDefault();
+            executeFind('find');
+          }
+        });
+
+        findNextButton.addEventListener('click', () => {
+          executeFind('findagain');
+        });
+
+        findPrevButton.addEventListener('click', () => {
+          executeFind('findprevious');
+        });
+
+        viewerContainer.addEventListener(
+          'wheel',
+          (event) => {
+            if (event.ctrlKey) {
+              event.preventDefault();
+              const delta = event.deltaY < 0 ? 1.1 : 0.9;
+              const newScale = pdfViewer.currentScale * delta;
+              pdfViewer.currentScale = Math.min(Math.max(newScale, 0.1), 5);
+            }
+          },
+          { passive: false },
+        );
+
+        window.addEventListener('keydown', (event) => {
+          if (!event.ctrlKey && !event.metaKey) return;
+          if (event.key === '+') {
+            event.preventDefault();
+            zoomInButton.click();
+          }
+          if (event.key === '-') {
+            event.preventDefault();
+            zoomOutButton.click();
+          }
+          if (event.key.toLowerCase() === 'f') {
+            event.preventDefault();
+            findInput.focus();
+            findInput.select();
+          }
+        });
+      })();
+    </script>
+  </body>
+</html>
