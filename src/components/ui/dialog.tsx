@@ -26,10 +26,11 @@ export const DialogOverlay = React.forwardRef<
   return (
     <DialogPrimitive.Overlay
       ref={ref}
+      // Importante: en desktop no usamos backdrop-blur; cualquier difuminado extra proviene de reglas globales.
       className={cn(
         "fixed inset-0 z-[100]",
         "bg-background/40 backdrop-blur-sm",
-        "md:bg-black/60 md:backdrop-blur-0",
+        "md:bg-black/70 md:backdrop-blur-0 md:[backdrop-filter:none]",
         "data-[state=open]:animate-in data-[state=closed]:animate-out",
         "data-[state=open]:fade-in-0 data-[state=closed]:fade-out-0",
         "transition-opacity",
