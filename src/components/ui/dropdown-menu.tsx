@@ -6,6 +6,7 @@ import { Check, ChevronRight, Circle } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import { useIsMobile } from "@/hooks/use-mobile"
+import { useDialogPortalContainer } from "@/components/ui/dialog"
 
 const DropdownMenu = DropdownMenuPrimitive.Root
 
@@ -65,9 +66,10 @@ const DropdownMenuContent = React.forwardRef<
   const isMobile = useIsMobile()
   const resolvedSideOffset = sideOffset ?? (isMobile ? 4 : 8)
   const resolvedCollisionPadding = collisionPadding ?? 16
+  const container = useDialogPortalContainer()
 
   return (
-    <DropdownMenuPrimitive.Portal>
+    <DropdownMenuPrimitive.Portal container={container ?? undefined}>
       <DropdownMenuPrimitive.Content
         ref={ref}
         sideOffset={resolvedSideOffset}
