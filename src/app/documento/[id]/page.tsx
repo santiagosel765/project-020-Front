@@ -247,7 +247,7 @@ export default function DocumentDetailPage() {
         <div className="mt-4 grid grid-cols-12 gap-4">
           <div className="col-span-12 md:col-span-8 xl:col-span-9">
             <div
-              className="h-[calc(100dvh-var(--app-header-h)-theme(spacing.10))] overflow-auto overscroll-y-contain touch-pan-y [scrollbar-gutter:stable] [-webkit-overflow-scrolling:touch]"
+              className="h-[calc(100dvh-var(--app-header-h)-theme(spacing.10))] min-h-0 overflow-hidden pb-[calc(env(safe-area-inset-bottom)+88px)] md:pb-0"
             >
               <DocumentTabs
                 urlCuadroFirmasPDF={detalle.urlCuadroFirmasPDF}
@@ -313,47 +313,49 @@ export default function DocumentDetailPage() {
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
-            <div className="flex gap-2">
-              <Button
-                onClick={handleSign}
-                className="flex-1"
-                disabled={!canSign}
-                title={blockMessage}
-              >
-                Firmar
-              </Button>
-              <Dialog open={rejectOpen} onOpenChange={setRejectOpen}>
+            <div className="md:static sticky bottom-0 z-20 mt-4 border-t bg-background/80 px-3 py-3 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+              <div className="flex gap-2">
                 <Button
-                  variant="destructive"
+                  onClick={handleSign}
                   className="flex-1"
-                  onClick={() => setRejectOpen(true)}
                   disabled={!canSign}
+                  title={blockMessage}
                 >
-                  Rechazar
+                  Firmar
                 </Button>
-                <DialogContent aria-describedby="reject-desc">
-                  <DialogHeader>
-                    <DialogTitle>Motivo del rechazo</DialogTitle>
-                    <DialogDescription id="reject-desc">
-                      Describa el motivo del rechazo del documento.
-                    </DialogDescription>
-                  </DialogHeader>
-                  <Textarea value={rejectReason} onChange={(e) => setRejectReason(e.target.value)} />
-                  <DialogFooter>
-                    <DialogCloseButton
-                      variant="secondary"
-                      onClick={() => setRejectOpen(false)}
-                    >
-                      Cancelar
-                    </DialogCloseButton>
-                    <Button onClick={handleReject}>Enviar</Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
+                <Dialog open={rejectOpen} onOpenChange={setRejectOpen}>
+                  <Button
+                    variant="destructive"
+                    className="flex-1"
+                    onClick={() => setRejectOpen(true)}
+                    disabled={!canSign}
+                  >
+                    Rechazar
+                  </Button>
+                  <DialogContent aria-describedby="reject-desc">
+                    <DialogHeader>
+                      <DialogTitle>Motivo del rechazo</DialogTitle>
+                      <DialogDescription id="reject-desc">
+                        Describa el motivo del rechazo del documento.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <Textarea value={rejectReason} onChange={(e) => setRejectReason(e.target.value)} />
+                    <DialogFooter>
+                      <DialogCloseButton
+                        variant="secondary"
+                        onClick={() => setRejectOpen(false)}
+                      >
+                        Cancelar
+                      </DialogCloseButton>
+                      <Button onClick={handleReject}>Enviar</Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
+              </div>
+              {!canSign && blockMessage && (
+                <p className="mt-2 text-xs text-muted-foreground">{blockMessage}</p>
+              )}
             </div>
-            {!canSign && blockMessage && (
-              <p className="text-xs text-muted-foreground">{blockMessage}</p>
-            )}
             {activeTab === 'original' && (
               <div className="pt-4 space-y-2">
                 <div className="flex items-center gap-2">
