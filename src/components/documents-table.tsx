@@ -30,6 +30,8 @@ import { DateCell } from "@/components/DateCell";
 import { ElapsedDaysCell } from "@/components/ElapsedDaysCell";
 import { formatGTDateTime } from "@/lib/date";
 import type { PageEnvelope } from "@/lib/pagination";
+import { FiltersBar, FilterChips, type FilterChip } from "./filters/filters-bar";
+import { FiltersDrawer } from "./filters/filters-drawer";
 
 interface DocumentsTableProps {
   data?: PageEnvelope<Document>;
@@ -147,25 +149,31 @@ export function DocumentsTable({
   const hasNext = Boolean(data?.hasNext);
   const currentLimit = data?.limit ?? 10;
 
-  return (
-    <Card className="w-full h-full flex flex-col glassmorphism">
-      <CardHeader>
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <div className="space-y-1.5">
-            <CardTitle>{title}</CardTitle>
-            <CardDescription>{description}</CardDescription>
-          </div>
-          <div className="relative w-full md:w-1/3">
-            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Buscar por nombre o descripción..."
-              className="pl-8"
-              value={searchTerm}
-              onChange={(e) => onSearchChange(e.target.value)}
-            />
-          </div>
+  const renderFilters = (variant: "bar" | "drawer") => {
+    const isDrawer = variant === "drawer";
+
+    return (
+      <>
+        <div
+          className={cn(
+            "relative w-full md:w-80",
+            isDrawer && "w-full",
+          )}
+        >
+          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Buscar por nombre o descripción..."
+            className={cn("pl-8", isDrawer && "w-full")}
+            value={searchTerm}
+            onChange={(e) => onSearchChange(e.target.value)}
+          />
         </div>
-        <div className="flex flex-wrap gap-2 mt-4">
+        <div
+          className={cn(
+            "flex flex-wrap gap-2",
+            isDrawer ? "flex-col" : "items-center",
+          )}
+        >
           {statusButtons.map((status) => (
             <Button
               key={status}
@@ -173,17 +181,61 @@ export function DocumentsTable({
               className={cn(
                 getButtonStatusClass(status, statusFilter),
                 "h-8 px-2.5 py-1.5",
+                isDrawer && "w-full justify-between",
               )}
               variant="outline"
             >
-              {status}
+              <span>{status}</span>
               {statusCounts && (
-                <span className="ml-2 text-xs opacity-75">
+                <span
+                  className={cn(
+                    "ml-2 text-xs opacity-75",
+                    isDrawer && "ml-0",
+                  )}
+                >
                   ({statusCounts[status] ?? 0})
                 </span>
               )}
             </Button>
           ))}
+        </div>
+      </>
+    );
+  };
+
+  const filterChips: FilterChip[] = [];
+  if (searchTerm.trim()) {
+    filterChips.push({
+      id: "search",
+      label: `Búsqueda: "${searchTerm}"`,
+      onRemove: () => onSearchChange(""),
+    });
+  }
+  if (statusFilter !== "Todos") {
+    filterChips.push({
+      id: "status",
+      label: `Estado: ${statusFilter}`,
+      onRemove: () => onStatusFilterChange("Todos"),
+    });
+  }
+
+  return (
+    <Card className="w-full h-full flex flex-col glassmorphism">
+      <CardHeader>
+        <div className="space-y-4">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div className="space-y-1.5">
+              <CardTitle>{title}</CardTitle>
+              <CardDescription>{description}</CardDescription>
+            </div>
+            <FiltersDrawer
+              renderFilters={renderFilters}
+              chips={filterChips}
+              title="Filtros de documentos"
+            />
+          </div>
+          <FiltersBar renderFilters={renderFilters} chips={filterChips} />
+          <FilterChips chips={filterChips} className="md:hidden" />
         </div>
       </CardHeader>
       <CardContent className="flex-grow overflow-auto">
