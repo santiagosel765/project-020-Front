@@ -21,7 +21,7 @@ interface RolesTableProps {
   onLimitChange: (limit: number) => void;
   searchTerm: string;
   onSearchChange: (value: string) => void;
-  showInactive: boolean;
+  includeInactive: boolean;
   onToggleInactive: (checked: boolean) => void;
   onSaveRole: (role: RoleForm) => Promise<void>;
   onDeleteRole: (id: string) => Promise<void> | void;
@@ -35,7 +35,7 @@ export function RolesTable({
   onLimitChange,
   searchTerm,
   onSearchChange,
-  showInactive,
+  includeInactive,
   onToggleInactive,
   onSaveRole,
   onDeleteRole,
@@ -88,8 +88,8 @@ export function RolesTable({
                 />
               </div>
               <div className="flex items-center space-x-2">
-                <Switch id="show-inactive" checked={showInactive} onCheckedChange={onToggleInactive} />
-                <label htmlFor="show-inactive" className="text-sm whitespace-nowrap">Ver inactivos</label>
+                <Switch id="show-inactive" checked={includeInactive} onCheckedChange={onToggleInactive} />
+                <label htmlFor="show-inactive" className="text-sm whitespace-nowrap">Mostrar inactivos</label>
               </div>
               <Button onClick={() => openModal()}>
                 <Plus className="mr-2 h-4 w-4" />

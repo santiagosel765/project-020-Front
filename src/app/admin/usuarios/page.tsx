@@ -19,7 +19,18 @@ import { pageDebug } from '@/lib/page-debug';
 
 export default function UsuariosPage() {
   const { toast } = useToast();
-  const { page, limit, sort, search, setPage, setLimit, setSearch, isUserPagingRef } = usePaginationState({
+  const {
+    page,
+    limit,
+    sort,
+    search,
+    includeInactive,
+    setPage,
+    setLimit,
+    setSearch,
+    setIncludeInactive,
+    isUserPagingRef,
+  } = usePaginationState({
     defaultLimit: 10,
     defaultSort: 'desc',
   });
@@ -62,9 +73,9 @@ export default function UsuariosPage() {
   }, [searchInput, setPage, setSearch]);
 
   const usersQuery = useQuery({
-    queryKey: ['users', { page, limit, sort, search }],
+    queryKey: ['users', page, limit, sort, search, includeInactive],
     queryFn: async () => {
-      const params: GetUsersParams = { page, limit, sort, search };
+      const params: GetUsersParams = { page, limit, sort, search, includeInactive };
       const result = await getUsers(params);
       return result;
     },
@@ -150,6 +161,27 @@ export default function UsuariosPage() {
       onLimitChange={setLimit}
       searchTerm={searchInput}
       onSearchChange={setSearchInput}
+      includeInactive={includeInactive}
+      onToggleInactive={(checked) => {
+        setIncludeInactive(checked);
+        if (page !== 1) {
+          if (isUserPagingRef.current) {
+            pageDebug('src/app/admin/usuarios/page.tsx:130:setPage(skip)', {
+              reason: 'userPaging',
+              from: page,
+              to: 1,
+              includeInactive: checked,
+            });
+            return;
+          }
+          pageDebug('src/app/admin/usuarios/page.tsx:138:setPage', {
+            from: page,
+            to: 1,
+            includeInactive: checked,
+          });
+          setPage(1);
+        }
+      }}
       onSaveUser={handleSaveUser}
       onDeleteUser={handleDeleteUser}
       loading={usersQuery.isFetching}

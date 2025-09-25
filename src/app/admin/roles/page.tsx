@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { RolesTable } from '@/components/roles-table';
 import {
@@ -19,9 +19,19 @@ import { pageDebug } from '@/lib/page-debug';
 import type { RoleForm } from '@/components/role-form-modal';
 
 export default function RolesPage() {
-  const [showInactive, setShowInactive] = useState(false);
   const { toast } = useToast();
-  const { page, limit, sort, search, setPage, setLimit, setSearch, isUserPagingRef } = usePaginationState({
+  const {
+    page,
+    limit,
+    sort,
+    search,
+    includeInactive,
+    setPage,
+    setLimit,
+    setSearch,
+    setIncludeInactive,
+    isUserPagingRef,
+  } = usePaginationState({
     defaultLimit: 10,
     defaultSort: 'desc',
   });
@@ -64,9 +74,9 @@ export default function RolesPage() {
   }, [searchInput, setPage, setSearch]);
 
   const rolesQuery = useQuery({
-    queryKey: ['roles', { page, limit, sort, search, showInactive }],
+    queryKey: ['roles', page, limit, sort, search, includeInactive],
     queryFn: async () => {
-      const params: GetRolesParams = { page, limit, sort, search, showInactive };
+      const params: GetRolesParams = { page, limit, sort, search, includeInactive };
       const result = await getRoles(params);
       return result;
     },
@@ -201,23 +211,23 @@ export default function RolesPage() {
         onLimitChange={setLimit}
         searchTerm={searchInput}
         onSearchChange={setSearchInput}
-        showInactive={showInactive}
+        includeInactive={includeInactive}
         onToggleInactive={(checked) => {
-          setShowInactive(checked);
+          setIncludeInactive(checked);
           if (page !== 1) {
             if (isUserPagingRef.current) {
               pageDebug('src/app/admin/roles/page.tsx:209:setPage(skip)', {
                 reason: 'userPaging',
                 from: page,
                 to: 1,
-                showInactive: checked,
+                includeInactive: checked,
               });
               return;
             }
             pageDebug('src/app/admin/roles/page.tsx:217:setPage', {
               from: page,
               to: 1,
-              showInactive: checked,
+              includeInactive: checked,
             });
             setPage(1);
           }

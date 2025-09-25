@@ -18,9 +18,19 @@ import { usePaginationState } from '@/hooks/usePaginationState';
 import { pageDebug } from '@/lib/page-debug';
 
 export default function PageAdminPage() {
-  const [showInactive, setShowInactive] = useState(false);
   const { toast } = useToast();
-  const { page, limit, sort, search, setPage, setLimit, setSearch, isUserPagingRef } = usePaginationState({
+  const {
+    page,
+    limit,
+    sort,
+    search,
+    includeInactive,
+    setPage,
+    setLimit,
+    setSearch,
+    setIncludeInactive,
+    isUserPagingRef,
+  } = usePaginationState({
     defaultLimit: 10,
     defaultSort: 'desc',
   });
@@ -63,9 +73,9 @@ export default function PageAdminPage() {
   }, [searchInput, setPage, setSearch]);
 
   const pagesQuery = useQuery({
-    queryKey: ['pages', { page, limit, sort, search, showInactive }],
+    queryKey: ['pages', page, limit, sort, search, includeInactive],
     queryFn: async () => {
-      const params: GetPagesParams = { page, limit, sort, search, showInactive };
+      const params: GetPagesParams = { page, limit, sort, search, includeInactive };
       const result = await getPages(params);
       return result;
     },
@@ -173,23 +183,23 @@ export default function PageAdminPage() {
         onLimitChange={setLimit}
         searchTerm={searchInput}
         onSearchChange={setSearchInput}
-        showInactive={showInactive}
+        includeInactive={includeInactive}
         onToggleInactive={(checked) => {
-          setShowInactive(checked);
+          setIncludeInactive(checked);
           if (page !== 1) {
             if (isUserPagingRef.current) {
               pageDebug('src/app/admin/page/page.tsx:181:setPage(skip)', {
                 reason: 'userPaging',
                 from: page,
                 to: 1,
-                showInactive: checked,
+                includeInactive: checked,
               });
               return;
             }
             pageDebug('src/app/admin/page/page.tsx:189:setPage', {
               from: page,
               to: 1,
-              showInactive: checked,
+              includeInactive: checked,
             });
             setPage(1);
           }
