@@ -39,6 +39,12 @@ import {
   DocumentSummaryDialog,
   type DocumentSummaryDialogHandle,
 } from '@/components/ai/DocumentSummaryDialog';
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from '@/components/ui/accordion';
 
 export default function DocumentDetailPage() {
   const params = useParams<{ id: string }>();
@@ -266,7 +272,24 @@ export default function DocumentDetailPage() {
             />
           </div>
           <div className="col-span-12 space-y-4 md:col-span-4 xl:col-span-3">
-            <SignersPanel firmantes={signersPanel} progress={progress} />
+            <Accordion
+              type="single"
+              collapsible
+              className="rounded-xl border bg-background md:hidden"
+              defaultValue="signers"
+            >
+              <AccordionItem value="signers" className="border-none">
+                <AccordionTrigger className="px-4 text-left text-base font-medium">
+                  Firmantes
+                </AccordionTrigger>
+                <AccordionContent className="px-4">
+                  <SignersPanel firmantes={signersPanel} progress={progress} showHeader={false} />
+                </AccordionContent>
+              </AccordionItem>
+            </Accordion>
+            <div className="hidden md:block">
+              <SignersPanel firmantes={signersPanel} progress={progress} />
+            </div>
             <div className="flex items-center gap-2">
               <Button
                 onClick={handleDownloadButtonClick}

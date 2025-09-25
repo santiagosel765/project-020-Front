@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
@@ -24,6 +24,8 @@ export function DocumentTabs({
   onTabChange,
 }: DocumentTabsProps) {
   const [activeTab, setActiveTab] = useState<DocumentTabValue>("firmas");
+  const [tabbarHeight, setTabbarHeight] = useState(0);
+  const tabbarRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -50,9 +52,37 @@ export function DocumentTabs({
     setActiveTab(value as DocumentTabValue);
   };
 
+  useEffect(() => {
+    const element = tabbarRef.current;
+    if (!element) return;
+
+    const updateHeight = () => {
+      setTabbarHeight(element.offsetHeight);
+    };
+
+    updateHeight();
+
+    const resizeObserver = typeof ResizeObserver !== "undefined" ? new ResizeObserver(updateHeight) : null;
+    resizeObserver?.observe(element);
+    window.addEventListener("resize", updateHeight);
+
+    return () => {
+      resizeObserver?.disconnect();
+      window.removeEventListener("resize", updateHeight);
+    };
+  }, []);
+
+  const style: CSSProperties = {
+    // Provide a fallback height so the PDF container always has a value
+    ["--tabbar-h" as const]: `${tabbarHeight}px`,
+  };
+
   return (
-    <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
-      <div className="sticky top-0 z-20 mb-3 bg-background/90 pb-1 pt-2 backdrop-blur">
+    <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full" style={style}>
+      <div
+        ref={tabbarRef}
+        className="sticky top-[var(--app-header-h)] z-20 mb-3 border-b border-border bg-background/80 pb-1 pt-2 backdrop-blur supports-[backdrop-filter]:bg-background/60"
+      >
         <TabsList className="grid h-auto w-full grid-cols-2 gap-2 rounded-lg bg-muted p-1 text-xs font-medium sm:text-sm">
           <TabsTrigger value="firmas" className="rounded-md px-2 py-2">
             Cuadro de firmas
