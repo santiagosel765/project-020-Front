@@ -12,7 +12,12 @@ import type { SupervisionDoc, DocEstado } from '@/services/documentsService';
 import { PaginationBar } from './pagination/PaginationBar';
 import type { PageEnvelope } from '@/lib/pagination';
 import { ElapsedDaysCell } from '@/components/ElapsedDaysCell';
+import { DateCell } from '@/components/DateCell';
 import { formatGTDateTime } from '@/lib/date';
+import { CardList } from '@/components/responsive/card-list';
+import { useBreakpoint } from '@/hooks/use-breakpoint';
+import { FiltersBar, FilterChips, type FilterChip } from './filters/filters-bar';
+import { FiltersDrawer } from './filters/filters-drawer';
 
 interface SupervisionTableProps {
   data?: PageEnvelope<SupervisionDoc>;
@@ -84,6 +89,7 @@ export function SupervisionTable({
   const hasPrev = Boolean(data?.hasPrev);
   const hasNext = Boolean(data?.hasNext);
   const currentLimit = data?.limit ?? 10;
+  const isMdUp = useBreakpoint('md');
   const fallbackCounts = useMemo(
     () =>
       documents.reduce(
@@ -100,87 +106,200 @@ export function SupervisionTable({
 
   const statusButtons: (DocEstado | 'Todos')[] = ['Todos', 'Completado', 'En Progreso', 'Rechazado', 'Pendiente'];
 
-  return (
-    <Card className="w-full h-full flex flex-col glassmorphism">
-      <CardHeader>
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <div className="space-y-1.5">
-            <CardTitle>{title}</CardTitle>
-            <CardDescription>{description}</CardDescription>
-          </div>
-          <div className="relative w-full md:w-1/3">
-            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Buscar por título, empresa..."
-              className="pl-8"
-              value={searchTerm}
-              onChange={(e) => onSearchChange(e.target.value)}
-            />
-          </div>
+  const renderFilters = (variant: 'bar' | 'drawer') => {
+    const isDrawer = variant === 'drawer';
+
+    return (
+      <>
+        <div
+          className={cn(
+            'relative flex-1 min-w-[200px] md:max-w-xs',
+            isDrawer && 'w-full',
+          )}
+        >
+          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Buscar por título, empresa..."
+            className={cn('pl-8', isDrawer && 'w-full')}
+            value={searchTerm}
+            onChange={(e) => onSearchChange(e.target.value)}
+          />
         </div>
-        <div className="flex flex-wrap gap-2 mt-4">
+        <div
+          className={cn(
+            'flex flex-wrap gap-2',
+            isDrawer ? 'w-full flex-col' : 'items-center',
+          )}
+        >
           {statusButtons.map((status) => (
             <Button
               key={status}
               onClick={() => onStatusFilterChange(status)}
-              className={cn(getButtonStatusClass(status, statusFilter), 'h-8 px-2.5 py-1.5')}
+              className={cn(
+                getButtonStatusClass(status, statusFilter),
+                'h-8 px-2.5 py-1.5',
+                isDrawer && 'w-full justify-between',
+              )}
               variant="outline"
             >
-              {status} <span className="ml-2 text-xs opacity-75">({counts[status] ?? 0})</span>
+              <span>{status}</span>
+              <span className={cn('text-xs opacity-75', isDrawer ? 'ml-0' : 'ml-2')}>
+                ({counts[status] ?? 0})
+              </span>
             </Button>
           ))}
         </div>
+      </>
+    );
+  };
+
+  const filterChips: FilterChip[] = [];
+  if (searchTerm.trim()) {
+    filterChips.push({
+      id: 'search',
+      label: `Búsqueda: "${searchTerm}"`,
+      onRemove: () => onSearchChange(''),
+    });
+  }
+  if (statusFilter !== 'Todos') {
+    filterChips.push({
+      id: 'status',
+      label: `Estado: ${statusFilter}`,
+      onRemove: () => onStatusFilterChange('Todos'),
+    });
+  }
+
+  const toCardItem = (d: SupervisionDoc) => {
+    const addDateTooltip = formatGTDateTime(d.addDate);
+    const addDateTitle = addDateTooltip !== '—' ? `${addDateTooltip} GT` : undefined;
+    const hasSecondary = Boolean(d.empresa?.nombre || d.descripcion || d.codigo);
+
+    return {
+      id: d.id,
+      primary: <span className="truncate">{d.titulo}</span>,
+      secondary: hasSecondary ? (
+        <div className="flex flex-col gap-1 text-sm text-muted-foreground">
+          {d.empresa?.nombre ? <span className="truncate">{d.empresa?.nombre}</span> : null}
+          {d.descripcion ? <span className="line-clamp-2">{d.descripcion}</span> : null}
+          {d.codigo ? (
+            <span className="text-xs uppercase tracking-wide text-foreground/70">Código: {d.codigo}</span>
+          ) : null}
+        </div>
+      ) : undefined,
+      meta: (
+        <div className="flex flex-col gap-3 text-sm text-muted-foreground">
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge className={cn('border', getStatusClass(d.estado))}>{d.estado}</Badge>
+            <span className="text-xs font-medium uppercase tracking-wide text-foreground/80">
+              Días: <ElapsedDaysCell fromISO={d.addDate ?? undefined} title={addDateTitle} />
+            </span>
+          </div>
+          <div className="flex flex-col gap-0.5">
+            <span className="text-xs font-semibold uppercase tracking-wide text-foreground/80">Fecha envío</span>
+            <span className="text-sm text-foreground">
+              <DateCell value={d.addDate} withTime />
+            </span>
+          </div>
+          {d.descripcionEstado ? (
+            <div className="flex flex-col gap-0.5">
+              <span className="text-xs font-semibold uppercase tracking-wide text-foreground/80">Nota</span>
+              <span className="text-sm text-muted-foreground">{d.descripcionEstado}</span>
+            </div>
+          ) : null}
+        </div>
+      ),
+    };
+  };
+
+  return (
+    <Card className="w-full h-full flex flex-col glassmorphism">
+      <CardHeader>
+        <div className="space-y-4">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div className="space-y-1.5">
+              <CardTitle>{title}</CardTitle>
+              <CardDescription>{description}</CardDescription>
+            </div>
+            <FiltersDrawer
+              renderFilters={renderFilters}
+              chips={filterChips}
+              title="Filtros de supervisión"
+            />
+          </div>
+          <FiltersBar renderFilters={renderFilters} chips={filterChips} />
+          <FilterChips chips={filterChips} className="md:hidden" />
+        </div>
       </CardHeader>
       <CardContent className="flex-grow overflow-auto">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead
-                className="cursor-pointer select-none"
-                onClick={() => {
-                  onSortToggle();
-                }}
-              >
-                <div className="flex items-center gap-2">
-                  Título {sortOrder === 'desc' ? '↓' : '↑'}
-                </div>
-              </TableHead>
-              <TableHead>Empresa</TableHead>
-              <TableHead>Estado</TableHead>
-              <TableHead>Días</TableHead>
-              <TableHead>Nota</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {documents.map((d) => {
-              const addDateTooltip = formatGTDateTime(d.addDate);
-              const addDateTitle = addDateTooltip !== '—' ? `${addDateTooltip} GT` : undefined;
-              return (
-                <TableRow key={d.id}>
-                  <TableCell className="font-medium">{d.titulo}</TableCell>
-                  <TableCell className="text-muted-foreground">{d.empresa?.nombre ?? ''}</TableCell>
-                  <TableCell>
-                    <Badge className={cn('border', getStatusClass(d.estado))}>{d.estado}</Badge>
-                  </TableCell>
-                  <TableCell>
-                    <ElapsedDaysCell
-                      fromISO={d.addDate ?? undefined}
-                      title={addDateTitle}
-                    />
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">{d.descripcionEstado ?? ''}</TableCell>
-                </TableRow>
-              );
-            })}
-            {!loading && documents.length === 0 && (
+        {isMdUp ? (
+          <Table>
+            <TableHeader>
               <TableRow>
-                <TableCell colSpan={5} className="text-center py-4 text-sm text-muted-foreground">
-                  No hay documentos.
-                </TableCell>
+                <TableHead
+                  className="cursor-pointer select-none"
+                  onClick={() => {
+                    onSortToggle();
+                  }}
+                >
+                  <div className="flex items-center gap-2">
+                    Título {sortOrder === 'desc' ? '↓' : '↑'}
+                  </div>
+                </TableHead>
+                <TableHead>Empresa</TableHead>
+                <TableHead>Estado</TableHead>
+                <TableHead>Días</TableHead>
+                <TableHead>Nota</TableHead>
               </TableRow>
+            </TableHeader>
+            <TableBody>
+              {documents.map((d) => {
+                const addDateTooltip = formatGTDateTime(d.addDate);
+                const addDateTitle = addDateTooltip !== '—' ? `${addDateTooltip} GT` : undefined;
+                return (
+                  <TableRow key={d.id}>
+                    <TableCell className="font-medium">{d.titulo}</TableCell>
+                    <TableCell className="text-muted-foreground">{d.empresa?.nombre ?? ''}</TableCell>
+                    <TableCell>
+                      <Badge className={cn('border', getStatusClass(d.estado))}>{d.estado}</Badge>
+                    </TableCell>
+                    <TableCell>
+                      <ElapsedDaysCell
+                        fromISO={d.addDate ?? undefined}
+                        title={addDateTitle}
+                      />
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">{d.descripcionEstado ?? ''}</TableCell>
+                  </TableRow>
+                );
+              })}
+              {!loading && documents.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={5} className="text-center py-4 text-sm text-muted-foreground">
+                    No hay documentos.
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        ) : (
+          <div className="flex flex-col gap-4">
+            {documents.length > 0 ? (
+              <CardList
+                items={documents.map(toCardItem)}
+                primary={(item) => item.primary}
+                secondary={(item) => item.secondary}
+                meta={(item) => item.meta}
+                gridClassName="grid grid-cols-1 sm:grid-cols-2 gap-3"
+              />
+            ) : (
+              !loading && (
+                <p className="py-6 text-center text-sm text-muted-foreground">
+                  No hay documentos.
+                </p>
+              )
             )}
-          </TableBody>
-        </Table>
+          </div>
+        )}
       </CardContent>
       <PaginationBar
         total={total}

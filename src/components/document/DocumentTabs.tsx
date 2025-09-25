@@ -72,10 +72,10 @@ export function DocumentTabs({
     };
   }, []);
 
-  const style: CSSProperties = {
+  const style = {
     // Provide a fallback height so the PDF container always has a value
-    ["--tabbar-h" as const]: `${tabbarHeight}px`,
-  };
+    "--tabbar-h": `${tabbarHeight}px`,
+  } as CSSProperties;
 
   return (
     <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full" style={style}>

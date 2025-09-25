@@ -10,6 +10,7 @@ export interface CardListProps<T> {
   meta?: (item: T) => React.ReactNode;
   actions?: (item: T) => React.ReactNode;
   className?: string;
+  gridClassName?: string;
 }
 
 export function CardList<T>({
@@ -19,13 +20,18 @@ export function CardList<T>({
   meta,
   actions,
   className,
+  gridClassName,
 }: CardListProps<T>) {
   if (!items.length) {
     return null;
   }
 
+  const containerClassName = gridClassName
+    ? cn(gridClassName, className)
+    : cn("space-y-3", className);
+
   return (
-    <div className={cn("space-y-3", className)}>
+    <div className={containerClassName}>
       {items.map((item, index) => {
         const key =
           typeof item === "object" && item !== null && "id" in item
