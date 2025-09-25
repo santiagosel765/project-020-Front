@@ -10,16 +10,40 @@ const statusClass = (signed: boolean) =>
     ? 'bg-green-100 text-green-800 border-green-400'
     : 'bg-yellow-100 text-yellow-800 border-yellow-400';
 
-export function SignersPanel({ firmantes, progress }: { firmantes: Signer[]; progress: number }) {
+type SignersPanelProps = {
+  firmantes: Signer[];
+  progress: number;
+  className?: string;
+  showHeader?: boolean;
+};
+
+export function SignersPanel({
+  firmantes,
+  progress,
+  className,
+  showHeader = true,
+}: SignersPanelProps) {
+  const rootClass = cn(showHeader ? 'space-y-4' : 'space-y-3', className);
+
   return (
-    <div className="space-y-4">
-      <div className="space-y-2">
-        <div className="flex items-center justify-between">
-          <h3 className="text-lg font-medium">Firmantes</h3>
-          <span className="text-sm text-muted-foreground">{Math.round(progress)}%</span>
+    <div className={rootClass}>
+      {showHeader ? (
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-medium">Firmantes</h3>
+            <span className="text-sm text-muted-foreground">{Math.round(progress)}%</span>
+          </div>
+          <Progress value={progress} />
         </div>
-        <Progress value={progress} />
-      </div>
+      ) : (
+        <div className="space-y-1 text-sm">
+          <div className="flex items-center justify-between font-medium">
+            <span>Progreso</span>
+            <span className="text-muted-foreground">{Math.round(progress)}%</span>
+          </div>
+          <Progress value={progress} className="h-2" />
+        </div>
+      )}
       <ul className="space-y-3">
         {firmantes.map((f) => (
           <li key={`${f.id}-${f.responsabilidad}`} className="flex items-center justify-between">

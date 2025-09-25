@@ -83,7 +83,7 @@ export function PDFViewer({
   }, [onRefresh]);
 
   const containerClass = cn(
-    "relative w-full h-[60vh] md:h-[78vh] rounded-xl border bg-background overflow-hidden",
+    "relative w-full rounded-xl border bg-background overflow-auto h-[calc(100dvh-var(--app-header-h)-var(--tabbar-h)-1rem)]",
     className,
   );
 
