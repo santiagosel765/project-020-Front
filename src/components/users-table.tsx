@@ -17,6 +17,7 @@ import { useSession } from '@/lib/session';
 import { PaginationBar } from './pagination/PaginationBar';
 import type { PageEnvelope } from '@/lib/pagination';
 import { Switch } from '@/components/ui/switch';
+import { CardList } from './responsive/card-list';
 
 interface UsersTableProps {
   data?: PageEnvelope<User>;
@@ -115,7 +116,7 @@ export function UsersTable({
               <CardTitle>Gestión de Usuarios ({total})</CardTitle>
               <CardDescription>Cree, edite y gestione los usuarios de la plataforma.</CardDescription>
             </div>
-            <div className='flex items-center gap-2'>
+            <div className="flex items-center gap-2">
               <div className="relative w-full md:w-auto flex-grow">
                 <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                 <Input
@@ -145,93 +146,169 @@ export function UsersTable({
         </CardHeader>
 
         <CardContent className="flex-grow overflow-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead></TableHead>
-                <TableHead>Nombre Completo</TableHead>
-                <TableHead className="hidden md:table-cell">Posición</TableHead>
-                <TableHead className="hidden lg:table-cell">Gerencia</TableHead>
-                <TableHead className="hidden md:table-cell">Código de Empleado</TableHead>
-                <TableHead className="hidden xl:table-cell">Teléfono</TableHead>
-                <TableHead className="hidden xl:table-cell">Correo</TableHead>
-                <TableHead>Acciones</TableHead>
-              </TableRow>
-            </TableHeader>
-          <TableBody>
-            {users.map(user => (
-              <TableRow key={user.id}>
-                  <TableCell>
-                    <Avatar className="h-9 w-9">
-                      <AvatarImage src={user.urlFoto || user.fotoPerfil || user.avatar || undefined} alt={getFullName(user)} />
-                      <AvatarFallback>{getInitials(user)}</AvatarFallback>
-                    </Avatar>
-                  </TableCell>
-                  <TableCell className="font-medium">
-                    <div>{getFullName(user)}</div>
-                    {Array.isArray(user.roles) && user.roles.length > 0 && (
-                      <div className="mt-1 flex flex-wrap gap-1">
-                        {user.roles.map((role) => (
-                          <Badge key={`${user.id}-role-${role.id}`} variant="secondary" className="text-xs">
-                            {role.nombre}
-                          </Badge>
-                        ))}
-                      </div>
-                    )}
-                  </TableCell>
-                  <TableCell className="hidden md:table-cell">
-                    {user.posicionNombre?.trim()
-                      ? user.posicionNombre
-                      : user.posicionId != null && String(user.posicionId).trim() !== ''
-                      ? String(user.posicionId)
-                      : '—'}
-                  </TableCell>
-                  <TableCell className="hidden lg:table-cell">
-                    {user.gerenciaNombre?.trim()
-                      ? user.gerenciaNombre
-                      : user.gerenciaId != null && String(user.gerenciaId).trim() !== ''
-                      ? String(user.gerenciaId)
-                      : '—'}
-                  </TableCell>
-                  <TableCell className="hidden md:table-cell">{user.codigoEmpleado}</TableCell>
-                  <TableCell className="hidden xl:table-cell">{user.telefono}</TableCell>
-                  <TableCell className="hidden xl:table-cell">{user.correoInstitucional}</TableCell>
-                  <TableCell>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" className="h-8 w-8 p-0">
-                          <span className="sr-only">Abrir menú</span>
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => handleOpenModal(user)}>
-                          <Edit className="mr-2 h-4 w-4" />
-                          <span>Editar</span>
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleChangePassword(user)}>
-                          <KeyRound className="mr-2 h-4 w-4" />
-                          <span>Cambiar contraseña</span>
-                        </DropdownMenuItem>
-                        <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => handleDeleteUser(user.id!)}>
-                          <Trash2 className="mr-2 h-4 w-4" />
-                          <span>Eliminar</span>
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
-                </TableRow>
-            ))}
+          <div className="md:hidden space-y-4">
+            <CardList
+              items={users}
+              primary={(user) => (
+                <div className="flex items-center gap-3">
+                  <Avatar className="h-10 w-10">
+                    <AvatarImage
+                      src={user.urlFoto || user.fotoPerfil || user.avatar || undefined}
+                      alt={getFullName(user)}
+                    />
+                    <AvatarFallback>{getInitials(user)}</AvatarFallback>
+                  </Avatar>
+                  <div>{getFullName(user)}</div>
+                </div>
+              )}
+              secondary={(user) => (
+                <div className="flex flex-col gap-2">
+                  {Array.isArray(user.roles) && user.roles.length > 0 && (
+                    <div className="flex flex-wrap gap-1">
+                      {user.roles.map((role) => (
+                        <Badge key={`${user.id}-card-role-${role.id}`} variant="secondary" className="text-xs">
+                          {role.nombre}
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge variant={user.activo ? "secondary" : "outline"} className="text-xs">
+                      {user.activo ? "Activo" : "Inactivo"}
+                    </Badge>
+                  </div>
+                </div>
+              )}
+              meta={(user) => (
+                <span className="break-all text-muted-foreground">{user.correoInstitucional || '—'}</span>
+              )}
+              actions={(user) => (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" className="h-8 w-8 p-0">
+                      <span className="sr-only">Abrir menú</span>
+                      <MoreHorizontal className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={() => handleOpenModal(user)}>
+                      <Edit className="mr-2 h-4 w-4" />
+                      <span>Editar</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => handleChangePassword(user)}>
+                      <KeyRound className="mr-2 h-4 w-4" />
+                      <span>Cambiar contraseña</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      className="text-destructive focus:text-destructive"
+                      onClick={() => handleDeleteUser(user.id!)}
+                    >
+                      <Trash2 className="mr-2 h-4 w-4" />
+                      <span>Eliminar</span>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
+            />
             {!loading && users.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={8} className="text-center py-4 text-sm text-muted-foreground">
-                  No hay usuarios.
-                </TableCell>
-              </TableRow>
+              <p className="py-4 text-center text-sm text-muted-foreground">No hay usuarios.</p>
             )}
-          </TableBody>
-        </Table>
-      </CardContent>
+          </div>
+          <div className="hidden md:block">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead></TableHead>
+                  <TableHead>Nombre Completo</TableHead>
+                  <TableHead className="hidden md:table-cell">Posición</TableHead>
+                  <TableHead className="hidden lg:table-cell">Gerencia</TableHead>
+                  <TableHead className="hidden md:table-cell">Código de Empleado</TableHead>
+                  <TableHead className="hidden xl:table-cell">Teléfono</TableHead>
+                  <TableHead className="hidden xl:table-cell">Correo</TableHead>
+                  <TableHead>Acciones</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {users.map((user) => (
+                  <TableRow key={user.id}>
+                    <TableCell>
+                      <Avatar className="h-9 w-9">
+                        <AvatarImage
+                          src={user.urlFoto || user.fotoPerfil || user.avatar || undefined}
+                          alt={getFullName(user)}
+                        />
+                        <AvatarFallback>{getInitials(user)}</AvatarFallback>
+                      </Avatar>
+                    </TableCell>
+                    <TableCell className="font-medium">
+                      <div>{getFullName(user)}</div>
+                      {Array.isArray(user.roles) && user.roles.length > 0 && (
+                        <div className="mt-1 flex flex-wrap gap-1">
+                          {user.roles.map((role) => (
+                            <Badge key={`${user.id}-role-${role.id}`} variant="secondary" className="text-xs">
+                              {role.nombre}
+                            </Badge>
+                          ))}
+                        </div>
+                      )}
+                    </TableCell>
+                    <TableCell className="hidden md:table-cell">
+                      {user.posicionNombre?.trim()
+                        ? user.posicionNombre
+                        : user.posicionId != null && String(user.posicionId).trim() !== ''
+                        ? String(user.posicionId)
+                        : '—'}
+                    </TableCell>
+                    <TableCell className="hidden lg:table-cell">
+                      {user.gerenciaNombre?.trim()
+                        ? user.gerenciaNombre
+                        : user.gerenciaId != null && String(user.gerenciaId).trim() !== ''
+                        ? String(user.gerenciaId)
+                        : '—'}
+                    </TableCell>
+                    <TableCell className="hidden md:table-cell">{user.codigoEmpleado}</TableCell>
+                    <TableCell className="hidden xl:table-cell">{user.telefono}</TableCell>
+                    <TableCell className="hidden xl:table-cell">{user.correoInstitucional}</TableCell>
+                    <TableCell>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" className="h-8 w-8 p-0">
+                            <span className="sr-only">Abrir menú</span>
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => handleOpenModal(user)}>
+                            <Edit className="mr-2 h-4 w-4" />
+                            <span>Editar</span>
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleChangePassword(user)}>
+                            <KeyRound className="mr-2 h-4 w-4" />
+                            <span>Cambiar contraseña</span>
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            className="text-destructive focus:text-destructive"
+                            onClick={() => handleDeleteUser(user.id!)}
+                          >
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            <span>Eliminar</span>
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+                ))}
+                {!loading && users.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={8} className="py-4 text-center text-sm text-muted-foreground">
+                      No hay usuarios.
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        </CardContent>
       <PaginationBar
         total={total}
         page={currentPage}
