@@ -163,7 +163,7 @@ export function DocumentsTable({
         <button
           type="button"
           onClick={() => handleRowClick(doc.id)}
-          className="max-w-full truncate text-left hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="max-w-full text-left hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           {doc.name || "Sin título"}
         </button>

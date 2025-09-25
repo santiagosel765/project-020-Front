@@ -176,7 +176,7 @@ export function SupervisionTable({
 
     return {
       id: d.id,
-      primary: <span className="truncate">{d.titulo}</span>,
+      primary: <span>{d.titulo}</span>,
       secondary: hasSecondary ? (
         <div className="flex flex-col gap-1 text-sm text-muted-foreground">
           {d.empresa?.nombre ? <span className="truncate">{d.empresa?.nombre}</span> : null}
