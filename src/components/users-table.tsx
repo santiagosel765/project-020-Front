@@ -18,6 +18,9 @@ import { PaginationBar } from './pagination/PaginationBar';
 import type { PageEnvelope } from '@/lib/pagination';
 import { Switch } from '@/components/ui/switch';
 import { CardList } from './responsive/card-list';
+import { FiltersBar, FilterChips, type FilterChip } from './filters/filters-bar';
+import { FiltersDrawer } from './filters/filters-drawer';
+import { cn } from '@/lib/utils';
 
 interface UsersTableProps {
   data?: PageEnvelope<User>;
@@ -107,41 +110,91 @@ export function UsersTable({
     }
   };
 
+  const renderFilters = (variant: 'bar' | 'drawer') => {
+    const isDrawer = variant === 'drawer';
+
+    return (
+      <>
+        <div
+          className={cn(
+            'relative flex-1 min-w-[200px] md:max-w-xs',
+            isDrawer && 'w-full',
+          )}
+        >
+          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Buscar usuarios..."
+            className={cn('pl-8', isDrawer && 'w-full')}
+            value={searchTerm}
+            onChange={(e) => onSearchChange(e.target.value)}
+          />
+        </div>
+        <div
+          className={cn(
+            'flex items-center gap-2',
+            isDrawer && 'w-full justify-between rounded-lg border p-3',
+          )}
+        >
+          <div className="flex items-center gap-2">
+            <Switch id="show-inactive" checked={includeInactive} onCheckedChange={onToggleInactive} />
+            <label htmlFor="show-inactive" className="text-sm">
+              Mostrar inactivos
+            </label>
+          </div>
+        </div>
+      </>
+    );
+  };
+
+  const filterChips: FilterChip[] = [];
+  if (searchTerm.trim()) {
+    filterChips.push({
+      id: 'search',
+      label: `Búsqueda: "${searchTerm}"`,
+      onRemove: () => onSearchChange(''),
+    });
+  }
+  if (includeInactive) {
+    filterChips.push({
+      id: 'inactive',
+      label: 'Mostrar inactivos',
+      onRemove: () => onToggleInactive(false),
+    });
+  }
+
   return (
     <>
       <Card className="w-full h-full flex flex-col glassmorphism">
         <CardHeader>
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-            <div className="space-y-1.5">
-              <CardTitle>Gestión de Usuarios ({total})</CardTitle>
-              <CardDescription>Cree, edite y gestione los usuarios de la plataforma.</CardDescription>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="relative w-full md:w-auto flex-grow">
-                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Buscar usuarios..."
-                  className="pl-8"
-                  value={searchTerm}
-                  onChange={(e) => onSearchChange(e.target.value)}
-                />
+          <div className="space-y-4">
+            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+              <div className="space-y-1.5">
+                <CardTitle>Gestión de Usuarios ({total})</CardTitle>
+                <CardDescription>Cree, edite y gestione los usuarios de la plataforma.</CardDescription>
               </div>
-              <div className="flex items-center space-x-2">
-                <Switch id="show-inactive" checked={includeInactive} onCheckedChange={onToggleInactive} />
-                <label htmlFor="show-inactive" className="text-sm whitespace-nowrap">Mostrar inactivos</label>
+              <div className="flex flex-col gap-2 md:flex-row md:items-center">
+                <FiltersDrawer renderFilters={renderFilters} chips={filterChips} />
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="file"
+                    ref={fileInputRef}
+                    className="hidden"
+                    onChange={handleFileChange}
+                    accept=".csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel"
+                  />
+                  <Button variant="outline" onClick={handleBulkUploadClick}>
+                    <FileUp className="mr-2 h-4 w-4" />
+                    Carga Masiva
+                  </Button>
+                  <Button onClick={() => handleOpenModal()}>
+                    <UserPlus className="mr-2 h-4 w-4" />
+                    Crear Nuevo
+                  </Button>
+                </div>
               </div>
-              <Input type="file" ref={fileInputRef} className="hidden" onChange={handleFileChange}
-                accept=".csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel"
-              />
-              <Button variant="outline" onClick={handleBulkUploadClick}>
-                <FileUp className="mr-2 h-4 w-4" />
-                Carga Masiva
-              </Button>
-              <Button onClick={() => handleOpenModal()}>
-                <UserPlus className="mr-2 h-4 w-4" />
-                Crear Nuevo
-              </Button>
             </div>
+            <FiltersBar renderFilters={renderFilters} chips={filterChips} />
+            <FilterChips chips={filterChips} className="md:hidden" />
           </div>
         </CardHeader>
 
