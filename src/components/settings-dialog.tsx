@@ -249,7 +249,7 @@ export function SettingsDialog({ children }: { children: React.ReactNode }) {
       <DialogPrimitiveTrigger asChild>
           {children}
       </DialogPrimitiveTrigger>
-      <DialogContent className="sm:max-w-[480px] glassmorphism flex flex-col max-h-[90vh]">
+      <DialogContent className="glassmorphism flex flex-col">
         <DialogHeader>
           <DialogTitle>Configuración</DialogTitle>
           <DialogDescription>

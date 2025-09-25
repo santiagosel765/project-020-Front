@@ -81,6 +81,7 @@ export const DialogContent = React.forwardRef<
           "fixed inset-0 z-[100] m-0 p-0",
           "flex items-center justify-center",
           "pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]",
+          "overflow-x-hidden",
           className
         )}
         {...props}
@@ -89,10 +90,14 @@ export const DialogContent = React.forwardRef<
           ref={contentRef}
           data-dialog-content
           className={cn(
-            "relative w-full overflow-y-auto rounded-2xl bg-background p-4 mx-4"
+            "relative overflow-y-auto overflow-x-hidden",
+            "rounded-2xl bg-background",
+            "box-border",
+            "p-6",
+            "mx-auto"
           )}
           style={{
-            maxWidth: `min(${widthLimit}px, calc(100vw - 32px))`,
+            width: `min(${widthLimit}px, calc(100vw - 32px))`,
             maxHeight: "min(calc(100dvh - 32px), 700px)",
           }}
         >
