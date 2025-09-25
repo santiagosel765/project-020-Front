@@ -86,7 +86,7 @@ export function RoleFormModal({ isOpen, onClose, onSave, role }: RoleFormModalPr
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="glassmorphism sm:max-w-md">
+      <DialogContent className="glassmorphism">
         <DialogHeader>
           <DialogTitle>{role ? "Editar Rol" : "Crear Rol"}</DialogTitle>
           <DialogDescription>

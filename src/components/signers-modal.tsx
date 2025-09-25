@@ -17,7 +17,7 @@ interface SignersModalProps {
 export function SignersModal({ open, onOpenChange, firmantes, loading }: SignersModalProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px] glassmorphism" aria-describedby="signers-desc">
+      <DialogContent className="glassmorphism" aria-describedby="signers-desc">
         <DialogHeader>
           <DialogTitle>Firmantes Asignados ({firmantes.length})</DialogTitle>
           <DialogDescription id="signers-desc">

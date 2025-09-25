@@ -77,7 +77,7 @@ export function PageFormModal({ isOpen, onClose, onSave, page }: PageFormModalPr
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="glassmorphism sm:max-w-md">
+      <DialogContent className="glassmorphism">
         <DialogHeader>
           <DialogTitle>{page ? "Editar Página" : "Crear Página"}</DialogTitle>
           <DialogDescription>

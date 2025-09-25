@@ -300,7 +300,7 @@ export function UserFormModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="glassmorphism flex flex-col max-w-4xl md:max-w-5xl h-full sm:h-auto sm:max-h-[90vh]">
+      <DialogContent className="glassmorphism flex flex-col">
         <DialogHeader>
           <DialogTitle>
             {user ? "Editar Usuario" : "Crear Nuevo Usuario"}

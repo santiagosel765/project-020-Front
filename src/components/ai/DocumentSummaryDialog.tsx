@@ -417,7 +417,7 @@ export const DocumentSummaryDialog = forwardRef<DocumentSummaryDialogHandle, Doc
 
     return (
       <Dialog open={isOpen} onOpenChange={handleOpenChange}>
-        <DialogContent className="max-w-6xl w-full">
+        <DialogContent>
           <DialogHeader>
             <DialogTitle>Resumen del documento</DialogTitle>
           </DialogHeader>
