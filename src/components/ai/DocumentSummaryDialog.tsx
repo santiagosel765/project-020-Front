@@ -16,7 +16,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import type { CuadroFirmaDetalle } from '@/services/documentsService';
 
 export interface DocumentSummaryDialogProps {
@@ -437,9 +437,8 @@ export const DocumentSummaryDialog = forwardRef<DocumentSummaryDialogHandle, Doc
                 <Button variant="outline" onClick={downloadMarkdown} disabled={!markdown.trim()}>
                   <Download className="mr-2 h-4 w-4" /> Descargar .md
                 </Button>
-                <TooltipProvider>
-                  {isSpeechSupported ? (
-                    <div className="flex items-center gap-2">
+                {isSpeechSupported ? (
+                  <div className="flex items-center gap-2">
                       {voices.length > 1 && (
                         <select
                           className="h-9 rounded-md border bg-background px-2 text-sm"
@@ -521,7 +520,6 @@ export const DocumentSummaryDialog = forwardRef<DocumentSummaryDialogHandle, Doc
                       <TooltipContent>Lectura no soportada en este navegador</TooltipContent>
                     </Tooltip>
                   )}
-                </TooltipProvider>
               </div>
               <div className="flex-1 rounded-lg border bg-background">
                 <ScrollArea className="h-[24rem] lg:h-[60vh]" role="document" aria-live="polite">
