@@ -23,7 +23,7 @@ const SheetOverlay = React.forwardRef<
     className={cn(
       "fixed inset-0 z-50",
       "bg-background/40 backdrop-blur-sm",
-      "md:bg-black/70 md:backdrop-blur-0 md:[backdrop-filter:none]",
+      "md:bg-black/75 md:backdrop-blur-0 md:no-blur-desktop",
       "data-[state=open]:animate-in data-[state=closed]:animate-out",
       "data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
       className
