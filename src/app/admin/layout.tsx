@@ -5,6 +5,7 @@ import { AuthGuard } from '@/components/auth-guard';
 import { useSession } from '@/lib/session';
 import { initials } from '@/lib/avatar';
 import { useToast } from '@/hooks/use-toast';
+import { NotificationBell } from '@/components/notifications/NotificationBell';
 import {
   SidebarProvider,
   Sidebar,
@@ -21,7 +22,6 @@ import {
 import {
   LogOut,
   Settings,
-  Bell,
   Menu,
   FileText,
   PanelLeft,
@@ -126,10 +126,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         </h1>
       </div>
       <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" className="rounded-full">
-          <Bell className="h-5 w-5" />
-          <span className="sr-only">Notificaciones</span>
-        </Button>
+        <NotificationBell />
         <SettingsDialog>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
