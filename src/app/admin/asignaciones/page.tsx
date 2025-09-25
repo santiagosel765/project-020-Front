@@ -15,7 +15,6 @@ import { createCuadroFirma } from "@/services/documentsService";
 import { buildResponsables } from "@/lib/responsables";
 import { useToast } from "@/hooks/use-toast";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   Table,
   TableBody,
@@ -24,6 +23,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { SignersTable } from "@/components/signers-table";
+import { SignersSelected } from "@/components/signers-selected";
 
 
 type Signatory = Omit<User, 'id'> & { id: number; responsibility: 'REVISA' | 'APRUEBA' | 'ENTERADO' | null };
@@ -32,12 +33,6 @@ const toNumericId = (raw: unknown): number | null => {
   if (typeof raw === 'number' && Number.isFinite(raw)) return raw;
   if (typeof raw === 'string' && raw.trim() !== '' && !Number.isNaN(Number(raw))) return Number(raw);
   return null;
-};
-
-const getInitials = (name: string) => {
-  const parts = name.trim().split(/\s+/);
-  if (parts.length >= 2) return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
-  return parts[0] ? parts[0][0].toUpperCase() : "";
 };
 
 export default function AsignacionesPage() {
@@ -325,46 +320,20 @@ const handleSubmit = async (event: React.FormEvent) => {
                 </div>
               </div>
 
-              <div className="border rounded-md max-h-56 overflow-y-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead></TableHead>
-                      <TableHead>Nombre</TableHead>
-                      <TableHead>Puesto</TableHead>
-                      <TableHead>Gerencia</TableHead>
-                      <TableHead className="text-right"></TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredUsers.map((user) => (
-                      <TableRow key={user.id}>
-                        <TableCell>
-                          <Avatar className="h-8 w-8">
-                            <AvatarImage src={user.avatar} alt={user.name} data-ai-hint="person avatar" />
-                            <AvatarFallback>{getInitials(user.name)}</AvatarFallback>
-                          </Avatar>
-                        </TableCell>
-                        <TableCell className="font-medium">{user.name}</TableCell>
-                        <TableCell className="text-muted-foreground">{user.position}</TableCell>
-                        <TableCell className="text-muted-foreground">{user.department}</TableCell>
-                        <TableCell className="text-right">
-                          <Button type="button" size="sm" onClick={() => addSignatory(user)}>
-                            Agregar
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
+              <SignersTable users={filteredUsers} onAdd={addSignatory} />
 
               <Separator className="my-2" />
 
-              <h4 className="text-sm font-medium">Firmantes Seleccionados ({signatories.length}):</h4>
+              <SignersSelected
+                signers={signatories.map((signer) => ({ id: signer.id, name: signer.name }))}
+                onRemove={(id) => removeSignatory(Number(id))}
+              />
+
               {signatories.length === 0 ? (
                 <div className="flex-grow flex items-center justify-center">
-                  <p className="text-sm text-muted-foreground text-center py-4">No hay firmantes agregados.</p>
+                  <p className="text-sm text-muted-foreground text-center py-4">
+                    No hay firmantes agregados.
+                  </p>
                 </div>
               ) : (
                 <div className="flex-grow overflow-y-auto border rounded-md">
