@@ -12,6 +12,7 @@ import {
   DialogTitle,
   DialogDescription,
   DialogFooter,
+  DialogCloseButton,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -122,9 +123,9 @@ export function RoleFormModal({ isOpen, onClose, onSave, role }: RoleFormModalPr
               )}
             />
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={onClose}>
+              <DialogCloseButton type="button" variant="outline" onClick={onClose}>
                 Cancelar
-              </Button>
+              </DialogCloseButton>
               <Button type="submit" disabled={loading}>
                 {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Guardar

@@ -23,6 +23,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  DialogCloseButton,
 } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import {
@@ -355,9 +356,12 @@ export default function DocumentDetailPage() {
                   </DialogHeader>
                   <Textarea value={rejectReason} onChange={(e) => setRejectReason(e.target.value)} />
                   <DialogFooter>
-                    <Button variant="secondary" onClick={() => setRejectOpen(false)}>
+                    <DialogCloseButton
+                      variant="secondary"
+                      onClick={() => setRejectOpen(false)}
+                    >
                       Cancelar
-                    </Button>
+                    </DialogCloseButton>
                     <Button onClick={handleReject}>Enviar</Button>
                   </DialogFooter>
                 </DialogContent>

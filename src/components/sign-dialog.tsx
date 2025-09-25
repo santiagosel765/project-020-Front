@@ -8,6 +8,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  DialogCloseButton,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
@@ -299,9 +300,9 @@ export function SignDialog({
           <p className="py-4">No tienes firmas pendientes</p>
         )}
         <DialogFooter>
-          <Button variant="ghost" onClick={onClose} disabled={loading}>
+          <DialogCloseButton variant="ghost" onClick={onClose} disabled={loading}>
             Cancelar
-          </Button>
+          </DialogCloseButton>
           <Button
             onClick={() => {
               if (!canSign || !hasSignature || !responsabilidadId) return;
