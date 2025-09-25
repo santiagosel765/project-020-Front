@@ -83,7 +83,7 @@ export function PDFViewer({
   }, [onRefresh]);
 
   const containerClass = cn(
-    "relative w-full rounded-xl border bg-background overflow-auto h-[calc(100dvh-var(--app-header-h)-var(--tabbar-h)-1rem)]",
+    "relative block w-full min-h-full rounded-xl border bg-background overflow-auto overscroll-y-contain touch-pan-y",
     className,
   );
 
@@ -127,7 +127,7 @@ export function PDFViewer({
       <iframe
         title={title ?? "Visor de PDF"}
         src={src ?? undefined}
-        className="h-full w-full"
+        className="block h-full w-full min-h-full"
         referrerPolicy="no-referrer"
         allow="fullscreen"
         allowFullScreen

@@ -78,7 +78,12 @@ export function DocumentTabs({
   } as CSSProperties;
 
   return (
-    <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full" style={style}>
+    <Tabs
+      value={activeTab}
+      onValueChange={handleTabChange}
+      className="flex h-full w-full flex-col"
+      style={style}
+    >
       <div
         ref={tabbarRef}
         className="sticky top-[var(--app-header-h)] z-20 mb-3 border-b border-border bg-background/80 pb-1 pt-2 backdrop-blur supports-[backdrop-filter]:bg-background/60"
@@ -93,21 +98,23 @@ export function DocumentTabs({
         </TabsList>
       </div>
 
-      <TabsContent value="firmas" className="mt-0 space-y-4">
+      <TabsContent value="firmas" className="mt-0 flex flex-1 flex-col">
         <PDFViewer
           title="Cuadro de firmas"
           src={urlCuadroFirmasPDF ?? undefined}
           onRefresh={onRefreshLinks}
           isRefreshing={isRefreshingLinks}
+          className="flex-1"
         />
       </TabsContent>
 
-      <TabsContent value="original" className="mt-0 space-y-4">
+      <TabsContent value="original" className="mt-0 flex flex-1 flex-col">
         <PDFViewer
           title="Documento original"
           src={urlDocumento ?? undefined}
           onRefresh={onRefreshLinks}
           isRefreshing={isRefreshingLinks}
+          className="flex-1"
         />
       </TabsContent>
     </Tabs>

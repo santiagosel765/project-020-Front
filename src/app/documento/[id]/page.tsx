@@ -263,14 +263,16 @@ export default function DocumentDetailPage() {
         <h1 className="text-2xl font-semibold">{detalle.titulo}</h1>
         {detalle.descripcion && <p className="text-muted-foreground">{detalle.descripcion}</p>}
         <div className="mt-4 grid grid-cols-12 gap-4">
-          <div className="col-span-12 space-y-4 md:col-span-8 xl:col-span-9">
-            <DocumentTabs
-              urlCuadroFirmasPDF={detalle.urlCuadroFirmasPDF}
-              urlDocumento={detalle.urlDocumento}
-              onRefreshLinks={handleRefreshLinks}
-              isRefreshingLinks={refreshingLinks}
-              onTabChange={setActiveTab}
-            />
+          <div className="col-span-12 md:col-span-8 xl:col-span-9">
+            <div className="h-[calc(100dvh-var(--app-header-h)-var(--tabbar-h)-16px)] overflow-auto overscroll-y-contain touch-pan-y">
+              <DocumentTabs
+                urlCuadroFirmasPDF={detalle.urlCuadroFirmasPDF}
+                urlDocumento={detalle.urlDocumento}
+                onRefreshLinks={handleRefreshLinks}
+                isRefreshingLinks={refreshingLinks}
+                onTabChange={setActiveTab}
+              />
+            </div>
           </div>
           <div className="col-span-12 space-y-4 md:col-span-4 xl:col-span-3">
             <Accordion
