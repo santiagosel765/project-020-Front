@@ -439,9 +439,18 @@ export const DocumentSummaryDialog = forwardRef<DocumentSummaryDialogHandle, Doc
           <div className="px-6 pb-6">
             <div className="flex flex-col gap-4 lg:flex-row">
               <div className="w-full lg:w-1/2">
-                {/* Contenedor del visor: altura fija; el scroll debe ocurrir DENTRO del iframe */}
-                <div className="h-[min(75vh,calc(100dvh-12rem))] w-full lg:h-[calc(100dvh-16rem)]">
-                  <SmartPDFViewer src={pdfUrl ?? undefined} openLabel="Abrir documento" />
+                <div
+                  className="w-full"
+                  style={{
+                    height: "min(75vh, calc(100dvh - 12rem))",
+                    overflow: "hidden",
+                  }}
+                >
+                  <SmartPDFViewer
+                    src={pdfUrl ?? undefined}
+                    openLabel="Abrir documento"
+                    className="h-full w-full"
+                  />
                 </div>
               </div>
 
