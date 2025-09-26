@@ -18,7 +18,6 @@ out/
 # production
 build/
 dist/
-!/public/pdfjs/build/
 
 # misc
 .DS_Store

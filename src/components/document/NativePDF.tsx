@@ -1,22 +1,35 @@
 "use client";
 
-import { cn } from "@/lib/utils";
+import { cn } from '@/lib/utils';
 
 export default function NativePDF({
   src,
   className,
-  openLabel = "Abrir en nueva pestaña",
+  openLabel = 'Abrir en nueva pestaña',
 }: { src: string | null | undefined; className?: string; openLabel?: string }) {
-  const isIOS = typeof navigator !== "undefined" && /iPad|iPhone|iPod/.test(navigator.userAgent);
+  const isIOS =
+    typeof navigator !== 'undefined' && /iPad|iPhone|iPod/.test(navigator.userAgent);
+
   if (!src) {
     return (
-      <div className={cn("grid min-h-[240px] place-items-center rounded-xl border text-sm text-muted-foreground", className)}>
+      <div
+        className={cn(
+          'grid min-h-[240px] place-items-center rounded-xl border text-sm text-muted-foreground',
+          className,
+        )}
+      >
         Sin vista disponible
       </div>
     );
   }
+
   return (
-    <div className={cn("relative min-h-0 w-full flex-1 overflow-hidden rounded-xl border bg-background", className)}>
+    <div
+      className={cn(
+        'relative min-h-0 w-full flex-1 overflow-hidden rounded-xl border bg-background',
+        className,
+      )}
+    >
       {isIOS && (
         <a
           href={src}
@@ -27,7 +40,7 @@ export default function NativePDF({
           {openLabel}
         </a>
       )}
-      {/* Visor nativo (Chrome/Edge/Firefox) o QuickLook (iOS) */}
+      {/* Visor nativo del navegador */}
       <object data={src} type="application/pdf" className="h-full w-full">
         <iframe src={src} className="h-full w-full" title="PDF" />
       </object>
