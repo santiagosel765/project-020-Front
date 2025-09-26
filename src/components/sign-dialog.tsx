@@ -5,10 +5,9 @@ import Image from 'next/image';
 import {
   Dialog,
   DialogContent,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogCloseButton,
+  DialogDescription,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
@@ -23,17 +22,9 @@ import { useSession } from '@/lib/session';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { initials } from '@/lib/avatar';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Checkbox } from '@/components/ui/checkbox';
+import { ExclamationTriangleIcon } from '@radix-ui/react-icons';
 
 export type SignDialogProps = {
   open: boolean;
@@ -61,11 +52,10 @@ export function SignDialog({
   const [responsabilidadId, setResponsabilidadId] = useState<number | undefined>(
     pendientes[0]?.responsabilidad.id,
   );
-  const [loading, setLoading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const signatureCanvasRef = useRef<SignatureCanvas>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [currentSignature, setCurrentSignature] = useState<string | null>(signatureUrl);
-  const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmChecked, setConfirmChecked] = useState(false);
 
   useEffect(() => {
@@ -76,7 +66,6 @@ export function SignDialog({
 
   useEffect(() => {
     if (!open) {
-      setConfirmOpen(false);
       setConfirmChecked(false);
     }
   }, [open]);
@@ -133,11 +122,15 @@ export function SignDialog({
     }
   };
 
-  const performSignature = useCallback(async () => {
-    if (!responsabilidadId || !hasSignature) return false;
+  const handleSign = useCallback(async () => {
+    if (isSubmitting || !responsabilidadId || !hasSignature || !confirmChecked) {
+      return;
+    }
+
     const resp = pendientes.find((p) => p.responsabilidad.id === responsabilidadId);
-    if (!resp) return false;
-    setLoading(true);
+    if (!resp) return;
+
+    setIsSubmitting(true);
     try {
       await signDocument({
         cuadroFirmaId,
@@ -147,10 +140,10 @@ export function SignDialog({
         nombreResponsabilidad: resp.responsabilidad.nombre,
         useStoredSignature: true,
       });
+      toast({ title: 'Firma registrada' });
+      setConfirmChecked(false);
       await onSigned();
       onClose();
-      toast({ title: 'Firma registrada' });
-      return true;
     } catch (e: any) {
       const status = e?.status ?? e?.response?.status;
       const serverMessage =
@@ -175,49 +168,42 @@ export function SignDialog({
           description: serverMessage ?? 'No se pudo firmar. Intenta de nuevo.',
         });
       }
-      return false;
     } finally {
-      setLoading(false);
+      setIsSubmitting(false);
     }
   }, [
+    isSubmitting,
     responsabilidadId,
     hasSignature,
+    confirmChecked,
     pendientes,
     cuadroFirmaId,
     currentUserId,
+    toast,
     onSigned,
     onClose,
-    toast,
   ]);
 
-  const handleConfirmDialogChange = (open: boolean) => {
-    setConfirmOpen(open);
-    if (!open) {
-      setConfirmChecked(false);
-    }
-  };
-
-  const handleConfirmAndSign = async () => {
-    const success = await performSignature();
-    if (success) {
-      setConfirmChecked(false);
-      setConfirmOpen(false);
-    }
-  };
-
   const canSign = pendientes.length > 0;
+  const canProceed = canSign && !!responsabilidadId && hasSignature;
+  const canSubmit = canProceed && confirmChecked && !isSubmitting;
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent>
+      <DialogContent aria-describedby="sign-desc">
         <DialogHeader>
           <DialogTitle>Firmar documento</DialogTitle>
+          <DialogDescription id="sign-desc">
+            Selecciona tu responsabilidad, revisa tu firma y confirma que has leído el
+            documento.
+          </DialogDescription>
         </DialogHeader>
         {canSign ? (
-          <div className="space-y-4 py-2">
-            <div className="max-h-40 overflow-y-auto border rounded p-2">
-              <ul className="space-y-2">
-                {firmantes.map((f) => (
+          <>
+            <div className="space-y-4 py-2">
+              <div className="max-h-40 overflow-y-auto border rounded p-2">
+                <ul className="space-y-2">
+                  {firmantes.map((f) => (
                   <li key={`${f.user.id}-${f.responsabilidad.id}`} className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <Avatar className="h-8 w-8">
@@ -260,10 +246,12 @@ export function SignDialog({
                   {currentSignature && (
                     <Image
                       src={currentSignature}
-                      alt="Firma"
-                      width={200}
-                      height={100}
-                      style={{ objectFit: 'contain' }}
+                      alt="Mi firma"
+                      width={640}
+                      height={240}
+                      sizes="(max-width: 768px) 100vw, 640px"
+                      className="h-auto w-full max-h-40 rounded-md border object-contain"
+                      priority
                     />
                   )}
                 </div>
@@ -299,63 +287,47 @@ export function SignDialog({
                 </TabsContent>
               </Tabs>
             )}
-          </div>
-        ) : (
-          <p className="py-4">No tienes firmas pendientes</p>
-        )}
-        <DialogFooter>
-          <DialogCloseButton variant="ghost" onClick={onClose} disabled={loading}>
-            Cancelar
-          </DialogCloseButton>
-          <Button
-            onClick={() => {
-              if (!canSign || !hasSignature || !responsabilidadId) return;
-              setConfirmChecked(false);
-              setConfirmOpen(true);
-            }}
-            disabled={!canSign || !hasSignature || !responsabilidadId || loading}
-          >
-            Firmar con mi firma
-          </Button>
-        </DialogFooter>
-        <AlertDialog open={confirmOpen} onOpenChange={handleConfirmDialogChange}>
-          <AlertDialogContent aria-describedby="confirm-sign-description">
-            <AlertDialogHeader>
-              <AlertDialogTitle>Confirmar firma</AlertDialogTitle>
-              <AlertDialogDescription id="confirm-sign-description">
-                ¿Confirmas que has leído el documento y deseas firmarlo con tu firma registrada?
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <div className="flex items-start gap-3 rounded-md border p-3">
+            </div>
+            <Alert variant="destructive" className="mt-4">
+              <ExclamationTriangleIcon className="h-4 w-4" aria-hidden="true" />
+              <AlertTitle>Confirmación requerida</AlertTitle>
+              <AlertDescription>
+                Esta firma es <strong>irrevocable</strong>. Asegúrate de haber leído el
+                documento.
+              </AlertDescription>
+            </Alert>
+            <div className="mt-3 flex items-start gap-3">
               <Checkbox
-                id="confirm-read-checkbox"
+                id="confirm-read"
                 checked={confirmChecked}
-                onCheckedChange={(checked) => setConfirmChecked(Boolean(checked))}
-                disabled={loading}
+                onCheckedChange={(v) => setConfirmChecked(Boolean(v))}
+                disabled={isSubmitting}
               />
-              <label
-                htmlFor="confirm-read-checkbox"
-                className="select-none text-sm leading-snug"
-              >
-                Confirmo que he leído el contenido del documento.
+              <label htmlFor="confirm-read" className="text-sm leading-5">
+                Confirmo que he leído y entiendo el documento y deseo firmarlo
+                digitalmente.
               </label>
             </div>
-            <AlertDialogFooter>
-              <AlertDialogCancel disabled={loading}>Cancelar</AlertDialogCancel>
-              <AlertDialogAction
-                onClick={(event) => {
-                  event.preventDefault();
-                  void handleConfirmAndSign();
-                }}
-                disabled={!confirmChecked || loading}
-                className="gap-2"
-              >
-                {loading && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
-                Confirmar y firmar
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
+            <div className="mt-4 flex justify-end gap-3">
+              <Button variant="outline" onClick={onClose} disabled={isSubmitting}>
+                Cancelar
+              </Button>
+              <Button onClick={() => void handleSign()} disabled={!canSubmit}>
+                {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />}
+                {isSubmitting ? 'Firmando…' : 'Firmar con mi firma'}
+              </Button>
+            </div>
+          </>
+        ) : (
+          <>
+            <p className="py-4 text-sm text-muted-foreground">No tienes firmas pendientes</p>
+            <div className="mt-4 flex justify-end">
+              <Button variant="outline" onClick={onClose}>
+                Cerrar
+              </Button>
+            </div>
+          </>
+        )}
       </DialogContent>
     </Dialog>
   );
