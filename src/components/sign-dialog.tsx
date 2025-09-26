@@ -152,13 +152,17 @@ export function SignDialog({
       toast({ title: 'Firma registrada' });
       return true;
     } catch (e: any) {
-      if (e?.status === 403) {
+      const status = e?.status ?? e?.response?.status;
+      const serverMessage =
+        e?.response?.data?.message ?? e?.response?.data?.error ?? e?.message;
+
+      if (status === 403) {
         toast({
           variant: 'destructive',
           title: 'No autorizado',
           description: 'Su sesión no coincide con el usuario que intenta firmar.',
         });
-      } else if (e?.status === 400) {
+      } else if (status === 400 && !serverMessage) {
         toast({
           variant: 'destructive',
           title: 'Error',
@@ -168,7 +172,7 @@ export function SignDialog({
         toast({
           variant: 'destructive',
           title: 'Error',
-          description: 'No se pudo firmar. Intenta de nuevo.',
+          description: serverMessage ?? 'No se pudo firmar. Intenta de nuevo.',
         });
       }
       return false;
