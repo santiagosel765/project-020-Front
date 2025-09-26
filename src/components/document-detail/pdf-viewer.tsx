@@ -1,6 +1,7 @@
 'use client';
 
 import SmartPDFViewer from '@/components/document/SmartPDFViewer';
+import { cn } from '@/lib/utils';
 
 export function DocumentPdfViewer({
   pdfUrl,
@@ -11,5 +12,9 @@ export function DocumentPdfViewer({
   className?: string;
   openLabel?: string;
 }) {
-  return <SmartPDFViewer srcPdf={pdfUrl ?? null} className={className} openLabel={openLabel} />;
+  return (
+    <div className={cn("h-[calc(100dvh-220px)] w-full", className)}>
+      <SmartPDFViewer src={pdfUrl ?? null} openLabel={openLabel} />
+    </div>
+  );
 }
