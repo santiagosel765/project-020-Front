@@ -2,7 +2,6 @@
 
 import Image from "next/image";
 import Link from "next/link";
-
 import { cn } from "@/lib/utils";
 
 type BrandLogoProps = {
@@ -19,17 +18,23 @@ export function BrandLogo({
   return (
     <Link
       href={href}
-      className={cn("flex items-center gap-2 px-3 py-4", className)}
       aria-label="Ir a Mis Documentos"
+      className={cn(
+        // centra el contenido y ocupa el ancho del sidebar
+        "flex w-full items-center justify-center px-4 py-5",
+        className
+      )}
     >
       <Image
         src="/genesissign.png"
         alt="Génesis Sign Logotipo"
-        width={144}
-        height={32}
+        // un poco más grande que antes
+        width={192}
+        height={44}
         priority
         className={cn(
-          "h-8 w-auto max-w-full rounded-md select-none md:h-9",
+          // tamaño base (mayor) y responsive
+          "h-11 w-auto max-w-full select-none md:h-12",
           imageClassName
         )}
       />

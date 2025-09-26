@@ -50,11 +50,19 @@ export function LucideIcon({
   name?: string | null;
   className?: string;
 }) {
-  const Icon = (name && (Lucide as Record<string, React.ComponentType<any>>)[name]) || Lucide.Square;
+  const Icon =
+    (name && (Lucide as Record<string, React.ComponentType<any>>)[name]) ||
+    Lucide.Square;
   return <Icon className={className} aria-hidden="true" />;
 }
 
-export function AppSidebar({ items, user, isLoading = false, isMobile = false, onNavigate }: AppSidebarProps) {
+export function AppSidebar({
+  items,
+  user,
+  isLoading = false,
+  isMobile = false,
+  onNavigate,
+}: AppSidebarProps) {
   const pathname = usePathname();
   const [isCollapsed, setIsCollapsed] = React.useState(false);
 
@@ -63,10 +71,11 @@ export function AppSidebar({ items, user, isLoading = false, isMobile = false, o
       setIsCollapsed(false);
       return;
     }
-    const stored = typeof window !== "undefined" ? window.localStorage.getItem("sidebar:collapsed") : null;
-    if (stored === "1") {
-      setIsCollapsed(true);
-    }
+    const stored =
+      typeof window !== "undefined"
+        ? window.localStorage.getItem("sidebar:collapsed")
+        : null;
+    if (stored === "1") setIsCollapsed(true);
   }, [isMobile]);
 
   const handleToggle = () => {
@@ -82,8 +91,12 @@ export function AppSidebar({ items, user, isLoading = false, isMobile = false, o
 
   const visibleItems = React.useMemo(() => {
     return items
-      .filter((item) => (item.activo ?? item.active ?? true))
-      .sort((a, b) => (a.order ?? Number.MAX_SAFE_INTEGER) - (b.order ?? Number.MAX_SAFE_INTEGER));
+      .filter((item) => item.activo ?? item.active ?? true)
+      .sort(
+        (a, b) =>
+          (a.order ?? Number.MAX_SAFE_INTEGER) -
+          (b.order ?? Number.MAX_SAFE_INTEGER)
+      );
   }, [items]);
 
   const renderItem = (item: SidebarItem) => {
@@ -98,12 +111,14 @@ export function AppSidebar({ items, user, isLoading = false, isMobile = false, o
         )}
         aria-current={current ? "page" : undefined}
         aria-label={isCollapsed && !isMobile ? item.nombre : undefined}
-        onClick={() => {
-          onNavigate?.();
-        }}
+        onClick={() => onNavigate?.()}
       >
         <LucideIcon name={item.icon ?? undefined} className="size-5" />
-        {isCollapsed && !isMobile ? <span className="sr-only">{item.nombre}</span> : <span className="truncate">{item.nombre}</span>}
+        {isCollapsed && !isMobile ? (
+          <span className="sr-only">{item.nombre}</span>
+        ) : (
+          <span className="truncate">{item.nombre}</span>
+        )}
       </Link>
     );
 
@@ -118,9 +133,7 @@ export function AppSidebar({ items, user, isLoading = false, isMobile = false, o
       );
     }
 
-    return (
-      <React.Fragment key={item.id}>{content}</React.Fragment>
-    );
+    return <React.Fragment key={item.id}>{content}</React.Fragment>;
   };
 
   return (
@@ -128,26 +141,32 @@ export function AppSidebar({ items, user, isLoading = false, isMobile = false, o
       <div
         className={cn(
           "flex h-[100dvh] flex-col gap-4 border-r border-border/60 bg-card/70 p-3 text-sm shadow-sm backdrop-blur supports-[backdrop-filter]:bg-card/60",
-          isMobile ? "w-full rounded-none" : "rounded-r-2xl transition-[width] duration-300 ease-in-out",
+          isMobile
+            ? "w-full rounded-none"
+            : "rounded-r-2xl transition-[width] duration-300 ease-in-out",
           isCollapsed && !isMobile ? "w-[80px]" : "w-[260px]"
         )}
       >
         <div className="flex-1 overflow-y-auto">
+          {/* CABECERA DEL SIDEBAR CON LOGO CENTRADO */}
           <div className="sticky top-0 z-10 bg-background/70 backdrop-blur supports-[backdrop-filter]:bg-background/60">
             <div className={cn(isMobile ? "px-2 pt-2" : undefined)}>
               <BrandLogo
-                className={cn(
-                  isMobile ? "px-2 py-3" : undefined,
-                  isCollapsed && !isMobile ? "justify-center px-0" : undefined
-                )}
+                // padding uniforme y centrado; el componente ya centra el contenido
+                className="px-2 py-4"
+                // cuando está colapsado, reduce un poco el alto pero mantén legibilidad
                 imageClassName={cn(
-                  isCollapsed && !isMobile ? "h-8 w-full object-contain" : undefined
+                  isCollapsed && !isMobile ? "h-10 md:h-10" : undefined
                 )}
               />
             </div>
             <div className="h-px w-full bg-border" />
           </div>
-          <nav aria-label="Navegación principal" className="flex flex-col gap-1">
+
+          <nav
+            aria-label="Navegación principal"
+            className="flex flex-col gap-1"
+          >
             {isLoading ? (
               <div className="flex flex-col gap-1">
                 {Array.from({ length: 5 }).map((_, index) => (
@@ -159,7 +178,9 @@ export function AppSidebar({ items, user, isLoading = false, isMobile = false, o
                     )}
                   >
                     <Skeleton className="size-5 rounded-md" />
-                    {!(isCollapsed && !isMobile) ? <Skeleton className="h-4 flex-1" /> : null}
+                    {!(isCollapsed && !isMobile) ? (
+                      <Skeleton className="h-4 flex-1" />
+                    ) : null}
                   </div>
                 ))}
               </div>
@@ -168,6 +189,7 @@ export function AppSidebar({ items, user, isLoading = false, isMobile = false, o
             )}
           </nav>
         </div>
+
         <div className="space-y-3 border-t border-border/60 pt-3">
           <div
             className={cn(
@@ -177,18 +199,28 @@ export function AppSidebar({ items, user, isLoading = false, isMobile = false, o
           >
             <div className="flex items-center gap-3">
               <Avatar className="size-9">
-                <AvatarImage src={user?.avatarUrl ?? undefined} alt={user?.name ?? "Usuario"} />
-                <AvatarFallback>{initials(user?.name ?? user?.email ?? "")}</AvatarFallback>
+                <AvatarImage
+                  src={user?.avatarUrl ?? undefined}
+                  alt={user?.name ?? "Usuario"}
+                />
+                <AvatarFallback>
+                  {initials(user?.name ?? user?.email ?? "")}
+                </AvatarFallback>
               </Avatar>
               {!(isCollapsed && !isMobile) ? (
                 <div className="flex min-w-0 flex-col">
-                  <span className="truncate font-medium leading-tight">{user?.name ?? "Usuario"}</span>
+                  <span className="truncate font-medium leading-tight">
+                    {user?.name ?? "Usuario"}
+                  </span>
                   {user?.email ? (
-                    <span className="truncate text-xs text-muted-foreground">{user.email}</span>
+                    <span className="truncate text-xs text-muted-foreground">
+                      {user.email}
+                    </span>
                   ) : null}
                 </div>
               ) : null}
             </div>
+
             {!isMobile ? (
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -199,7 +231,11 @@ export function AppSidebar({ items, user, isLoading = false, isMobile = false, o
                     className="size-9"
                     onClick={handleToggle}
                   >
-                    {isCollapsed ? <ChevronsRight className="size-5" /> : <ChevronsLeft className="size-5" />}
+                    {isCollapsed ? (
+                      <ChevronsRight className="size-5" />
+                    ) : (
+                      <ChevronsLeft className="size-5" />
+                    )}
                     <span className="sr-only">
                       {isCollapsed ? "Expandir menú" : "Colapsar menú"}
                     </span>
