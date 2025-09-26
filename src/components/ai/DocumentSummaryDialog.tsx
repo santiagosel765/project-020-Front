@@ -14,7 +14,7 @@ import { Loader2, Copy, Download, Play, Pause, Square } from 'lucide-react';
 import SmartPDFViewer from '@/components/document/SmartPDFViewer';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import type { CuadroFirmaDetalle } from '@/services/documentsService';
@@ -91,15 +91,18 @@ export const DocumentSummaryDialog = forwardRef<DocumentSummaryDialogHandle, Doc
             return current;
           }
 
-          let savedVoiceURI: string | null = null;
+          let savedVoiceIdentifier: string | null = null;
           try {
-            savedVoiceURI = localStorage.getItem('ttsVoiceURI');
+            savedVoiceIdentifier = localStorage.getItem('ttsVoiceURI');
           } catch (error) {
-            savedVoiceURI = null;
+            savedVoiceIdentifier = null;
           }
 
-          const savedVoice = savedVoiceURI
-            ? spanishVoices.find((voice) => voice.voiceURI === savedVoiceURI)
+          const savedVoice = savedVoiceIdentifier
+            ? spanishVoices.find(
+                (voice) =>
+                  voice.voiceURI === savedVoiceIdentifier || voice.name === savedVoiceIdentifier,
+              )
             : undefined;
 
           if (savedVoice) {
@@ -121,7 +124,10 @@ export const DocumentSummaryDialog = forwardRef<DocumentSummaryDialogHandle, Doc
     useEffect(() => {
       if (typeof window === 'undefined' || !selectedVoice) return;
       try {
-        localStorage.setItem('ttsVoiceURI', selectedVoice.voiceURI);
+        const identifier = selectedVoice.voiceURI || selectedVoice.name || '';
+        if (identifier) {
+          localStorage.setItem('ttsVoiceURI', identifier);
+        }
       } catch (error) {
         // ignore write errors
       }
@@ -259,12 +265,16 @@ export const DocumentSummaryDialog = forwardRef<DocumentSummaryDialogHandle, Doc
     );
 
     const handleVoiceChange = useCallback(
-      (voiceURI: string) => {
-        const nextVoice = voices.find((voice) => voice.voiceURI === voiceURI) ?? null;
+      (identifier: string) => {
+        const nextVoice =
+          voices.find((voice) => voice.voiceURI === identifier || voice.name === identifier) ?? null;
         if (!nextVoice) return;
         setSelectedVoice(nextVoice);
         try {
-          localStorage.setItem('ttsVoiceURI', nextVoice.voiceURI);
+          const storageIdentifier = nextVoice.voiceURI || nextVoice.name || '';
+          if (storageIdentifier) {
+            localStorage.setItem('ttsVoiceURI', storageIdentifier);
+          }
         } catch (error) {
           // ignore write errors
         }
@@ -417,23 +427,21 @@ export const DocumentSummaryDialog = forwardRef<DocumentSummaryDialogHandle, Doc
 
     return (
       <Dialog open={isOpen} onOpenChange={handleOpenChange}>
-        <DialogContent className="max-h-[100dvh] overflow-hidden">
-          <DialogHeader>
+        <DialogContent aria-describedby="summary-pdf-desc" className="max-h-[100dvh] p-0">
+          <DialogHeader className="px-6 pt-6">
             <DialogTitle>Resumen del documento</DialogTitle>
+            <DialogDescription id="summary-pdf-desc" className="sr-only">
+              Vista previa del PDF y herramientas para resumirlo.
+            </DialogDescription>
           </DialogHeader>
-          <div className="flex flex-col gap-4 p-4 lg:flex-row">
-            <div className="w-full lg:w-1/2">
-              <SmartPDFViewer
-                key={pdfUrl ?? 'no-pdf'}
-                srcPdf={pdfUrl}
-                className="h-[min(75vh,calc(100dvh-12rem))] lg:h-[calc(100dvh-16rem)]"
-                openLabel="Abrir documento"
-                initialMode="iframe"
-                preferEmbedOnIOS
-                timeoutMs={2500}
-              />
-            </div>
-            <div className="flex w-full min-h-0 flex-col gap-3 lg:w-1/2">
+          <div className="px-6 pb-6">
+            <div className="flex flex-col gap-4 lg:flex-row">
+              <div className="w-full lg:w-1/2">
+                <div className="h-[min(75vh,calc(100dvh-12rem))] lg:h-[calc(100dvh-16rem)] w-full">
+                  <SmartPDFViewer key={pdfUrl ?? 'no-pdf'} src={pdfUrl} openLabel="Abrir documento" />
+                </div>
+              </div>
+              <div className="flex w-full min-h-0 flex-col gap-3 lg:w-1/2">
               <div className="flex flex-wrap items-center justify-end gap-2">
                 <Button onClick={generateSummary} disabled={isLoading}>
                   {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
@@ -450,12 +458,15 @@ export const DocumentSummaryDialog = forwardRef<DocumentSummaryDialogHandle, Doc
                     {voices.length > 1 && (
                       <select
                         className="h-9 rounded-md border bg-background px-2 text-sm"
-                        value={selectedVoice?.voiceURI ?? ''}
+                        value={selectedVoice ? selectedVoice.voiceURI || selectedVoice.name : ''}
                         onChange={(event) => handleVoiceChange(event.target.value)}
                         aria-label="Seleccionar voz para lectura"
                       >
-                        {voices.map((voice) => (
-                          <option key={voice.voiceURI} value={voice.voiceURI}>
+                        {voices.map((voice, index) => (
+                          <option
+                            key={`${voice.voiceURI || voice.name}-${index}`}
+                            value={voice.voiceURI || voice.name}
+                          >
                             {voice.name || voice.voiceURI}
                           </option>
                         ))}
