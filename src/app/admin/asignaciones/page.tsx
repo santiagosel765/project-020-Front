@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useMemo, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -24,7 +25,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { SignersTable } from "@/components/signers-table";
-import { SignersSelected } from "@/components/signers-selected";
+import SelectedSigners from "@/components/assignments/SelectedSigners";
+import api from "@/lib/axiosConfig";
 
 
 type Signatory = Omit<User, 'id'> & { id: number; responsibility: 'REVISA' | 'APRUEBA' | 'ENTERADO' | null };
@@ -37,6 +39,7 @@ const toNumericId = (raw: unknown): number | null => {
 
 export default function AsignacionesPage() {
   const { toast } = useToast();
+  const router = useRouter();
 
   const [searchTerm, setSearchTerm] = useState("");
   const [users, setUsers] = useState<User[]>([]);
@@ -46,6 +49,17 @@ export default function AsignacionesPage() {
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [pdfFileName, setPdfFileName] = useState<string | null>(null);
   const pdfInputRef = useRef<HTMLInputElement>(null);
+
+  const resetFormState = (form: HTMLFormElement) => {
+    setSignatories([]);
+    setDocumentContent("");
+    setPdfFile(null);
+    setPdfFileName(null);
+    if (pdfInputRef.current) {
+      pdfInputRef.current.value = "";
+    }
+    form.reset();
+  };
 
 
   useEffect(() => {
@@ -120,12 +134,12 @@ export default function AsignacionesPage() {
     }
   };
 
-const handleSubmit = async (event: React.FormEvent) => {
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
   event.preventDefault();
   setIsLoading(true);
 
-  const codeInput = document.getElementById('code') as HTMLInputElement | null;
-  codeInput?.classList.remove('border-red-500');
+  const codeInput = document.getElementById("code") as HTMLInputElement | null;
+  codeInput?.classList.remove("border-red-500");
 
   if (!pdfFile) {
     toast({ variant: "destructive", title: "Falta el archivo PDF", description: "Cargue un PDF para continuar." });
@@ -134,89 +148,130 @@ const handleSubmit = async (event: React.FormEvent) => {
   }
 
   const form = event.target as HTMLFormElement;
-  let created = false;
+
   try {
     const me = await getMe();
-    const title = (form.elements.namedItem('title') as HTMLInputElement).value;
+    const currentUserId = Number(me?.id);
+    const title = (form.elements.namedItem("title") as HTMLInputElement).value;
 
     const meta = {
       titulo: title,
       descripcion: documentContent,
-      version: (form.elements.namedItem('version') as HTMLInputElement).value,
-      codigo: (form.elements.namedItem('code') as HTMLInputElement).value,
+      version: (form.elements.namedItem("version") as HTMLInputElement).value,
+      codigo: (form.elements.namedItem("code") as HTMLInputElement).value,
       empresa_id: 1,
       createdBy: me.id,
     };
 
     const responsables = buildResponsables({
       elaboraUserId: me.id,
-      revisaUserIds: signatories.filter((s) => s.responsibility === 'REVISA').map((s) => s.id),
-      apruebaUserIds: signatories.filter((s) => s.responsibility === 'APRUEBA').map((s) => s.id),
+      revisaUserIds: signatories.filter((s) => s.responsibility === "REVISA").map((s) => s.id),
+      apruebaUserIds: signatories.filter((s) => s.responsibility === "APRUEBA").map((s) => s.id),
     });
 
     const formData = new FormData();
-    formData.append('file', pdfFile);
-    formData.append('responsables', JSON.stringify(responsables));
+    formData.append("file", pdfFile);
+    formData.append("responsables", JSON.stringify(responsables));
     Object.entries(meta).forEach(([k, v]) => formData.append(k, v as any));
 
     await createCuadroFirma(formData);
-    created = true;
+
+    resetFormState(form);
+
+    const extractItems = (payload: any): any[] => {
+      if (!payload || typeof payload !== "object") return [];
+      if (Array.isArray(payload.items)) return payload.items;
+      const data = payload.data ?? payload.result ?? payload.body;
+      if (data && Array.isArray(data.items)) return data.items;
+      if (data && Array.isArray(data.documentos)) return data.documentos;
+      if (Array.isArray(payload.data)) return payload.data;
+      return [];
+    };
+
+    const pickId = (items: any[]): number | undefined => {
+      if (!Array.isArray(items) || items.length === 0) return undefined;
+      const mine = Number.isFinite(currentUserId)
+        ? items.find((item) => item?.usuarioCreacion?.id === currentUserId)
+        : undefined;
+      const candidate = mine ?? items[0];
+      const rawId = candidate?.id;
+      const numericId = typeof rawId === "number" ? rawId : Number(rawId);
+      return Number.isFinite(numericId) ? (numericId as number) : undefined;
+    };
+
+    const fetchLatestId = async (limit: number): Promise<number | undefined> => {
+      const { data } = await api.get(
+        "/documents/cuadro-firmas/documentos/supervision",
+        { params: { page: 1, limit, sort: "desc" } },
+      );
+      return pickId(extractItems(data));
+    };
+
+    let nextId: number | undefined;
+    try {
+      nextId = await fetchLatestId(1);
+      if (!nextId) {
+        nextId = await fetchLatestId(5);
+      }
+    } catch (lookupError) {
+      console.error("Document lookup error:", lookupError);
+    }
+
+    if (typeof nextId === "number") {
+      router.replace(`/documento/${nextId}`);
+      return;
+    }
+
+    toast({
+      title: "Documento enviado",
+      description: "No se pudo obtener el ID automáticamente. Revisa la lista de supervisión.",
+    });
   } catch (error: any) {
     const status = error?.response?.status;
-    let message = error?.response?.data?.message || error?.message || '';
-    if (Array.isArray(message)) message = message.join(' | ');
+    let message = error?.response?.data?.message || error?.message || "";
+    if (Array.isArray(message)) message = message.join(" | ");
     const m = String(message).toLowerCase();
 
-    console.error('Document creation error:', error);
+    console.error("Document creation error:", error);
 
-    if (status === 409 || m.includes('código') || m.includes('codigo') || m.includes('conflictexception')) {
+    if (status === 409 || m.includes("código") || m.includes("codigo") || m.includes("conflictexception")) {
       toast({
-        variant: 'destructive',
-        title: 'Código en uso',
-        description: 'Ya existe un documento con ese código. Cambia el código y vuelve a intentar.',
+        variant: "destructive",
+        title: "Código en uso",
+        description: "Ya existe un documento con ese código. Cambia el código y vuelve a intentar.",
       });
       if (codeInput) {
-        codeInput.classList.add('border-red-500');
+        codeInput.classList.add("border-red-500");
         codeInput.focus();
-        codeInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        codeInput.scrollIntoView({ behavior: "smooth", block: "center" });
       }
       return;
     }
 
     if (
       status === 500 ||
-      m.includes('server has closed the connection') ||
-      m.includes('prisma') ||
-      m.includes('base de datos')
+      m.includes("server has closed the connection") ||
+      m.includes("prisma") ||
+      m.includes("base de datos")
     ) {
       toast({
-        variant: 'destructive',
-        title: 'Conexión a BD inestable',
-        description: 'Vuelve a intentar en unos segundos.',
+        variant: "destructive",
+        title: "Conexión a BD inestable",
+        description: "Vuelve a intentar en unos segundos.",
       });
       return;
     }
 
     toast({
-      variant: 'destructive',
-      title: 'Error de creación',
-      description: message || 'Hubo un problema al crear el documento.',
+      variant: "destructive",
+      title: "Error de creación",
+      description: message || "Hubo un problema al crear el documento.",
     });
     return;
   } finally {
     setIsLoading(false);
   }
-
-  if (created) {
-    toast({ title: 'Documento Enviado', description: 'El documento se envió para firma.' });
-    setSignatories([]);
-    setDocumentContent('');
-    setPdfFile(null);
-    setPdfFileName(null);
-    if (pdfInputRef.current) pdfInputRef.current.value = '';
-    form.reset();
-  }
-};
+  };
 
   const isSubmitDisabled = useMemo(() => {
     if (isLoading || signatories.length === 0 || !pdfFile) return true;
@@ -324,8 +379,8 @@ const handleSubmit = async (event: React.FormEvent) => {
 
               <Separator className="my-2" />
 
-              <SignersSelected
-                signers={signatories.map((signer) => ({ id: signer.id, name: signer.name }))}
+              <SelectedSigners
+                selected={signatories.map((signer) => ({ id: signer.id, nombre: signer.name }))}
                 onRemove={(id) => removeSignatory(Number(id))}
               />
 
