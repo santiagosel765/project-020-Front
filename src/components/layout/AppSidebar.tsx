@@ -9,6 +9,7 @@ import * as Lucide from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { BrandLogo } from "@/components/brand/BrandLogo";
 import {
   Tooltip,
   TooltipContent,
@@ -132,6 +133,20 @@ export function AppSidebar({ items, user, isLoading = false, isMobile = false, o
         )}
       >
         <div className="flex-1 overflow-y-auto">
+          <div className="sticky top-0 z-10 bg-background/70 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+            <div className={cn(isMobile ? "px-2 pt-2" : undefined)}>
+              <BrandLogo
+                className={cn(
+                  isMobile ? "px-2 py-3" : undefined,
+                  isCollapsed && !isMobile ? "justify-center px-0" : undefined
+                )}
+                imageClassName={cn(
+                  isCollapsed && !isMobile ? "h-8 w-full object-contain" : undefined
+                )}
+              />
+            </div>
+            <div className="h-px w-full bg-border" />
+          </div>
           <nav aria-label="Navegación principal" className="flex flex-col gap-1">
             {isLoading ? (
               <div className="flex flex-col gap-1">
