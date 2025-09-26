@@ -5,9 +5,6 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Bell, Loader2, Check, MailOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/store/auth";
 import { useNotifications } from "@/store/notifications";
@@ -112,8 +109,12 @@ export function NotificationBell() {
         offset={8}
         className="z-[1000] w-96 overflow-hidden rounded-xl border bg-popover p-0 shadow-xl"
       >
-        <div className="flex max-h-[60vh] flex-col" role="region" aria-live="polite">
-          <div className="flex items-center justify-between px-4 py-3">
+        <div
+          className="flex max-h-[min(70dvh,560px)] flex-col"
+          role="region"
+          aria-live="polite"
+        >
+          <div className="sticky top-0 z-10 flex items-center justify-between border-b bg-background/80 px-4 py-3 backdrop-blur">
             <p className="p-0 text-base font-medium">Notificaciones</p>
             <Button
               variant="ghost"
@@ -129,9 +130,7 @@ export function NotificationBell() {
               Marcar todas
             </Button>
           </div>
-          <Separator />
-
-          <ScrollArea className="max-h-[50vh] min-h-[200px]">
+          <div className="max-h-[min(70dvh,560px)] min-h-[200px] overflow-y-auto">
             {loading ? (
               <div className="p-6 text-center text-sm text-muted-foreground">Cargando…</div>
             ) : error ? (
@@ -149,45 +148,63 @@ export function NotificationBell() {
                 </Button>
               </div>
             ) : (
-              <ul className="py-1">
-                {items.map((n) => (
-                  <li key={n.id}>
-                    <button
-                      type="button"
-                      className="w-full px-2 text-left hover:bg-muted/60 focus:bg-muted/60 focus-visible:bg-muted/60 focus-visible:outline-none"
-                      onClick={async () => {
-                        setOpen(false);
-                        await handleItemSelect(n);
-                      }}
-                    >
-                      <div className="flex items-start gap-3 py-1">
+              <ul className="divide-y">
+                {items.map((n) => {
+                  const createdAgo = timeAgo(n.createdAt);
+                  return (
+                    <li key={n.id}>
+                      <button
+                        type="button"
+                        className="group grid w-full grid-cols-[32px,1fr,auto] items-start gap-3 rounded-lg px-4 py-3 text-left hover:bg-accent/50 focus:bg-accent/60 focus-visible:outline-none md:grid-cols-[36px,1fr,auto]"
+                        onClick={async () => {
+                          setOpen(false);
+                          await handleItemSelect(n);
+                        }}
+                      >
                         <div className="mt-0.5 text-muted-foreground" aria-hidden="true">
-                          {n.isRead ? <MailOpen className="h-4 w-4" /> : <Bell className="h-4 w-4" />}
+                          {n.isRead ? (
+                            <MailOpen className="h-5 w-5 md:h-5 md:w-5" />
+                          ) : (
+                            <Bell className="h-5 w-5 md:h-5 md:w-5" />
+                          )}
                         </div>
-                        <div className="min-w-0 flex-1">
-                          <p className={`truncate text-sm ${n.isRead ? "text-muted-foreground" : "font-medium"}`}>
+
+                        <div className="min-w-0">
+                          <p
+                            className={`font-medium leading-snug break-words whitespace-normal hyphens-auto [overflow-wrap:anywhere] ${
+                              n.isRead ? "text-muted-foreground" : "text-foreground"
+                            }`}
+                          >
                             {n.title}
                           </p>
                           {n.message ? (
-                            <p className="line-clamp-2 text-xs text-muted-foreground">{n.message}</p>
+                            <p className="mt-1 text-sm text-muted-foreground leading-snug break-words whitespace-normal hyphens-auto [overflow-wrap:anywhere] md:line-clamp-2">
+                              {n.message}
+                            </p>
                           ) : null}
-                          <p className="mt-0.5 text-[11px] text-muted-foreground">{timeAgo(n.createdAt)}</p>
+                          <time className="mt-1 block text-right text-xs text-muted-foreground md:hidden">
+                            {createdAgo}
+                          </time>
                         </div>
-                        {!n.isRead && (
-                          <Badge className="shrink-0" aria-label="Notificación nueva">
-                            Nuevo
-                          </Badge>
-                        )}
-                      </div>
-                    </button>
-                    <Separator />
-                  </li>
-                ))}
+
+                        <div className="ml-2 flex shrink-0 items-start gap-2">
+                          {!n.isRead ? (
+                            <span
+                              className="mt-1 inline-block h-2.5 w-2.5 rounded-full bg-primary"
+                              aria-label="Sin leer"
+                            />
+                          ) : null}
+                          <time className="hidden text-xs text-muted-foreground md:block">{createdAgo}</time>
+                        </div>
+                      </button>
+                    </li>
+                  );
+                })}
               </ul>
             )}
-          </ScrollArea>
+          </div>
 
-          <div className="flex items-center justify-end gap-2 border-t px-4 py-3">
+          <div className="sticky bottom-0 z-10 border-t bg-background/80 px-4 py-2 text-right backdrop-blur">
             <Link href="/notificaciones" className="text-xs text-primary underline underline-offset-2">
               Ver todas
             </Link>
