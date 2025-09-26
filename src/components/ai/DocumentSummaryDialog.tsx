@@ -11,7 +11,7 @@ import React, {
 import ReactMarkdown from 'react-markdown';
 import { Loader2, Copy, Download, Play, Pause, Square } from 'lucide-react';
 
-import NativePDF from '@/components/document/NativePDF';
+import SmartPDFViewer from '@/components/document/SmartPDFViewer';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -421,15 +421,16 @@ export const DocumentSummaryDialog = forwardRef<DocumentSummaryDialogHandle, Doc
           <DialogHeader>
             <DialogTitle>Resumen del documento</DialogTitle>
           </DialogHeader>
-          <div className="grid grid-cols-1 gap-4 p-4 lg:grid-cols-2">
-            <div className="min-h-0 overflow-hidden">
-              <NativePDF
-                src={pdfUrl}
-                className="h-[min(80vh,calc(100dvh-12rem))]"
+          <div className="flex flex-col gap-4 p-4 lg:flex-row">
+            <div className="w-full lg:w-1/2">
+              <SmartPDFViewer
+                key={pdfUrl ?? 'no-pdf'}
+                srcPdf={pdfUrl}
+                className="h-[min(75vh,calc(100dvh-12rem))] lg:h-[calc(100dvh-16rem)]"
                 openLabel="Abrir documento"
               />
             </div>
-            <div className="flex min-h-0 flex-col gap-3">
+            <div className="flex w-full min-h-0 flex-col gap-3 lg:w-1/2">
               <div className="flex flex-wrap items-center justify-end gap-2">
                 <Button onClick={generateSummary} disabled={isLoading}>
                   {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
