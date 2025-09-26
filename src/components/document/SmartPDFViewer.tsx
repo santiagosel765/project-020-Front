@@ -1,87 +1,85 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import * as React from "react";
+
 import { cn } from "@/lib/utils";
 
-type Props = {
-  /** URL absoluta del PDF (S3 firmado) */
-  srcPdf?: string | null;
+type SmartPDFViewerProps = {
   src?: string | null;
-  title?: string;
-  className?: string;
+  srcPdf?: string | null;
   openLabel?: string;
+  className?: string;
+  title?: string;
 };
 
-export default function SmartPDFViewer({
-  srcPdf,
+export function SmartPDFViewer({
   src,
-  title,
-  className,
+  srcPdf,
   openLabel = "Abrir documento",
-}: Props) {
-  const resolvedSrc = useMemo(() => src ?? srcPdf ?? null, [src, srcPdf]);
-  const [renderMode, setRenderMode] = useState<"iframe" | "link">(() =>
-    resolvedSrc ? "iframe" : "link",
-  );
+  className,
+  title,
+}: SmartPDFViewerProps) {
+  const resolvedSrc = React.useMemo(() => src ?? srcPdf ?? null, [src, srcPdf]);
+  const [loaded, setLoaded] = React.useState(false);
+  const [errored, setErrored] = React.useState(false);
 
-  useEffect(() => {
-    if (!resolvedSrc) {
-      setRenderMode("link");
-      return;
-    }
-
-    setRenderMode("iframe");
+  React.useEffect(() => {
+    setLoaded(false);
+    setErrored(false);
   }, [resolvedSrc]);
-
-  const container = cn(
-    "relative h-full w-full touch-pan-y overscroll-contain rounded-xl border bg-background",
-    className,
-  );
 
   if (!resolvedSrc) {
     return (
-      <div className={container} style={{ WebkitOverflowScrolling: "touch" }}>
-        <div className="grid h-[40vh] place-items-center text-sm text-muted-foreground">
-          Sin vista disponible
-        </div>
+      <div className={cn("grid h-full w-full place-items-center p-4", className)}>
+        <span className="text-sm text-muted-foreground">No hay PDF disponible.</span>
+      </div>
+    );
+  }
+
+  if (errored) {
+    return (
+      <div className={cn("grid h-full w-full place-items-center p-4", className)}>
+        <a
+          href={resolvedSrc}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="rounded-lg border bg-background px-3 py-2 text-sm shadow"
+        >
+          {openLabel}
+        </a>
       </div>
     );
   }
 
   return (
     <div
-      className={container}
+      className={cn("relative h-full w-full touch-pan-y overscroll-contain", className)}
       style={{ WebkitOverflowScrolling: "touch" }}
-      role="document"
-      aria-label="Visor de PDF"
+      data-loaded={loaded ? "true" : "false"}
     >
-      {renderMode === "iframe" && (
-        <iframe
-          key={resolvedSrc}
-          src={resolvedSrc}
-          title={title ?? "PDF"}
-          className="block h-full w-full border-0"
-          loading="lazy"
-          referrerPolicy="no-referrer-when-downgrade"
-          scrolling="yes"
-          onError={() => setRenderMode("link")}
-        />
-      )}
-
-      {renderMode === "link" && (
-        <div className="absolute inset-0 grid place-items-center p-4 text-sm text-muted-foreground">
-          No se pudo cargar la vista previa.
-        </div>
-      )}
-
-      <a
-        href={resolvedSrc}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="absolute bottom-3 right-3 rounded-xl border bg-background/80 px-3 py-2 text-xs shadow"
-      >
-        {openLabel}
-      </a>
+      <iframe
+        key={resolvedSrc}
+        src={resolvedSrc}
+        title={title ?? "PDF"}
+        className="block h-full w-full border-0"
+        loading="lazy"
+        referrerPolicy="no-referrer-when-downgrade"
+        scrolling="yes"
+        onLoad={() => setLoaded(true)}
+        onError={() => setErrored(true)}
+      />
+      <div className="pointer-events-none absolute bottom-3 right-3">
+        <a
+          href={resolvedSrc}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="pointer-events-auto rounded-lg border bg-background px-3 py-2 text-sm shadow"
+        >
+          {openLabel}
+        </a>
+      </div>
     </div>
   );
 }
+
+export default SmartPDFViewer;

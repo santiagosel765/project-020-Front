@@ -427,92 +427,97 @@ export const DocumentSummaryDialog = forwardRef<DocumentSummaryDialogHandle, Doc
 
     return (
       <Dialog open={isOpen} onOpenChange={handleOpenChange}>
-        <DialogContent aria-describedby="summary-pdf-desc" className="max-h-[100dvh] p-0">
+        <DialogContent aria-describedby="summary-pdf-desc" className="p-0">
           <DialogHeader className="px-6 pt-6">
             <DialogTitle>Resumen del documento</DialogTitle>
             <DialogDescription id="summary-pdf-desc" className="sr-only">
               Vista previa del PDF y herramientas para resumirlo.
             </DialogDescription>
           </DialogHeader>
+
+          {/* Body del modal */}
           <div className="px-6 pb-6">
             <div className="flex flex-col gap-4 lg:flex-row">
               <div className="w-full lg:w-1/2">
-                <div className="h-[min(75vh,calc(100dvh-12rem))] lg:h-[calc(100dvh-16rem)] w-full">
-                  <SmartPDFViewer key={pdfUrl ?? 'no-pdf'} src={pdfUrl} openLabel="Abrir documento" />
+                {/* Contenedor del visor: altura fija; el scroll debe ocurrir DENTRO del iframe */}
+                <div className="h-[min(75vh,calc(100dvh-12rem))] w-full lg:h-[calc(100dvh-16rem)]">
+                  <SmartPDFViewer src={pdfUrl ?? undefined} openLabel="Abrir documento" />
                 </div>
               </div>
+
+              {/* --- Mantén aquí tu UI existente (controles de resumen, textarea, botones, etc.) --- */}
               <div className="flex w-full min-h-0 flex-col gap-3 lg:w-1/2">
-              <div className="flex flex-wrap items-center justify-end gap-2">
-                <Button onClick={generateSummary} disabled={isLoading}>
-                  {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  {isLoading ? 'Generando…' : 'Generar'}
-                </Button>
-                <Button variant="outline" onClick={copyToClipboard} disabled={!markdown.trim()}>
-                  <Copy className="mr-2 h-4 w-4" /> Copiar
-                </Button>
-                <Button variant="outline" onClick={downloadMarkdown} disabled={!markdown.trim()}>
-                  <Download className="mr-2 h-4 w-4" /> Descargar .md
-                </Button>
-                {isSpeechSupported ? (
-                  <div className="flex items-center gap-2">
-                    {voices.length > 1 && (
-                      <select
-                        className="h-9 rounded-md border bg-background px-2 text-sm"
-                        value={selectedVoice ? selectedVoice.voiceURI || selectedVoice.name : ''}
-                        onChange={(event) => handleVoiceChange(event.target.value)}
-                        aria-label="Seleccionar voz para lectura"
-                      >
-                        {voices.map((voice, index) => (
-                          <option
-                            key={`${voice.voiceURI || voice.name}-${index}`}
-                            value={voice.voiceURI || voice.name}
-                          >
-                            {voice.name || voice.voiceURI}
-                          </option>
-                        ))}
-                      </select>
-                    )}
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      onClick={handlePlay}
-                      aria-label="Reproducir lectura en voz alta"
-                      disabled={!markdown.trim() || !selectedVoice || speechStatus !== 'idle'}
-                    >
-                      <Play className="h-4 w-4" />
-                    </Button>
-                    {speechStatus === 'playing' && (
+                <div className="flex flex-wrap items-center justify-end gap-2">
+                  <Button onClick={generateSummary} disabled={isLoading}>
+                    {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    {isLoading ? 'Generando…' : 'Generar'}
+                  </Button>
+                  <Button variant="outline" onClick={copyToClipboard} disabled={!markdown.trim()}>
+                    <Copy className="mr-2 h-4 w-4" /> Copiar
+                  </Button>
+                  <Button variant="outline" onClick={downloadMarkdown} disabled={!markdown.trim()}>
+                    <Download className="mr-2 h-4 w-4" /> Descargar .md
+                  </Button>
+                  {isSpeechSupported ? (
+                    <div className="flex items-center gap-2">
+                      {voices.length > 1 && (
+                        <select
+                          className="h-9 rounded-md border bg-background px-2 text-sm"
+                          value={selectedVoice ? selectedVoice.voiceURI || selectedVoice.name : ''}
+                          onChange={(event) => handleVoiceChange(event.target.value)}
+                          aria-label="Seleccionar voz para lectura"
+                        >
+                          {voices.map((voice, index) => (
+                            <option
+                              key={`${voice.voiceURI || voice.name}-${index}`}
+                              value={voice.voiceURI || voice.name}
+                            >
+                              {voice.name || voice.voiceURI}
+                            </option>
+                          ))}
+                        </select>
+                      )}
                       <Button
                         variant="outline"
                         size="icon"
-                        onClick={handlePause}
-                        aria-label="Pausar lectura en voz alta"
-                        disabled={speechStatus !== 'playing'}
-                      >
-                        <Pause className="h-4 w-4" />
-                      </Button>
-                    )}
-                    {speechStatus === 'paused' && (
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        onClick={handleResume}
-                        aria-label="Reanudar lectura en voz alta"
-                        disabled={speechStatus !== 'paused'}
+                        onClick={handlePlay}
+                        aria-label="Reproducir lectura en voz alta"
+                        disabled={!markdown.trim() || !selectedVoice || speechStatus !== 'idle'}
                       >
                         <Play className="h-4 w-4" />
                       </Button>
-                    )}
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      onClick={handleStop}
-                      aria-label="Detener lectura en voz alta"
-                      disabled={speechStatus === 'idle'}
-                    >
-                      <Square className="h-4 w-4" />
-                    </Button>
-                  </div>
+                      {speechStatus === 'playing' && (
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          onClick={handlePause}
+                          aria-label="Pausar lectura en voz alta"
+                          disabled={speechStatus !== 'playing'}
+                        >
+                          <Pause className="h-4 w-4" />
+                        </Button>
+                      )}
+                      {speechStatus === 'paused' && (
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          onClick={handleResume}
+                          aria-label="Reanudar lectura en voz alta"
+                          disabled={speechStatus !== 'paused'}
+                        >
+                          <Play className="h-4 w-4" />
+                        </Button>
+                      )}
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={handleStop}
+                        aria-label="Detener lectura en voz alta"
+                        disabled={speechStatus === 'idle'}
+                      >
+                        <Square className="h-4 w-4" />
+                      </Button>
+                    </div>
                   ) : (
                     <Tooltip>
                       <TooltipTrigger asChild>
@@ -539,25 +544,26 @@ export const DocumentSummaryDialog = forwardRef<DocumentSummaryDialogHandle, Doc
                       <TooltipContent>Lectura no soportada en este navegador</TooltipContent>
                     </Tooltip>
                   )}
+                </div>
+                <ScrollArea
+                  className="h-[min(70vh,calc(100dvh-16rem))] min-h-0 rounded-md border bg-background p-3"
+                  role="document"
+                  aria-live="polite"
+                >
+                  {markdown.trim() ? (
+                    <div>
+                      <ReactMarkdown className="prose prose-sm max-w-none dark:prose-invert">{markdown}</ReactMarkdown>
+                    </div>
+                  ) : isLoading ? (
+                    <div className="flex min-h-[16rem] items-center justify-center gap-2 text-sm text-muted-foreground">
+                      <Loader2 className="h-4 w-4 animate-spin" /> Generando resumen…
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">Genera el resumen para visualizarlo aquí.</p>
+                  )}
+                </ScrollArea>
+                {error && <p className="text-sm text-destructive">{error}</p>}
               </div>
-              <ScrollArea
-                className="h-[min(70vh,calc(100dvh-16rem))] min-h-0 rounded-md border bg-background p-3"
-                role="document"
-                aria-live="polite"
-              >
-                {markdown.trim() ? (
-                  <div>
-                    <ReactMarkdown className="prose prose-sm max-w-none dark:prose-invert">{markdown}</ReactMarkdown>
-                  </div>
-                ) : isLoading ? (
-                  <div className="flex min-h-[16rem] items-center justify-center gap-2 text-sm text-muted-foreground">
-                    <Loader2 className="h-4 w-4 animate-spin" /> Generando resumen…
-                  </div>
-                ) : (
-                  <p className="text-sm text-muted-foreground">Genera el resumen para visualizarlo aquí.</p>
-                )}
-              </ScrollArea>
-              {error && <p className="text-sm text-destructive">{error}</p>}
             </div>
           </div>
         </DialogContent>
