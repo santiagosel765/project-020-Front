@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, type CSSProperties } from "react";
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
-import NativePDF from "./NativePDF";
+import SmartPDFViewer from "./SmartPDFViewer";
 
 export type DocumentTabValue = "firmas" | "original";
 
@@ -95,11 +95,11 @@ export function DocumentTabs({
       </div>
 
       <TabsContent value="firmas" className="mt-0 h-full overflow-hidden data-[state=inactive]:hidden">
-        <NativePDF src={urlCuadroFirmasPDF ?? null} className="h-full" />
+        <SmartPDFViewer srcPdf={urlCuadroFirmasPDF ?? null} className="h-full" />
       </TabsContent>
 
       <TabsContent value="original" className="mt-0 h-full overflow-hidden data-[state=inactive]:hidden">
-        <NativePDF src={urlDocumento ?? null} className="h-full" />
+        <SmartPDFViewer srcPdf={urlDocumento ?? null} className="h-full" />
       </TabsContent>
     </Tabs>
   );

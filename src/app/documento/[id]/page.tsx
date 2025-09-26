@@ -247,7 +247,7 @@ export default function DocumentDetailPage() {
         <div className="mt-4 grid grid-cols-12 gap-4">
           <div className="col-span-12 md:col-span-8 xl:col-span-9">
             <div
-              className="h-[calc(100dvh-var(--app-header-h)-theme(spacing.10))] min-h-0 overflow-hidden pb-[calc(env(safe-area-inset-bottom)+88px)] md:pb-0"
+              className="h-[calc(100dvh-var(--app-header-h)-theme(spacing.10))] min-h-0 overflow-auto overscroll-y-contain pb-[calc(env(safe-area-inset-bottom)+88px)] md:pb-0"
             >
               <DocumentTabs
                 urlCuadroFirmasPDF={detalle.urlCuadroFirmasPDF}
