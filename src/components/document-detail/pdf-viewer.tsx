@@ -1,13 +1,15 @@
-"use client";
+'use client';
 
-import SmartPDFViewer from '@/components/document/SmartPDFViewer';
+import NativePDF from '@/components/document/NativePDF';
 
-type DocumentPdfViewerProps = {
+export function DocumentPdfViewer({
+  pdfUrl,
+  className,
+  openLabel,
+}: {
   pdfUrl?: string | null;
   className?: string;
   openLabel?: string;
-};
-
-export function DocumentPdfViewer({ pdfUrl, className, openLabel }: DocumentPdfViewerProps) {
-  return <SmartPDFViewer srcPdf={pdfUrl ?? null} className={className} openLabel={openLabel} />;
+}) {
+  return <NativePDF src={pdfUrl ?? null} className={className} openLabel={openLabel} />;
 }

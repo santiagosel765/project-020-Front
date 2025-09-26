@@ -11,7 +11,7 @@ import React, {
 import ReactMarkdown from 'react-markdown';
 import { Loader2, Copy, Download, Play, Pause, Square } from 'lucide-react';
 
-import SmartPDFViewer from '@/components/document/SmartPDFViewer';
+import NativePDF from '@/components/document/NativePDF';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -421,15 +421,15 @@ export const DocumentSummaryDialog = forwardRef<DocumentSummaryDialogHandle, Doc
           <DialogHeader>
             <DialogTitle>Resumen del documento</DialogTitle>
           </DialogHeader>
-          <div className="flex flex-col gap-4 p-4 lg:flex-row">
-            <div className="w-full lg:w-1/2">
-              <SmartPDFViewer
-                srcPdf={pdfUrl}
-                className="h-[min(70vh,calc(100dvh-12rem))]"
+          <div className="grid grid-cols-1 gap-4 p-4 lg:grid-cols-2">
+            <div className="min-h-0 overflow-hidden">
+              <NativePDF
+                src={pdfUrl}
+                className="h-[min(80vh,calc(100dvh-12rem))]"
                 openLabel="Abrir documento"
               />
             </div>
-            <div className="w-full flex flex-col gap-3 lg:w-1/2">
+            <div className="flex min-h-0 flex-col gap-3">
               <div className="flex flex-wrap items-center justify-end gap-2">
                 <Button onClick={generateSummary} disabled={isLoading}>
                   {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
@@ -525,21 +525,23 @@ export const DocumentSummaryDialog = forwardRef<DocumentSummaryDialogHandle, Doc
                     </Tooltip>
                   )}
               </div>
-              <div className="flex-1 rounded-lg border bg-background">
-                <ScrollArea className="h-[24rem] lg:h-[60vh]" role="document" aria-live="polite">
-                  {markdown.trim() ? (
-                    <div className="p-4">
-                      <ReactMarkdown className="prose prose-sm max-w-none dark:prose-invert">{markdown}</ReactMarkdown>
-                    </div>
-                  ) : isLoading ? (
-                    <div className="flex min-h-[16rem] items-center justify-center gap-2 p-4 text-sm text-muted-foreground">
-                      <Loader2 className="h-4 w-4 animate-spin" /> Generando resumen…
-                    </div>
-                  ) : (
-                    <p className="p-4 text-sm text-muted-foreground">Genera el resumen para visualizarlo aquí.</p>
-                  )}
-                </ScrollArea>
-              </div>
+              <ScrollArea
+                className="h-[min(70vh,calc(100dvh-16rem))] min-h-0 rounded-md border bg-background p-3"
+                role="document"
+                aria-live="polite"
+              >
+                {markdown.trim() ? (
+                  <div>
+                    <ReactMarkdown className="prose prose-sm max-w-none dark:prose-invert">{markdown}</ReactMarkdown>
+                  </div>
+                ) : isLoading ? (
+                  <div className="flex min-h-[16rem] items-center justify-center gap-2 text-sm text-muted-foreground">
+                    <Loader2 className="h-4 w-4 animate-spin" /> Generando resumen…
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">Genera el resumen para visualizarlo aquí.</p>
+                )}
+              </ScrollArea>
               {error && <p className="text-sm text-destructive">{error}</p>}
             </div>
           </div>
