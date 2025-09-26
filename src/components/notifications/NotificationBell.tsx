@@ -60,16 +60,19 @@ export function NotificationBell() {
     void fetch({ userId: currentUser?.id ?? undefined });
   };
 
-  const handleItemSelect = async (notification: UINotification) => {
-    if (!currentUser?.id) return;
-    let success = true;
+  const openNotification = (notification: UINotification) => {
+    if (!notification.href) return;
+
+    router.push(notification.href);
+    setOpen(false);
+
     if (!notification.isRead) {
-      success = await markRead(notification.id);
-    }
-    if (notification.href) {
-      router.push(notification.href);
-    } else if (!success) {
-      await fetch({ silent: true });
+      void (async () => {
+        const success = await markRead(notification.id);
+        if (!success) {
+          await fetch({ silent: true });
+        }
+      })();
     }
   };
 
@@ -152,15 +155,19 @@ export function NotificationBell() {
                 {items.map((n) => {
                   const createdAgo = timeAgo(n.createdAt);
                   return (
-                    <li key={n.id}>
-                      <button
-                        type="button"
-                        className="group grid w-full grid-cols-[32px,1fr,auto] items-start gap-3 rounded-lg px-4 py-3 text-left hover:bg-accent/50 focus:bg-accent/60 focus-visible:outline-none md:grid-cols-[36px,1fr,auto]"
-                        onClick={async () => {
-                          setOpen(false);
-                          await handleItemSelect(n);
-                        }}
-                      >
+                    <li
+                      key={n.id}
+                      role="button"
+                      tabIndex={0}
+                      className="group grid w-full grid-cols-[32px,1fr,auto] cursor-pointer items-start gap-3 rounded-lg px-4 py-3 text-left hover:bg-accent/50 focus:bg-accent/60 focus-visible:outline-none md:grid-cols-[36px,1fr,auto]"
+                      onClick={() => openNotification(n)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          openNotification(n);
+                        }
+                      }}
+                    >
                         <div className="mt-0.5 text-muted-foreground" aria-hidden="true">
                           {n.isRead ? (
                             <MailOpen className="h-5 w-5 md:h-5 md:w-5" />
@@ -196,7 +203,6 @@ export function NotificationBell() {
                           ) : null}
                           <time className="hidden text-xs text-muted-foreground md:block">{createdAgo}</time>
                         </div>
-                      </button>
                     </li>
                   );
                 })}

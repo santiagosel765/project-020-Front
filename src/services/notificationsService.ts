@@ -10,7 +10,7 @@ export type UINotification = {
   createdAt: string;
   updatedAt?: string;
   isRead: boolean;
-  href?: string;
+  href: string;
   icon?: string;
 };
 
@@ -33,7 +33,7 @@ export function adaptNotification(n: BackendNotification): UINotification {
       n.updated_at ??
       undefined,
     isRead: Boolean(n.estaLeida ?? n.read ?? n.isRead ?? n.leida ?? false),
-    href: n.url ?? n.href ?? n.referencia_url ?? undefined,
+    href: String(n.url ?? n.href ?? n.referencia_url ?? ""),
     icon: n.tipo ?? n.type ?? undefined,
   };
 }
