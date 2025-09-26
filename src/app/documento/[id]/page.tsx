@@ -185,28 +185,18 @@ export default function DocumentDetailPage() {
     } satisfies Signer;
   });
 
-  const orderResponsabilidad = (nombre: string) => {
-    const n = nombre.toLowerCase();
-    if (n.startsWith('elabora')) return 1;
-    if (n.startsWith('revisa')) return 2;
-    if (n.startsWith('aprueba')) return 3;
-    return 99;
-  };
-
   const myAssignments = firmantes.filter((f) => f.user.id === currentUser?.id);
   const myPending = myAssignments.filter((f) => !f.estaFirmado);
-  const myOrder = myPending.length
-    ? Math.min(...myPending.map((p) => orderResponsabilidad(p.responsabilidad.nombre)))
-    : Infinity;
-  const blockingSigner = firmantes.find(
-    (f) => orderResponsabilidad(f.responsabilidad.nombre) < myOrder && !f.estaFirmado,
-  );
-  const canSign = myPending.length > 0 && !blockingSigner;
-  const blockMessage = blockingSigner
-    ? `No puede firmar hasta que firme: ${blockingSigner.user.nombre}`
-    : !myPending.length
-      ? 'No tienes firmas pendientes'
-      : undefined;
+  const isAssignedToMe = myAssignments.length > 0;
+  const hasPendingSignature = myPending.length > 0;
+  const alreadySigned = isAssignedToMe && !hasPendingSignature;
+  const canSign = isAssignedToMe && hasPendingSignature;
+  const canReject = isAssignedToMe && !alreadySigned;
+  const statusMessage = !isAssignedToMe
+    ? 'No tienes firmas pendientes'
+    : alreadySigned
+      ? 'Ya has firmado este documento.'
+      : 'Puedes firmar este documento cuando estés listo.';
 
   if (loading) {
     return (
@@ -319,7 +309,7 @@ export default function DocumentDetailPage() {
                   onClick={handleSign}
                   className="flex-1"
                   disabled={!canSign}
-                  title={blockMessage}
+                  title={statusMessage}
                 >
                   Firmar
                 </Button>
@@ -328,7 +318,7 @@ export default function DocumentDetailPage() {
                     variant="destructive"
                     className="flex-1"
                     onClick={() => setRejectOpen(true)}
-                    disabled={!canSign}
+                    disabled={!canReject}
                   >
                     Rechazar
                   </Button>
@@ -352,8 +342,8 @@ export default function DocumentDetailPage() {
                   </DialogContent>
                 </Dialog>
               </div>
-              {!canSign && blockMessage && (
-                <p className="mt-2 text-xs text-muted-foreground">{blockMessage}</p>
+              {statusMessage && (
+                <p className="mt-2 text-xs text-muted-foreground">{statusMessage}</p>
               )}
             </div>
             {activeTab === 'original' && (
