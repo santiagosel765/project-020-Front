@@ -428,6 +428,9 @@ export const DocumentSummaryDialog = forwardRef<DocumentSummaryDialogHandle, Doc
                 srcPdf={pdfUrl}
                 className="h-[min(75vh,calc(100dvh-12rem))] lg:h-[calc(100dvh-16rem)]"
                 openLabel="Abrir documento"
+                initialMode="iframe"
+                preferEmbedOnIOS
+                timeoutMs={2500}
               />
             </div>
             <div className="flex w-full min-h-0 flex-col gap-3 lg:w-1/2">

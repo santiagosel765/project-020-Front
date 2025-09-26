@@ -10,6 +10,8 @@ type Props = {
   openLabel?: string;
   /** ms para declarar que iframe no cargó y probar <embed> */
   timeoutMs?: number;
+  initialMode?: "iframe" | "embed";
+  preferEmbedOnIOS?: boolean;
 };
 
 export default function SmartPDFViewer({
@@ -17,20 +19,47 @@ export default function SmartPDFViewer({
   className,
   openLabel = "Abrir documento",
   timeoutMs = 2500,
+  initialMode,
+  preferEmbedOnIOS = false,
 }: Props) {
+  const isIOS =
+    typeof navigator !== "undefined" &&
+    (/iPad|iPhone|iPod/.test(navigator.userAgent) ||
+      (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1));
+
+  const [renderMode, setRenderMode] = useState<"iframe" | "embed" | "link">(() => {
+    if (!srcPdf) return "link";
+    if ((preferEmbedOnIOS && isIOS) || initialMode === "embed") return "embed";
+    return "iframe";
+  });
   const src = useMemo(() => (srcPdf ?? null), [srcPdf]);
-  const [renderMode, setRenderMode] = useState<"iframe" | "embed" | "link">("iframe");
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
+    if (!src) {
+      setRenderMode("link");
+      return;
+    }
+
+    if ((preferEmbedOnIOS && isIOS) || initialMode === "embed") {
+      setRenderMode("embed");
+      return;
+    }
+
     setRenderMode("iframe");
+  }, [src, preferEmbedOnIOS, isIOS, initialMode]);
+
+  useEffect(() => {
     setLoaded(false);
-    if (!src || timeoutMs <= 0) return;
+  }, [src, renderMode]);
+
+  useEffect(() => {
+    if (!src || !isIOS || renderMode !== "iframe" || (timeoutMs ?? 0) <= 0 || loaded) return;
     const t = window.setTimeout(() => {
-      if (!loaded) setRenderMode("embed"); // iOS a veces no pinta el iframe en modales
-    }, timeoutMs);
-    return () => window.clearTimeout(t);
-  }, [src, timeoutMs, loaded]);
+      if (!loaded) setRenderMode("embed");
+    }, timeoutMs ?? 2500);
+    return () => clearTimeout(t);
+  }, [src, isIOS, renderMode, loaded, timeoutMs]);
 
   const container = cn(
     "relative w-full rounded-xl border bg-background overflow-hidden",
@@ -61,14 +90,36 @@ export default function SmartPDFViewer({
       )}
 
       {renderMode === "embed" && (
-        <embed
-          key={src + "#embed"} // alternativa que suele funcionar en iOS
-          src={src}
-          type="application/pdf"
-          className="block h-full w-full"
-          onLoad={() => setLoaded(true)}
-          onError={() => setRenderMode("link")}
-        />
+        (isIOS ? (
+          <object
+            key={src + "#obj"}
+            data={src}
+            type="application/pdf"
+            className="block h-full w-full"
+            onLoad={() => setLoaded(true)}
+            onError={() => setRenderMode("link")}
+          >
+            <div className="grid h-full place-items-center p-4">
+              <a
+                href={src}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="rounded-lg border bg-background px-3 py-2 text-sm shadow"
+              >
+                {openLabel}
+              </a>
+            </div>
+          </object>
+        ) : (
+          <embed
+            key={src + "#embed"}
+            src={src}
+            type="application/pdf"
+            className="block h-full w-full"
+            onLoad={() => setLoaded(true)}
+            onError={() => setRenderMode("link")}
+          />
+        ))
       )}
 
       {renderMode === "link" && (
