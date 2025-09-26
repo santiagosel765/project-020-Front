@@ -13,8 +13,14 @@ export function DocumentPdfViewer({
   openLabel?: string;
 }) {
   return (
-    <div className={cn("h-[calc(100dvh-220px)] w-full", className)}>
-      <SmartPDFViewer src={pdfUrl ?? null} openLabel={openLabel} />
+    <div
+      className={cn("w-full", className)}
+      style={{
+        height: "calc(100dvh - 220px)",
+        overflow: "hidden",
+      }}
+    >
+      <SmartPDFViewer src={pdfUrl ?? null} openLabel={openLabel} className="h-full w-full" />
     </div>
   );
 }
