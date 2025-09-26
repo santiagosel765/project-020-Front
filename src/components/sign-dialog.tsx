@@ -24,7 +24,7 @@ import { Badge } from '@/components/ui/badge';
 import { initials } from '@/lib/avatar';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Checkbox } from '@/components/ui/checkbox';
-import { ExclamationTriangleIcon } from '@radix-ui/react-icons';
+import { AlertTriangle as ExclamationTriangleIcon } from 'lucide-react';
 
 export type SignDialogProps = {
   open: boolean;
