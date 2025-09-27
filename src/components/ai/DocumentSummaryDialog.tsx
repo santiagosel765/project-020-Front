@@ -14,7 +14,6 @@ import { Loader2, Copy, Download, Play, Pause, Square } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import type { CuadroFirmaDetalle } from '@/services/documentsService';
 
@@ -424,18 +423,21 @@ export const DocumentSummaryDialog = forwardRef<DocumentSummaryDialogHandle, Doc
 
     return (
       <Dialog open={isOpen} onOpenChange={handleOpenChange}>
-        <DialogContent aria-describedby="summary-pdf-desc" className="p-0">
-          <DialogHeader className="px-6 pt-6">
-            <DialogTitle>Resumen del documento</DialogTitle>
-            <DialogDescription id="summary-pdf-desc" className="sr-only">
-              Herramientas para generar y gestionar el resumen asistido por IA del documento.
-            </DialogDescription>
-          </DialogHeader>
+        <DialogContent
+          aria-describedby="summary-pdf-desc"
+          className="sm:max-w-[900px] max-h-[90vh] overflow-hidden p-0"
+        >
+          <div className="flex h-full flex-col">
+            <DialogHeader className="px-6 pt-6 pb-4">
+              <DialogTitle>Resumen del documento</DialogTitle>
+              <DialogDescription id="summary-pdf-desc" className="sr-only">
+                Herramientas para generar y gestionar el resumen asistido por IA del documento.
+              </DialogDescription>
+            </DialogHeader>
 
-          {/* Body del modal */}
-          <div className="px-6 pb-6">
-            <div className="flex flex-col gap-4">
-              <div className="flex flex-wrap items-center justify-end gap-2">
+            {/* Body del modal */}
+            <div className="flex flex-1 flex-col gap-4 px-4 pb-6">
+              <div className="flex flex-wrap items-center justify-end gap-2 px-2 md:px-4">
                 <Button onClick={generateSummary} disabled={isLoading}>
                   {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   {isLoading ? 'Generando…' : 'Generar'}
@@ -533,14 +535,14 @@ export const DocumentSummaryDialog = forwardRef<DocumentSummaryDialogHandle, Doc
                   </Tooltip>
                 )}
               </div>
-              <ScrollArea
-                className="max-h-[min(70vh,calc(100dvh-16rem))] min-h-[16rem] rounded-md border bg-background/90 p-4 text-sm"
+              <div
+                className="overflow-y-auto max-h-[70vh] px-2 md:px-4"
                 role="document"
                 aria-live="polite"
               >
                 {markdown.trim() ? (
-                  <div className="space-y-3 text-justify leading-relaxed">
-                    <ReactMarkdown className="prose prose-sm max-w-none text-foreground dark:prose-invert [&_*]:text-justify [&_*]:leading-relaxed">
+                  <div className="space-y-3 text-justify leading-relaxed text-sm">
+                    <ReactMarkdown className="prose prose-sm max-w-none text-foreground text-justify leading-relaxed dark:prose-invert [&_*]:text-justify [&_*]:leading-relaxed">
                       {markdown}
                     </ReactMarkdown>
                   </div>
@@ -551,8 +553,8 @@ export const DocumentSummaryDialog = forwardRef<DocumentSummaryDialogHandle, Doc
                 ) : (
                   <p className="text-sm text-muted-foreground">Genera el resumen para visualizarlo aquí.</p>
                 )}
-              </ScrollArea>
-              {error && <p className="text-sm text-destructive">{error}</p>}
+              </div>
+              {error && <p className="px-2 text-sm text-destructive md:px-4">{error}</p>}
             </div>
           </div>
         </DialogContent>
