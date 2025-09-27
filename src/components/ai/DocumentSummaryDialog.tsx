@@ -437,107 +437,60 @@ export const DocumentSummaryDialog = forwardRef<DocumentSummaryDialogHandle, Doc
 
             {/* Body del modal */}
             <div className="flex flex-1 flex-col gap-4 px-4 pb-6">
-              <div className="flex flex-col gap-2 px-2 md:px-6 md:flex-row md:flex-nowrap md:items-center md:justify-between whitespace-nowrap">
-                <div className="grid w-full grid-cols-2 gap-2 md:inline-flex md:w-auto md:flex-none">
-                  <Button
-                    onClick={generateSummary}
-                    disabled={isLoading}
-                    className="col-span-2 h-11 w-full md:h-10 md:w-auto"
-                  >
+              <div className="px-2 md:px-6 flex flex-col gap-2 md:flex-row md:flex-nowrap md:items-center md:justify-between">
+                {/* IZQUIERDA: acciones */}
+                <div className="grid w-full grid-cols-2 gap-2 md:inline-flex md:w-auto md:gap-2 md:whitespace-nowrap md:shrink-0">
+                  <Button onClick={generateSummary} disabled={isLoading} className="col-span-2 h-11 w-full md:h-10 md:w-auto">
                     {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     {isLoading ? 'Generando…' : 'Generar'}
                   </Button>
-                  <Button
-                    variant="outline"
-                    onClick={copyToClipboard}
-                    disabled={!markdown.trim()}
-                    className="h-11 w-full md:h-10 md:w-auto"
-                  >
+                  <Button variant="outline" onClick={copyToClipboard} disabled={!markdown.trim()} className="h-11 w-full md:h-10 md:w-auto">
                     <Copy className="mr-2 h-4 w-4" /> Copiar
                   </Button>
-                  <Button
-                    variant="outline"
-                    onClick={downloadMarkdown}
-                    disabled={!markdown.trim()}
-                    className="h-11 w-full md:h-10 md:w-auto"
-                  >
+                  <Button variant="outline" onClick={downloadMarkdown} disabled={!markdown.trim()} className="h-11 w-full md:h-10 md:w-auto">
                     <Download className="mr-2 h-4 w-4" /> Descargar .md
                   </Button>
                 </div>
+
+                {/* DERECHA: TTS */}
                 {isSpeechSupported ? (
-                  <div className="flex w-full flex-wrap items-center gap-2 md:w-auto md:flex-nowrap md:justify-end md:pl-4">
+                  <div className="flex w-full flex-wrap items-center gap-2 md:w-auto md:flex-nowrap md:justify-end md:gap-2 md:pl-4 md:whitespace-nowrap md:shrink-0">
                     {voices.length > 0 && (
                       <select
                         className="h-11 w-full rounded-md border bg-background px-2 text-sm md:h-10 md:w-56"
                         value={selectedVoice ? selectedVoice.voiceURI || selectedVoice.name : ''}
-                        onChange={(event) => handleVoiceChange(event.target.value)}
+                        onChange={(e) => handleVoiceChange(e.target.value)}
                         aria-label="Seleccionar voz para lectura"
                       >
-                        {voices.map((voice, index) => (
-                          <option
-                            key={`${voice.voiceURI || voice.name}-${index}`}
-                            value={voice.voiceURI || voice.name}
-                          >
+                        {voices.map((voice, i) => (
+                          <option key={`${voice.voiceURI || voice.name}-${i}`} value={voice.voiceURI || voice.name}>
                             {voice.name || voice.voiceURI}
                           </option>
                         ))}
                       </select>
                     )}
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      className="h-11 w-11 md:h-10 md:w-10"
-                      onClick={handlePlay}
-                      aria-label="Reproducir lectura en voz alta"
-                      disabled={!markdown.trim() || !selectedVoice || speechStatus !== 'idle'}
-                    >
+                    <Button variant="outline" size="icon" className="h-11 w-11 md:h-10 md:w-10" onClick={handlePlay} aria-label="Reproducir" disabled={!markdown.trim() || !selectedVoice || speechStatus !== 'idle'}>
                       <Play className="h-4 w-4" />
                     </Button>
                     {speechStatus === 'playing' && (
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        className="h-11 w-11 md:h-10 md:w-10"
-                        onClick={handlePause}
-                        aria-label="Pausar lectura en voz alta"
-                        disabled={speechStatus !== 'playing'}
-                      >
+                      <Button variant="outline" size="icon" className="h-11 w-11 md:h-10 md:w-10" onClick={handlePause} aria-label="Pausar">
                         <Pause className="h-4 w-4" />
                       </Button>
                     )}
                     {speechStatus === 'paused' && (
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        className="h-11 w-11 md:h-10 md:w-10"
-                        onClick={handleResume}
-                        aria-label="Reanudar lectura en voz alta"
-                        disabled={speechStatus !== 'paused'}
-                      >
+                      <Button variant="outline" size="icon" className="h-11 w-11 md:h-10 md:w-10" onClick={handleResume} aria-label="Reanudar">
                         <Play className="h-4 w-4" />
                       </Button>
                     )}
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      className="h-11 w-11 md:h-10 md:w-10"
-                      onClick={handleStop}
-                      aria-label="Detener lectura en voz alta"
-                      disabled={speechStatus === 'idle'}
-                    >
+                    <Button variant="outline" size="icon" className="h-11 w-11 md:h-10 md:w-10" onClick={handleStop} aria-label="Detener" disabled={speechStatus === 'idle'}>
                       <Square className="h-4 w-4" />
                     </Button>
                   </div>
                 ) : (
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <div className="flex w-full flex-wrap items-center gap-2 md:w-auto md:flex-nowrap md:justify-end md:pl-4">
-                        <select
-                          className="h-11 w-full rounded-md border bg-background px-2 text-sm md:h-10 md:w-56"
-                          value=""
-                          disabled
-                          aria-label="Seleccionar voz para lectura"
-                        >
+                      <div className="flex w-full flex-wrap items-center gap-2 md:w-auto md:flex-nowrap md:justify-end md:gap-2 md:pl-4 md:whitespace-nowrap md:shrink-0">
+                        <select className="h-11 w-full rounded-md border bg-background px-2 text-sm md:h-10 md:w-56" value="" disabled aria-label="Seleccionar voz para lectura">
                           <option>Sin voces disponibles</option>
                         </select>
                         <Button variant="outline" size="icon" className="h-11 w-11 md:h-10 md:w-10" disabled>
