@@ -425,7 +425,7 @@ export const DocumentSummaryDialog = forwardRef<DocumentSummaryDialogHandle, Doc
       <Dialog open={isOpen} onOpenChange={handleOpenChange}>
         <DialogContent
           aria-describedby="summary-pdf-desc"
-          className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[92vw] md:w-[min(96vw,1100px)] h-[88dvh] md:h-[82dvh] overflow-hidden p-0 sm:rounded-2xl"
+          className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[92vw] md:w-[min(96vw,1100px)] h-[88dvh] md:h-[82dvh] overflow-hidden p-0 sm:rounded-2xl [&_[data-dialog-content]]:h-full [&_[data-dialog-content]]:w-[92vw] [&_[data-dialog-content]]:p-0 md:[&_[data-dialog-content]]:w-[min(96vw,1100px)] [&_[data-dialog-content]]:!max-h-[88dvh] md:[&_[data-dialog-content]]:!max-h-[82dvh]"
         >
           <div className="flex h-full flex-col">
             <DialogHeader className="px-6 pt-6 pb-4">
