@@ -425,7 +425,7 @@ export const DocumentSummaryDialog = forwardRef<DocumentSummaryDialogHandle, Doc
       <Dialog open={isOpen} onOpenChange={handleOpenChange}>
         <DialogContent
           aria-describedby="summary-pdf-desc"
-          className="sm:max-w-[900px] max-h-[90vh] overflow-hidden p-0"
+          className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[min(92vw,900px)] max-h-[90vh] overflow-hidden p-0 sm:rounded-2xl"
         >
           <div className="flex h-full flex-col">
             <DialogHeader className="px-6 pt-6 pb-4">
@@ -437,7 +437,7 @@ export const DocumentSummaryDialog = forwardRef<DocumentSummaryDialogHandle, Doc
 
             {/* Body del modal */}
             <div className="flex flex-1 flex-col gap-4 px-4 pb-6">
-              <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-end px-2 md:px-4">
+              <div className="flex flex-col gap-2 md:flex-row md:flex-nowrap md:items-center md:justify-end whitespace-nowrap px-2 md:px-4">
                 <div className="grid w-full grid-cols-2 gap-2 md:flex md:w-auto">
                   <Button
                     onClick={generateSummary}
@@ -468,7 +468,7 @@ export const DocumentSummaryDialog = forwardRef<DocumentSummaryDialogHandle, Doc
                   <div className="flex w-full flex-wrap items-center justify-between gap-2 md:w-auto md:justify-end">
                     {voices.length > 0 && (
                       <select
-                        className="h-11 w-full rounded-md border bg-background px-2 text-sm md:h-9 md:w-auto"
+                        className="h-11 w-full rounded-md border bg-background px-2 text-sm md:h-9 md:w-56"
                         value={selectedVoice ? selectedVoice.voiceURI || selectedVoice.name : ''}
                         onChange={(event) => handleVoiceChange(event.target.value)}
                         aria-label="Seleccionar voz para lectura"
@@ -533,7 +533,7 @@ export const DocumentSummaryDialog = forwardRef<DocumentSummaryDialogHandle, Doc
                     <TooltipTrigger asChild>
                       <div className="flex w-full flex-wrap items-center justify-between gap-2 md:w-auto md:justify-end">
                         <select
-                          className="h-11 w-full rounded-md border bg-background px-2 text-sm md:h-9 md:w-auto"
+                          className="h-11 w-full rounded-md border bg-background px-2 text-sm md:h-9 md:w-56"
                           value=""
                           disabled
                           aria-label="Seleccionar voz para lectura"
