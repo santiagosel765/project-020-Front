@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
+import { AppFooter } from "@/components/layout/AppFooter";
 
 import { Providers } from "./providers";
 
@@ -33,12 +34,7 @@ export default function RootLayout({
         <Providers>
           <>
             <main className="flex-grow">{children}</main>
-            <footer className="py-4 px-6 text-center text-muted-foreground text-sm">
-              <div className="copyright">
-                ©2025 Génesis Sign • by MAC Génesis •{" "}
-                <span id="blockchain-status">⛓️</span>
-              </div>
-            </footer>
+            <AppFooter />
             <Toaster />
           </>
         </Providers>
