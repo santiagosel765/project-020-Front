@@ -35,7 +35,7 @@ import {
 import { useAuth } from '@/store/auth';
 import { fullName, initials } from '@/lib/avatar';
 import { SignDialog } from '@/components/sign-dialog';
-import { DocumentTabs, type DocumentTabValue } from '@/components/document/DocumentTabs';
+import { DocumentTabs } from '@/components/document/DocumentTabs';
 import {
   DocumentSummaryDialog,
   type DocumentSummaryDialogHandle,
@@ -58,7 +58,6 @@ export default function DocumentDetailPage() {
   const [rejectOpen, setRejectOpen] = useState(false);
   const [rejectReason, setRejectReason] = useState('');
   const [downloading, setDownloading] = useState(false);
-  const [activeTab, setActiveTab] = useState<DocumentTabValue>('firmas');
   const summaryDialogRef = useRef<DocumentSummaryDialogHandle>(null);
 
   const fetchDetalle = async (id: number) => {
@@ -192,11 +191,14 @@ export default function DocumentDetailPage() {
   const alreadySigned = isAssignedToMe && !hasPendingSignature;
   const canSign = isAssignedToMe && hasPendingSignature;
   const canReject = isAssignedToMe && !alreadySigned;
-  const statusMessage = !isAssignedToMe
+  const actionTitle = !isAssignedToMe
     ? 'No tienes firmas pendientes'
     : alreadySigned
       ? 'Ya has firmado este documento.'
       : 'Puedes firmar este documento cuando estés listo.';
+  const statusMessage = !isAssignedToMe || canSign
+    ? actionTitle
+    : '';
 
   if (loading) {
     return (
@@ -239,11 +241,24 @@ export default function DocumentDetailPage() {
             <div
               className="h-[calc(100dvh-var(--app-header-h)-theme(spacing.10))] min-h-0 overflow-auto overscroll-y-contain pb-[calc(env(safe-area-inset-bottom)+88px)] md:pb-0"
             >
-              <DocumentTabs
-                urlCuadroFirmasPDF={detalle.urlCuadroFirmasPDF}
-                urlDocumento={detalle.urlDocumento}
-                onTabChange={setActiveTab}
-              />
+              <div className="flex min-h-full flex-col gap-3">
+                <div className="sticky top-2 z-30 md:static">
+                  <Button
+                    onClick={handleSummarize}
+                    className="w-full justify-center gap-2"
+                    aria-label="Abrir resumen asistido por IA"
+                  >
+                    <Wand2 className="h-4 w-4" aria-hidden="true" />
+                    Resumen con IA
+                  </Button>
+                </div>
+                <div className="flex-1 min-h-0">
+                  <DocumentTabs
+                    urlCuadroFirmasPDF={detalle.urlCuadroFirmasPDF}
+                    urlDocumento={detalle.urlDocumento}
+                  />
+                </div>
+              </div>
             </div>
           </div>
           <div className="col-span-12 space-y-4 md:col-span-4 xl:col-span-3">
@@ -304,59 +319,57 @@ export default function DocumentDetailPage() {
               </DropdownMenu>
             </div>
             <div className="md:static sticky bottom-0 z-20 mt-4 border-t bg-background/80 px-3 py-3 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-              <div className="flex gap-2">
-                <Button
-                  onClick={handleSign}
-                  className="flex-1"
-                  disabled={!canSign}
-                  title={statusMessage}
-                >
-                  Firmar
-                </Button>
-                <Dialog open={rejectOpen} onOpenChange={setRejectOpen}>
-                  <Button
-                    variant="destructive"
-                    className="flex-1"
-                    onClick={() => setRejectOpen(true)}
-                    disabled={!canReject}
-                  >
-                    Rechazar
-                  </Button>
-                  <DialogContent aria-describedby="reject-desc">
-                    <DialogHeader>
-                      <DialogTitle>Motivo del rechazo</DialogTitle>
-                      <DialogDescription id="reject-desc">
-                        Describa el motivo del rechazo del documento.
-                      </DialogDescription>
-                    </DialogHeader>
-                    <Textarea value={rejectReason} onChange={(e) => setRejectReason(e.target.value)} />
-                    <DialogFooter>
-                      <DialogCloseButton
-                        variant="secondary"
-                        onClick={() => setRejectOpen(false)}
+              {alreadySigned ? (
+                <div className="flex h-12 items-center justify-center rounded-md border bg-muted px-3 text-center text-sm font-medium text-muted-foreground md:text-base">
+                  Ud ya ha firmado este documento
+                </div>
+              ) : (
+                <>
+                  <div className="flex gap-2">
+                    <Button
+                      onClick={handleSign}
+                      className="flex-1"
+                      disabled={!canSign}
+                      title={actionTitle}
+                    >
+                      Firmar
+                    </Button>
+                    <Dialog open={rejectOpen} onOpenChange={setRejectOpen}>
+                      <Button
+                        variant="destructive"
+                        className="flex-1"
+                        onClick={() => setRejectOpen(true)}
+                        disabled={!canReject}
+                        title={actionTitle}
                       >
-                        Cancelar
-                      </DialogCloseButton>
-                      <Button onClick={handleReject}>Enviar</Button>
-                    </DialogFooter>
-                  </DialogContent>
-                </Dialog>
-              </div>
-              {statusMessage && (
-                <p className="mt-2 text-xs text-muted-foreground">{statusMessage}</p>
+                        Rechazar
+                      </Button>
+                      <DialogContent aria-describedby="reject-desc">
+                        <DialogHeader>
+                          <DialogTitle>Motivo del rechazo</DialogTitle>
+                          <DialogDescription id="reject-desc">
+                            Describa el motivo del rechazo del documento.
+                          </DialogDescription>
+                        </DialogHeader>
+                        <Textarea value={rejectReason} onChange={(e) => setRejectReason(e.target.value)} />
+                        <DialogFooter>
+                          <DialogCloseButton
+                            variant="secondary"
+                            onClick={() => setRejectOpen(false)}
+                          >
+                            Cancelar
+                          </DialogCloseButton>
+                          <Button onClick={handleReject}>Enviar</Button>
+                        </DialogFooter>
+                      </DialogContent>
+                    </Dialog>
+                  </div>
+                  {statusMessage && (
+                    <p className="mt-2 text-xs text-muted-foreground">{statusMessage}</p>
+                  )}
+                </>
               )}
             </div>
-            {activeTab === 'original' && (
-              <div className="pt-4 space-y-2">
-                <div className="flex items-center gap-2">
-                  <Wand2 className="h-4 w-4 text-primary" aria-hidden="true" />
-                  <h3 className="font-medium">Resumen con IA</h3>
-                </div>
-                <Button onClick={handleSummarize} className="w-full">
-                  Resumir Documento
-                </Button>
-              </div>
-            )}
           </div>
         </div>
       </main>

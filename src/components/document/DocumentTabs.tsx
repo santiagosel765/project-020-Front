@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 import SmartPDFViewer from "./SmartPDFViewer";
@@ -14,25 +16,59 @@ type DocumentTabsProps = {
   onTabChange?: (tab: DocumentTabValue) => void;
 };
 
+const queryToTab = (value: string | null): DocumentTabValue => {
+  if (!value) return "original";
+  if (value === "cuadro" || value === "firmas") return "firmas";
+  return "original";
+};
+
+const tabToQuery = (value: DocumentTabValue): "documento" | "cuadro" =>
+  value === "firmas" ? "cuadro" : "documento";
+
 export function DocumentTabs({
   urlCuadroFirmasPDF,
   urlDocumento,
   onTabChange,
 }: DocumentTabsProps) {
-  const [activeTab, setActiveTab] = useState<DocumentTabValue>("firmas");
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
+  const [activeTab, setActiveTab] = useState<DocumentTabValue>(() =>
+    queryToTab(searchParams?.get("tab") ?? null),
+  );
   const [tabbarHeight, setTabbarHeight] = useState(0);
   const tabbarRef = useRef<HTMLDivElement | null>(null);
+  const paramsKey = searchParams?.toString();
+
+  const updateQuery = (nextTab: DocumentTabValue) => {
+    const queryValue = tabToQuery(nextTab);
+    const nextParams = new URLSearchParams(searchParams?.toString());
+
+    if (nextTab === "original") {
+      nextParams.delete("tab");
+    } else {
+      nextParams.set("tab", queryValue);
+    }
+
+    const queryString = nextParams.toString();
+    router.replace(queryString ? `${pathname}?${queryString}` : pathname, { scroll: false });
+  };
+
+  const changeTab = (nextTab: DocumentTabValue) => {
+    setActiveTab(nextTab);
+    updateQuery(nextTab);
+  };
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (!event.altKey) return;
       if (event.key === "1") {
         event.preventDefault();
-        setActiveTab("firmas");
+        changeTab("original");
       }
       if (event.key === "2") {
         event.preventDefault();
-        setActiveTab("original");
+        changeTab("firmas");
       }
     };
 
@@ -41,11 +77,17 @@ export function DocumentTabs({
   }, []);
 
   useEffect(() => {
+    const current = queryToTab(searchParams?.get("tab") ?? null);
+    setActiveTab((prev) => (prev === current ? prev : current));
+  }, [paramsKey]);
+
+  useEffect(() => {
     onTabChange?.(activeTab);
   }, [activeTab, onTabChange]);
 
   const handleTabChange = (value: string) => {
-    setActiveTab(value as DocumentTabValue);
+    const nextTab = value as DocumentTabValue;
+    changeTab(nextTab);
   };
 
   useEffect(() => {
@@ -85,21 +127,21 @@ export function DocumentTabs({
         className="sticky top-[var(--app-header-h)] z-20 mb-3 border-b border-border bg-background/80 pb-1 pt-2 backdrop-blur supports-[backdrop-filter]:bg-background/60"
       >
         <TabsList className="grid h-auto w-full grid-cols-2 gap-2 rounded-lg bg-muted p-1 text-xs font-medium sm:text-sm">
-          <TabsTrigger value="firmas" className="rounded-md px-2 py-2">
-            Cuadro de firmas
-          </TabsTrigger>
           <TabsTrigger value="original" className="rounded-md px-2 py-2">
             Documento original
+          </TabsTrigger>
+          <TabsTrigger value="firmas" className="rounded-md px-2 py-2">
+            Cuadro de firmas
           </TabsTrigger>
         </TabsList>
       </div>
 
-      <TabsContent value="firmas" className="mt-0 h-full overflow-hidden data-[state=inactive]:hidden">
-        <SmartPDFViewer srcPdf={urlCuadroFirmasPDF ?? null} className="h-full" />
-      </TabsContent>
-
       <TabsContent value="original" className="mt-0 h-full overflow-hidden data-[state=inactive]:hidden">
         <SmartPDFViewer srcPdf={urlDocumento ?? null} className="h-full" />
+      </TabsContent>
+
+      <TabsContent value="firmas" className="mt-0 h-full overflow-hidden data-[state=inactive]:hidden">
+        <SmartPDFViewer srcPdf={urlCuadroFirmasPDF ?? null} className="h-full" />
       </TabsContent>
     </Tabs>
   );
