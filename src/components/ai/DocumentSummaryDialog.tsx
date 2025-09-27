@@ -425,7 +425,7 @@ export const DocumentSummaryDialog = forwardRef<DocumentSummaryDialogHandle, Doc
       <Dialog open={isOpen} onOpenChange={handleOpenChange}>
         <DialogContent
           aria-describedby="summary-pdf-desc"
-          className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[min(92vw,900px)] max-h-[90vh] overflow-hidden p-0 sm:rounded-2xl"
+          className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[min(92vw,900px)] h-[88dvh] md:h-[82dvh] overflow-hidden p-0 sm:rounded-2xl"
         >
           <div className="flex h-full flex-col">
             <DialogHeader className="px-6 pt-6 pb-4">
@@ -556,7 +556,7 @@ export const DocumentSummaryDialog = forwardRef<DocumentSummaryDialogHandle, Doc
                 )}
               </div>
               <div
-                className="overflow-y-auto max-h-[70vh] px-2 md:px-4"
+                className="flex-1 min-h-0 overflow-y-auto px-2 md:px-4"
                 role="document"
                 aria-live="polite"
               >
