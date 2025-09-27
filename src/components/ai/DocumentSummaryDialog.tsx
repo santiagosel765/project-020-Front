@@ -425,7 +425,7 @@ export const DocumentSummaryDialog = forwardRef<DocumentSummaryDialogHandle, Doc
       <Dialog open={isOpen} onOpenChange={handleOpenChange}>
         <DialogContent
           aria-describedby="summary-pdf-desc"
-          className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[min(92vw,900px)] h-[88dvh] md:h-[82dvh] overflow-hidden p-0 sm:rounded-2xl"
+          className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[92vw] md:w-[min(96vw,1100px)] h-[88dvh] md:h-[82dvh] overflow-hidden p-0 sm:rounded-2xl"
         >
           <div className="flex h-full flex-col">
             <DialogHeader className="px-6 pt-6 pb-4">
@@ -437,9 +437,9 @@ export const DocumentSummaryDialog = forwardRef<DocumentSummaryDialogHandle, Doc
 
             {/* Body del modal */}
             <div className="flex flex-1 flex-col gap-4 px-4 pb-6">
-              <div className="px-2 md:px-6 flex flex-col gap-2 md:flex-row md:flex-nowrap md:items-center md:justify-between">
+              <div className="px-2 md:px-6 flex flex-col gap-2 md:flex-row md:flex-wrap md:items-center md:justify-between">
                 {/* IZQUIERDA: acciones */}
-                <div className="grid w-full grid-cols-2 gap-2 md:inline-flex md:w-auto md:gap-2 md:whitespace-nowrap md:shrink-0">
+                <div className="grid w-full grid-cols-2 gap-2 md:inline-flex md:w-auto md:gap-2 md:whitespace-nowrap">
                   <Button onClick={generateSummary} disabled={isLoading} className="col-span-2 h-11 w-full md:h-10 md:w-auto">
                     {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     {isLoading ? 'Generando…' : 'Generar'}
@@ -454,10 +454,10 @@ export const DocumentSummaryDialog = forwardRef<DocumentSummaryDialogHandle, Doc
 
                 {/* DERECHA: TTS */}
                 {isSpeechSupported ? (
-                  <div className="flex w-full flex-wrap items-center gap-2 md:w-auto md:flex-nowrap md:justify-end md:gap-2 md:pl-4 md:whitespace-nowrap md:shrink-0">
+                  <div className="flex w-full items-center gap-2 md:w-auto md:flex-nowrap md:justify-end md:min-w-[420px] md:pl-4">
                     {voices.length > 0 && (
                       <select
-                        className="h-11 w-full rounded-md border bg-background px-2 text-sm md:h-10 md:w-56"
+                        className="h-11 w-full rounded-md border bg-background px-2 text-sm md:h-10 md:w-64"
                         value={selectedVoice ? selectedVoice.voiceURI || selectedVoice.name : ''}
                         onChange={(e) => handleVoiceChange(e.target.value)}
                         aria-label="Seleccionar voz para lectura"
@@ -489,8 +489,8 @@ export const DocumentSummaryDialog = forwardRef<DocumentSummaryDialogHandle, Doc
                 ) : (
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <div className="flex w-full flex-wrap items-center gap-2 md:w-auto md:flex-nowrap md:justify-end md:gap-2 md:pl-4 md:whitespace-nowrap md:shrink-0">
-                        <select className="h-11 w-full rounded-md border bg-background px-2 text-sm md:h-10 md:w-56" value="" disabled aria-label="Seleccionar voz para lectura">
+                      <div className="flex w-full items-center gap-2 md:w-auto md:flex-nowrap md:justify-end md:min-w-[420px] md:pl-4">
+                        <select className="h-11 w-full rounded-md border bg-background px-2 text-sm md:h-10 md:w-64" value="" disabled aria-label="Seleccionar voz para lectura">
                           <option>Sin voces disponibles</option>
                         </select>
                         <Button variant="outline" size="icon" className="h-11 w-11 md:h-10 md:w-10" disabled>
