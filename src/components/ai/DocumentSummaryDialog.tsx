@@ -437,22 +437,38 @@ export const DocumentSummaryDialog = forwardRef<DocumentSummaryDialogHandle, Doc
 
             {/* Body del modal */}
             <div className="flex flex-1 flex-col gap-4 px-4 pb-6">
-              <div className="flex flex-wrap items-center justify-end gap-2 px-2 md:px-4">
-                <Button onClick={generateSummary} disabled={isLoading}>
-                  {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  {isLoading ? 'Generando…' : 'Generar'}
-                </Button>
-                <Button variant="outline" onClick={copyToClipboard} disabled={!markdown.trim()}>
-                  <Copy className="mr-2 h-4 w-4" /> Copiar
-                </Button>
-                <Button variant="outline" onClick={downloadMarkdown} disabled={!markdown.trim()}>
-                  <Download className="mr-2 h-4 w-4" /> Descargar .md
-                </Button>
+              <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-end px-2 md:px-4">
+                <div className="grid w-full grid-cols-2 gap-2 md:flex md:w-auto">
+                  <Button
+                    onClick={generateSummary}
+                    disabled={isLoading}
+                    className="col-span-2 h-11 w-full md:h-9 md:w-auto"
+                  >
+                    {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    {isLoading ? 'Generando…' : 'Generar'}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={copyToClipboard}
+                    disabled={!markdown.trim()}
+                    className="h-11 w-full md:h-9 md:w-auto"
+                  >
+                    <Copy className="mr-2 h-4 w-4" /> Copiar
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={downloadMarkdown}
+                    disabled={!markdown.trim()}
+                    className="h-11 w-full md:h-9 md:w-auto"
+                  >
+                    <Download className="mr-2 h-4 w-4" /> Descargar .md
+                  </Button>
+                </div>
                 {isSpeechSupported ? (
-                  <div className="flex items-center gap-2">
-                    {voices.length > 1 && (
+                  <div className="flex w-full flex-wrap items-center justify-between gap-2 md:w-auto md:justify-end">
+                    {voices.length > 0 && (
                       <select
-                        className="h-9 rounded-md border bg-background px-2 text-sm"
+                        className="h-11 w-full rounded-md border bg-background px-2 text-sm md:h-9 md:w-auto"
                         value={selectedVoice ? selectedVoice.voiceURI || selectedVoice.name : ''}
                         onChange={(event) => handleVoiceChange(event.target.value)}
                         aria-label="Seleccionar voz para lectura"
@@ -470,6 +486,7 @@ export const DocumentSummaryDialog = forwardRef<DocumentSummaryDialogHandle, Doc
                     <Button
                       variant="outline"
                       size="icon"
+                      className="h-11 w-11 md:h-9 md:w-9"
                       onClick={handlePlay}
                       aria-label="Reproducir lectura en voz alta"
                       disabled={!markdown.trim() || !selectedVoice || speechStatus !== 'idle'}
@@ -480,6 +497,7 @@ export const DocumentSummaryDialog = forwardRef<DocumentSummaryDialogHandle, Doc
                       <Button
                         variant="outline"
                         size="icon"
+                        className="h-11 w-11 md:h-9 md:w-9"
                         onClick={handlePause}
                         aria-label="Pausar lectura en voz alta"
                         disabled={speechStatus !== 'playing'}
@@ -491,6 +509,7 @@ export const DocumentSummaryDialog = forwardRef<DocumentSummaryDialogHandle, Doc
                       <Button
                         variant="outline"
                         size="icon"
+                        className="h-11 w-11 md:h-9 md:w-9"
                         onClick={handleResume}
                         aria-label="Reanudar lectura en voz alta"
                         disabled={speechStatus !== 'paused'}
@@ -501,6 +520,7 @@ export const DocumentSummaryDialog = forwardRef<DocumentSummaryDialogHandle, Doc
                     <Button
                       variant="outline"
                       size="icon"
+                      className="h-11 w-11 md:h-9 md:w-9"
                       onClick={handleStop}
                       aria-label="Detener lectura en voz alta"
                       disabled={speechStatus === 'idle'}
@@ -511,22 +531,22 @@ export const DocumentSummaryDialog = forwardRef<DocumentSummaryDialogHandle, Doc
                 ) : (
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <div className="flex cursor-not-allowed items-center gap-2">
+                      <div className="flex w-full flex-wrap items-center justify-between gap-2 md:w-auto md:justify-end">
                         <select
-                          className="h-9 rounded-md border bg-background px-2 text-sm"
+                          className="h-11 w-full rounded-md border bg-background px-2 text-sm md:h-9 md:w-auto"
                           value=""
                           disabled
                           aria-label="Seleccionar voz para lectura"
                         >
                           <option>Sin voces disponibles</option>
                         </select>
-                        <Button variant="outline" size="icon" disabled>
+                        <Button variant="outline" size="icon" className="h-11 w-11 md:h-9 md:w-9" disabled>
                           <Play className="h-4 w-4" />
                         </Button>
-                        <Button variant="outline" size="icon" disabled>
+                        <Button variant="outline" size="icon" className="h-11 w-11 md:h-9 md:w-9" disabled>
                           <Pause className="h-4 w-4" />
                         </Button>
-                        <Button variant="outline" size="icon" disabled>
+                        <Button variant="outline" size="icon" className="h-11 w-11 md:h-9 md:w-9" disabled>
                           <Square className="h-4 w-4" />
                         </Button>
                       </div>
