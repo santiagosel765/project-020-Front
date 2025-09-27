@@ -242,10 +242,10 @@ export default function DocumentDetailPage() {
               className="h-[calc(100dvh-var(--app-header-h)-theme(spacing.10))] min-h-0 overflow-auto overscroll-y-contain pb-[calc(env(safe-area-inset-bottom)+88px)] md:pb-0"
             >
               <div className="flex min-h-full flex-col gap-3">
-                <div className="sticky top-2 z-30 md:static">
+                <div className="sticky top-2 z-20 mb-3 md:static md:mb-4">
                   <Button
                     onClick={handleSummarize}
-                    className="w-full justify-center gap-2"
+                    className="w-full md:w-auto justify-center gap-2 text-base md:text-sm rounded-2xl shadow-sm"
                     aria-label="Abrir resumen asistido por IA"
                   >
                     <Wand2 className="h-4 w-4" aria-hidden="true" />
@@ -320,15 +320,15 @@ export default function DocumentDetailPage() {
             </div>
             <div className="md:static sticky bottom-0 z-20 mt-4 border-t bg-background/80 px-3 py-3 backdrop-blur supports-[backdrop-filter]:bg-background/60">
               {alreadySigned ? (
-                <div className="flex h-12 items-center justify-center rounded-md border bg-muted px-3 text-center text-sm font-medium text-muted-foreground md:text-base">
+                <div className="flex h-14 items-center justify-center rounded-xl border bg-muted/40 px-3 text-center text-sm font-medium text-muted-foreground md:h-12 md:text-base">
                   Ud ya ha firmado este documento
                 </div>
               ) : (
                 <>
-                  <div className="flex gap-2">
+                  <div className="flex flex-col gap-2 md:flex-row">
                     <Button
                       onClick={handleSign}
-                      className="flex-1"
+                      className="w-full h-14 rounded-2xl md:h-12 md:rounded-xl"
                       disabled={!canSign}
                       title={actionTitle}
                     >
@@ -337,7 +337,7 @@ export default function DocumentDetailPage() {
                     <Dialog open={rejectOpen} onOpenChange={setRejectOpen}>
                       <Button
                         variant="destructive"
-                        className="flex-1"
+                        className="w-full h-14 rounded-2xl md:h-12 md:rounded-xl"
                         onClick={() => setRejectOpen(true)}
                         disabled={!canReject}
                         title={actionTitle}
