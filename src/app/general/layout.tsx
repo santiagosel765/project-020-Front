@@ -6,6 +6,7 @@ import { useEffect } from "react";
 import { AuthGuard } from "@/components/auth-guard";
 import { useSession } from "@/lib/session";
 import { useToast } from "@/hooks/use-toast";
+import { getInitialRoute } from "@/lib/routes/getInitialRoute";
 
 export default function GeneralLayout({
   children,
@@ -16,16 +17,18 @@ export default function GeneralLayout({
   const router = useRouter();
   const { me, isLoading, error } = useSession();
   const { toast } = useToast();
+  const isDocumentDetailPage = pathname.startsWith("/documento/");
 
   useEffect(() => {
     if (isLoading) return;
-    const roles: string[] = me?.roles ?? [];
-    if (roles.includes("ADMIN")) {
-      router.replace("/admin/asignaciones");
-    } else if (roles.includes("SUPERVISOR")) {
-      router.replace("/admin/supervision");
+    if (!me || isDocumentDetailPage) return;
+
+    const destination = getInitialRoute(me.pages ?? []);
+
+    if (destination && destination !== pathname) {
+      router.replace(destination);
     }
-  }, [isLoading, me, router]);
+  }, [isLoading, isDocumentDetailPage, me, pathname, router]);
 
   useEffect(() => {
     if (error) {
@@ -41,8 +44,6 @@ export default function GeneralLayout({
       }
     }
   }, [error, router, toast]);
-
-  const isDocumentDetailPage = pathname.startsWith("/documento/");
 
   if (isDocumentDetailPage) {
     return <AuthGuard>{children}</AuthGuard>;

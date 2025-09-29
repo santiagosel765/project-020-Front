@@ -20,6 +20,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { initials } from '@/lib/avatar';
 import { useSession } from '@/lib/session';
+import { getInitialRoute } from '@/lib/routes/getInitialRoute';
 
 import { LayoutShell } from '@/components/layout/LayoutShell';
 import { TopBar } from '@/components/layout/TopBar';
@@ -29,10 +30,15 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
 
-  const { me, isLoading, error, pages, signOut, isAdmin, isSupervisor, avatarUrl, displayName, email } = useSession();
+  const { me, isLoading, error, pages, signOut, avatarUrl, displayName, email } = useSession();
   const { toast } = useToast();
 
-  const userRole: 'admin' | 'supervisor' | null = isAdmin ? 'admin' : isSupervisor ? 'supervisor' : null;
+  const adminPages = pages.filter((p: any) => p.path?.startsWith('/admin'));
+  const hasSupervisionPage = adminPages.some((page: any) => page.path === '/admin/supervision');
+  const hasOtherAdminPages = adminPages.some((page: any) => page.path && page.path !== '/admin/supervision');
+  const isSupervisorView = hasSupervisionPage && !hasOtherAdminPages;
+  const defaultRoleLabel = isSupervisorView ? 'Supervisor' : 'Administrador';
+  const avatarLabel = displayName ?? me?.nombre ?? defaultRoleLabel;
 
   useEffect(() => {
     if (isLoading) return;
@@ -40,10 +46,19 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
       router.replace('/');
       return;
     }
-    if (userRole === 'supervisor' && pathname !== '/admin/supervision') {
-      router.replace('/admin/supervision');
+    const allowed = (me.pages ?? []).some((page) => {
+      if (!page?.path) return false;
+      return pathname === page.path || pathname.startsWith(`${page.path}/`);
+    });
+
+    if (!allowed) {
+      const destination = getInitialRoute(me.pages ?? []);
+
+      if (destination && destination !== pathname) {
+        router.replace(destination);
+      }
     }
-  }, [isLoading, me, userRole, pathname, router]);
+  }, [isLoading, me, pathname, router]);
 
   useEffect(() => {
     if (error) {
@@ -56,7 +71,6 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     }
   }, [error, router, toast]);
 
-  const adminPages = pages.filter((p: any) => p.path?.startsWith('/admin'));
   const sortedAdminPages = [...adminPages].sort(
     (a: any, b: any) => (a.order ?? a.id) - (b.order ?? b.id)
   );
@@ -71,7 +85,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   }));
 
   const getPageTitle = () => {
-    if (userRole === 'supervisor') return 'Supervisión';
+    if (isSupervisorView) return 'Supervisión';
     const current = sortedAdminPages.find((page: any) => pathname.startsWith(page.path));
     return current?.name ?? current?.nombre ?? 'Dashboard';
   };
@@ -90,16 +104,20 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" className="relative h-10 w-10 rounded-full">
               <Avatar className="h-10 w-10">
-                <AvatarImage src={(avatarUrl as string | undefined) ?? (me?.avatarUrl as string | undefined)} alt={displayName ?? 'Usuario'} data-ai-hint="person avatar" />
-                <AvatarFallback>{initials(displayName ?? me?.nombre ?? (userRole ?? ''))}</AvatarFallback>
+                <AvatarImage
+                  src={(avatarUrl as string | undefined) ?? (me?.avatarUrl as string | undefined)}
+                  alt={avatarLabel ?? 'Usuario'}
+                  data-ai-hint="person avatar"
+                />
+                <AvatarFallback>{initials(avatarLabel)}</AvatarFallback>
               </Avatar>
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56">
             <DropdownMenuLabel>
-              <p>{displayName ?? me?.nombre ?? (userRole === 'admin' ? 'Administrador' : 'Supervisor')}</p>
+              <p>{avatarLabel}</p>
               <p className="text-xs text-muted-foreground font-normal">
-                {email ?? me?.correo ?? (userRole === 'admin' ? 'admin@zignosign.com' : 'supervisor@zignosign.com')}
+                {email ?? me?.correo ?? (isSupervisorView ? 'supervisor@zignosign.com' : 'admin@zignosign.com')}
               </p>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
@@ -121,11 +139,12 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     </div>
   );
 
-  if (isLoading || !userRole) return null;
+  if (isLoading) return null;
+  if (!me) return null;
 
   return (
-    <AuthGuard roles={['ADMIN', 'SUPERVISOR']}>
-      {userRole === 'supervisor' ? (
+    <AuthGuard pagePath={pathname}>
+      {isSupervisorView ? (
         <div className="flex min-h-screen w-full flex-col bg-muted/40">
           <TopBar title={getPageTitle()} actions={headerActions} showMenuButton={false} />
           <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-6">{children}</main>
