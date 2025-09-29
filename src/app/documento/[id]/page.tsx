@@ -1,11 +1,11 @@
 'use client';
 
 import { useEffect, useRef, useState, type MouseEvent } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { GeneralHeader } from '@/components/general-header';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ChevronDown, Download, Loader2, Wand2 } from 'lucide-react';
+import { ChevronDown, Download, Loader2, Pencil, Wand2 } from 'lucide-react';
 import { SignersPanel } from '@/components/document-detail/signers-panel';
 import {
   getCuadroFirmaDetalle,
@@ -46,11 +46,14 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion';
+import { useSession } from '@/lib/session';
 
 export default function DocumentDetailPage() {
   const params = useParams<{ id: string }>();
+  const router = useRouter();
   const { toast } = useToast();
   const { currentUser } = useAuth();
+  const { isAdmin } = useSession();
   const [detalle, setDetalle] = useState<CuadroFirmaDetalle | null>(null);
   const [firmantes, setFirmantes] = useState<SignerFull[]>([]);
   const [loading, setLoading] = useState(false);
@@ -234,8 +237,23 @@ export default function DocumentDetailPage() {
     <div className="flex flex-col h-screen">
       <GeneralHeader />
       <main className="flex-1 p-4 md:p-6">
-        <h1 className="text-2xl font-semibold">{detalle.titulo}</h1>
-        {detalle.descripcion && <p className="text-muted-foreground">{detalle.descripcion}</p>}
+        <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+          <div>
+            <h1 className="text-2xl font-semibold">{detalle.titulo}</h1>
+            {detalle.descripcion && <p className="text-muted-foreground">{detalle.descripcion}</p>}
+          </div>
+          {isAdmin && (
+            <Button
+              type="button"
+              variant="outline"
+              className="self-start"
+              onClick={() => router.push(`/admin/asignaciones/${detalle.id}`)}
+            >
+              <Pencil className="mr-2 h-4 w-4" />
+              Editar
+            </Button>
+          )}
+        </div>
         <div className="mt-4 grid grid-cols-12 gap-4">
           {/* Mobile: IA summary arriba */}
           <div className="col-span-12 md:hidden">

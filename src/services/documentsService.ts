@@ -353,6 +353,7 @@ export type CuadroFirmaDetalle = {
   descripcion?: string | null;
   version?: string | null;
   codigo?: string | null;
+  empresa?: { id: number; nombre: string } | null;
   urlCuadroFirmasPDF: string;
   urlDocumento: string;
 };
@@ -369,6 +370,7 @@ export async function getCuadroFirmaDetalle(id: number, expiresIn?: number): Pro
     descripcion: x.descripcion ?? null,
     version: x.version ?? null,
     codigo: x.codigo ?? null,
+    empresa: x.empresa ?? null,
     urlCuadroFirmasPDF: x.urlCuadroFirmasPDF ?? '',
     urlDocumento: x.urlDocumento ?? '',
   };

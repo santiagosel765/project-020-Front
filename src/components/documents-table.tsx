@@ -20,7 +20,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Document, DocumentUser } from "@/lib/data";
-import { Search } from "lucide-react";
+import { Pencil, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "./ui/button";
 import { useRouter } from "next/navigation";
@@ -34,6 +34,7 @@ import { FiltersBar, FilterChips, type FilterChip } from "./filters/filters-bar"
 import { FiltersDrawer } from "./filters/filters-drawer";
 import { CardList } from "@/components/responsive/card-list";
 import { useBreakpoint } from "@/hooks/use-breakpoint";
+import { useSession } from "@/lib/session";
 
 interface DocumentsTableProps {
   data?: PageEnvelope<Document>;
@@ -131,6 +132,8 @@ export function DocumentsTable({
 }: DocumentsTableProps) {
   const router = useRouter();
   const isMdUp = useBreakpoint("md");
+  const { isAdmin } = useSession();
+  const canEdit = Boolean(isAdmin);
 
   const statusButtons: (Document["status"] | "Todos")[] = [
     "Todos",
@@ -216,6 +219,20 @@ export function DocumentsTable({
           >
             Ver detalle
           </Button>
+          {canEdit && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={(event) => {
+                event.preventDefault();
+                router.push(`/admin/asignaciones/${doc.id}`);
+              }}
+            >
+              <Pencil className="mr-2 h-4 w-4" />
+              Editar
+            </Button>
+          )}
         </div>
       ),
     };
@@ -330,6 +347,7 @@ export function DocumentsTable({
                 <TableHead>Estado</TableHead>
                 <TableHead>Días Transcurridos</TableHead>
                 <TableHead>Asignados</TableHead>
+                {canEdit && <TableHead className="text-right">Acciones</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -376,12 +394,30 @@ export function DocumentsTable({
                         <AvatarGroup users={users} />
                       </button>
                     </TableCell>
+                    {canEdit && (
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => router.push(`/admin/asignaciones/${doc.id}`)}
+                          >
+                            <Pencil className="mr-2 h-4 w-4" />
+                            Editar
+                          </Button>
+                        </div>
+                      </TableCell>
+                    )}
                   </TableRow>
                 );
               })}
               {!loading && documents.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-4 text-sm text-muted-foreground">
+                  <TableCell
+                    colSpan={canEdit ? 7 : 6}
+                    className="text-center py-4 text-sm text-muted-foreground"
+                  >
                     No hay documentos.
                   </TableCell>
                 </TableRow>
