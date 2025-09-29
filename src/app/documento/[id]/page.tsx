@@ -237,21 +237,23 @@ export default function DocumentDetailPage() {
         <h1 className="text-2xl font-semibold">{detalle.titulo}</h1>
         {detalle.descripcion && <p className="text-muted-foreground">{detalle.descripcion}</p>}
         <div className="mt-4 grid grid-cols-12 gap-4">
+          {/* Mobile: IA summary arriba */}
+          <div className="col-span-12 md:hidden">
+            <div className="pt-2 pb-4 space-y-2">
+              <div className="flex items-center gap-2">
+                <Wand2 className="h-4 w-4 text-primary" aria-hidden="true" />
+                <h3 className="font-medium">Resumen con IA</h3>
+              </div>
+              <Button onClick={handleSummarize} className="w-full">
+                Resumir Documento
+              </Button>
+            </div>
+          </div>
           <div className="col-span-12 md:col-span-8 xl:col-span-9">
             <div
               className="h-[calc(100dvh-var(--app-header-h)-theme(spacing.10))] min-h-0 pb-[calc(env(safe-area-inset-bottom)+88px)] md:pb-0"
             >
               <div className="flex min-h-full flex-col gap-3">
-                <div className="sticky top-2 z-20 mb-3 md:static md:mb-4">
-                  <Button
-                    onClick={handleSummarize}
-                    className="w-full md:w-auto justify-center gap-2 text-base md:text-sm rounded-2xl shadow-sm"
-                    aria-label="Abrir resumen asistido por IA"
-                  >
-                    <Wand2 className="h-4 w-4" aria-hidden="true" />
-                    Resumen con IA
-                  </Button>
-                </div>
                 <div className="flex-1 min-h-0">
                   <DocumentTabs
                     urlCuadroFirmasPDF={detalle.urlCuadroFirmasPDF}
@@ -369,6 +371,16 @@ export default function DocumentDetailPage() {
                   )}
                 </>
               )}
+            </div>
+            
+            <div className="pt-4 space-y-2 hidden md:block">
+              <div className="flex items-center gap-2">
+                <Wand2 className="h-4 w-4 text-primary" aria-hidden="true" />
+                <h3 className="font-medium">Resumen con IA</h3>
+              </div>
+              <Button onClick={handleSummarize} className="w-full">
+                Resumir Documento
+              </Button>
             </div>
           </div>
         </div>

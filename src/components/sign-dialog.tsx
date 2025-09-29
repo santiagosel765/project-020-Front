@@ -242,6 +242,7 @@ export function SignDialog({
             {hasSignature ? (
               <div className="space-y-2">
                 <p className="text-sm">Mi firma</p>
+                <br />
                 <div className="w-full h-32 border rounded flex items-center justify-center bg-muted/50">
                   {currentSignature && (
                     <Image

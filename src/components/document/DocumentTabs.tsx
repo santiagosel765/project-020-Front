@@ -138,7 +138,7 @@ export function DocumentTabs({
 
       <TabsContent value="original" className="mt-0 data-[state=inactive]:hidden">
         <div className="w-full overflow-hidden rounded-lg border bg-background">
-          <div className="h-[75vh] md:h-[82vh]">
+          <div className="h-[75vh] md:h-[76vh] lg:h-[74vh]">
             <SmartPDFViewer srcPdf={urlDocumento ?? null} className="h-full w-full" />
           </div>
         </div>
@@ -146,7 +146,7 @@ export function DocumentTabs({
 
       <TabsContent value="firmas" className="mt-0 data-[state=inactive]:hidden">
         <div className="w-full overflow-hidden rounded-lg border bg-background">
-          <div className="h-[75vh] md:h-[82vh]">
+          <div className="h-[75vh] md:h-[76vh] lg:h-[74vh]">
             <SmartPDFViewer srcPdf={urlCuadroFirmasPDF ?? null} className="h-full w-full" />
           </div>
         </div>
