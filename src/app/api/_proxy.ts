@@ -55,12 +55,16 @@ export async function proxyRequest(req: NextRequest, targetPath: string) {
     return new NextResponse(null, { status, headers: resHeaders });
   }
 
+  // Reenviar el stream directamente si está disponible
+  if (upstream.body) {
+    return new NextResponse(upstream.body, { status, headers: resHeaders });
+  }
+
+  // Fallback: si no hay stream, responde como antes
   const buf = await upstream.arrayBuffer();
   if (!resHeaders.has('content-type')) {
     resHeaders.set('content-type', 'application/octet-stream');
   }
-
   resHeaders.delete('content-length');
-
   return new NextResponse(buf, { status, headers: resHeaders });
 }

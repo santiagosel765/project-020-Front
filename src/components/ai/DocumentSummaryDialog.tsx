@@ -334,52 +334,54 @@ export const DocumentSummaryDialog = forwardRef<DocumentSummaryDialogHandle, Doc
       }
     }, [documentId, markdown, toast]);
 
-    const generateSummary = useCallback(async () => {
-      setError(null);
-      setMarkdown('');
-      setIsLoading(true);
-      stopTTS();
-      controller.current?.abort();
-      const abortController = new AbortController();
-      controller.current = abortController;
+  const generateSummary = useCallback(async () => {
+    setError(null);
+    setMarkdown("");
+    setIsLoading(true);
+    stopTTS();
+    controller.current?.abort();
+    const abortController = new AbortController();
+    controller.current = abortController;
 
-      try {
-        const response = await fetch(`/api/documents/analyze-pdf/${cuadroFirmasId}`, {
-          method: 'POST',
+    try {
+      const response = await fetch(
+        `/api/documents/analyze-pdf/${cuadroFirmasId}`,
+        {
+          method: "POST",
           signal: abortController.signal,
-        });
-
-        if (!response.ok || !response.body) {
-          throw new Error('No se pudo generar el resumen');
         }
+      );
 
-        const reader = response.body.getReader();
-        const decoder = new TextDecoder('utf-8');
-
-        while (true) {
-          const { value, done } = await reader.read();
-          if (done) break;
-          const chunk = decoder.decode(value, { stream: true });
-          if (chunk) {
-            setMarkdown((prev) => prev + chunk);
-          }
-        }
-
-        const remainder = decoder.decode();
-        if (remainder) {
-          setMarkdown((prev) => prev + remainder);
-        }
-      } catch (err) {
-        if (err instanceof DOMException && err.name === 'AbortError') {
-          return;
-        }
-        console.error(err);
-        setError('No se pudo generar el resumen');
-      } finally {
-        setIsLoading(false);
-        controller.current = null;
+      if (!response.ok || !response.body) {
+        throw new Error("No se pudo generar el resumen");
       }
-    }, [cuadroFirmasId, stopTTS]);
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder("utf-8");
+      let accumulated = "";
+      let done = false;
+      setIsLoading(false);
+      while (!done) {
+        const { value, done: streamDone } = await reader.read();
+        done = streamDone;
+        if (value) {
+          const chunk = decoder.decode(value, { stream: true });
+          accumulated += chunk;
+          setMarkdown(accumulated);
+        }
+      }
+    } catch (err) {
+      if (err instanceof DOMException && err.name === "AbortError") {
+        return;
+      }
+      console.error(err);
+      setError("No se pudo generar el resumen");
+    } finally {
+      setIsLoading(false);
+      controller.current = null;
+    }
+  }, [cuadroFirmasId]);
+
 
     const handleOpenChange = useCallback(
       (open: boolean) => {
