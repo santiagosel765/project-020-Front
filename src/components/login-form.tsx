@@ -15,6 +15,7 @@ import { Loader2, Eye, EyeOff } from "lucide-react";
 import React from "react";
 import { login as authLogin } from "@/services/authService";
 import { useSession } from "@/lib/session";
+import { getInitialRoute } from "@/lib/routes/getInitialRoute";
 
 const formSchema = z.object({
   email: z.string().min(1, { message: "El correo es requerido." }),
@@ -41,19 +42,7 @@ export function LoginForm() {
 
       const me = await refresh();
 
-      const preferred = [
-        '/admin/asignaciones',
-        '/admin/documentos',
-        '/admin/mis-documentos',
-        '/admin/usuarios',
-        '/admin/roles',
-        '/admin/page',
-        '/admin/permission',
-        '/admin/supervision',
-      ];
-
-      const allowed = me?.pages?.map((p: { path: string }) => p.path) ?? [];
-      const dest = preferred.find(p => allowed.includes(p)) || '/general';
+      const dest = getInitialRoute(me?.pages ?? []);
 
       router.push(dest);
 

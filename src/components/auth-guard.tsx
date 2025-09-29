@@ -1,17 +1,34 @@
 "use client";
 
 import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useSession } from '@/lib/session';
+import { getInitialRoute } from '@/lib/routes/getInitialRoute';
 
 interface AuthGuardProps {
   children: React.ReactNode;
-  roles?: string[];
+  pagePath?: string;
+  pageCode?: string;
+  fallback?: string;
 }
 
-export function AuthGuard({ children, roles }: AuthGuardProps) {
+export function AuthGuard({ children, pagePath, pageCode, fallback }: AuthGuardProps) {
   const router = useRouter();
   const { me, isLoading } = useSession();
+
+  const hasAccess = useMemo(() => {
+    if (!me) return false;
+    if (!pagePath && !pageCode) return true;
+
+    return (me.pages ?? []).some((page) => {
+      if (!page) return false;
+      const matchesPath = pagePath
+        ? page.path === pagePath || pagePath.startsWith(`${page.path}/`)
+        : true;
+      const matchesCode = pageCode ? page.code === pageCode : true;
+      return matchesPath && matchesCode;
+    });
+  }, [me, pageCode, pagePath]);
 
   useEffect(() => {
     if (isLoading) return;
@@ -19,14 +36,16 @@ export function AuthGuard({ children, roles }: AuthGuardProps) {
       router.replace('/');
       return;
     }
-    if (roles && !(me.roles ?? []).some((r: string) => roles.includes(r))) {
-      router.replace('/');
+    if (!hasAccess) {
+      const destination = getInitialRoute(me.pages ?? [], fallback);
+      // TODO: Replace fallback when backend provides a dedicated redirect target for unauthorized pages.
+      router.replace(destination);
     }
-  }, [isLoading, me, roles, router]);
+  }, [fallback, hasAccess, isLoading, me, router]);
 
   if (isLoading) return null;
   if (!me) return null;
-  if (roles && !(me.roles ?? []).some((r: string) => roles.includes(r))) return null;
+  if (!hasAccess) return null;
 
   return <>{children}</>;
 }
