@@ -1,0 +1,237 @@
+"use client";
+
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useParams, useRouter } from "next/navigation";
+import AssignmentForm, {
+  type AssignmentFormInitialValues,
+  type AssignmentFormSubmitData,
+} from "@/components/assignments/AssignmentForm";
+import { useToast } from "@/hooks/use-toast";
+import {
+  getCuadroFirmaDetalle,
+  getFirmantes,
+  updateCuadroFirma,
+  updateDocumentoAsignacion,
+  type SignerSummary,
+} from "@/services/documentsService";
+import { useSession } from "@/lib/session";
+import { useQueryClient } from "@tanstack/react-query";
+import { Skeleton } from "@/components/ui/skeleton";
+import { fullName } from "@/lib/avatar";
+
+type NormalizedResponsibility = "ELABORA" | "REVISA" | "APRUEBA" | "ENTERADO" | null;
+
+const normalizeResponsibility = (value?: string | null): NormalizedResponsibility => {
+  const normalized = value?.toUpperCase?.().trim();
+  if (!normalized) return null;
+  if (normalized.includes("ELAB")) return "ELABORA";
+  if (normalized.includes("REV")) return "REVISA";
+  if (normalized.includes("APR")) return "APRUEBA";
+  if (normalized.includes("ENT")) return "ENTERADO";
+  return null;
+};
+
+const getPdfName = (url?: string | null): string | null => {
+  if (!url) return null;
+  try {
+    const parsed = new URL(url);
+    const last = parsed.pathname.split("/").pop();
+    return last ? decodeURIComponent(last) : null;
+  } catch {
+    const last = url.split("/").pop();
+    return last ?? null;
+  }
+};
+
+const mapResponsables = (firmantes: SignerSummary[]) => {
+  const responsables: NonNullable<AssignmentFormInitialValues["responsables"]> = [];
+  let elaboraId: number | null = null;
+
+  firmantes.forEach((f) => {
+    const responsibility = normalizeResponsibility(f.responsabilidad_firma?.nombre);
+    const id = Number(f.user.id ?? 0);
+    if (!Number.isFinite(id) || id <= 0) return;
+    const nombre = fullName(f.user) || f.user.correo_institucional || "Usuario";
+    if (responsibility === "ELABORA") {
+      elaboraId = id;
+      return;
+    }
+    if (responsibility && responsibility !== "ELABORA") {
+      responsables.push({ id, nombre, responsabilidad: responsibility });
+    }
+  });
+
+  return { responsables, elaboraId };
+};
+
+export default function AssignmentEditPage() {
+  const params = useParams<{ id: string }>();
+  const router = useRouter();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const { isAdmin, isLoading: sessionLoading, me } = useSession();
+
+  const [initialValues, setInitialValues] = useState<AssignmentFormInitialValues | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [notFound, setNotFound] = useState(false);
+
+  const documentId = useMemo(() => {
+    const rawId = params?.id;
+    if (!rawId) return null;
+    const parsed = Number(rawId);
+    if (!Number.isFinite(parsed)) return null;
+    return parsed;
+  }, [params?.id]);
+
+  useEffect(() => {
+    if (sessionLoading) return;
+    if (!isAdmin) {
+      router.replace("/403");
+    }
+  }, [isAdmin, router, sessionLoading]);
+
+  useEffect(() => {
+    if (sessionLoading) return;
+    if (isAdmin && documentId == null) {
+      setLoading(false);
+      setNotFound(true);
+    }
+  }, [documentId, isAdmin, sessionLoading]);
+
+  useEffect(() => {
+    if (!isAdmin || !documentId) return;
+
+    let mounted = true;
+    setLoading(true);
+    setNotFound(false);
+
+    (async () => {
+      try {
+        const [detalle, firmantes] = await Promise.all([
+          getCuadroFirmaDetalle(documentId),
+          getFirmantes(documentId),
+        ]);
+
+        if (!mounted) return;
+
+        const { responsables, elaboraId } = mapResponsables(firmantes);
+
+        setInitialValues({
+          title: detalle.titulo,
+          description: detalle.descripcion ?? "",
+          version: detalle.version ?? "",
+          code: detalle.codigo ?? "",
+          companyId: detalle.empresa?.id ?? undefined,
+          companyName: detalle.empresa?.nombre ?? null,
+          pdfUrl: detalle.urlDocumento || detalle.urlCuadroFirmasPDF,
+          pdfName: getPdfName(detalle.urlDocumento || detalle.urlCuadroFirmasPDF),
+          responsables,
+          elaboraUserId: elaboraId ?? Number(me?.id) ?? null,
+        });
+      } catch (error) {
+        console.error("Error loading assignment detail", error);
+        if (!mounted) return;
+        setNotFound(true);
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: "No se pudo cargar la asignación solicitada.",
+        });
+      } finally {
+        if (mounted) {
+          setLoading(false);
+        }
+      }
+    })();
+
+    return () => {
+      mounted = false;
+    };
+  }, [documentId, isAdmin, me?.id, toast]);
+
+  const handleSubmit = useCallback(
+    async (data: AssignmentFormSubmitData) => {
+      if (!documentId) return;
+
+      const payload: Record<string, unknown> = {
+        titulo: data.title,
+        descripcion: data.description,
+        version: data.version,
+        codigo: data.code,
+        empresa_id: data.companyId || null,
+        responsables: data.responsables,
+      };
+
+      try {
+        await updateCuadroFirma(documentId, payload);
+
+        if (data.hasFileChange && data.pdfFile) {
+          await updateDocumentoAsignacion(documentId, {
+            file: data.pdfFile,
+            idUser: me?.id,
+            observaciones: data.observaciones,
+          });
+        }
+
+        toast({ title: "Actualizado", description: "La asignación se actualizó correctamente." });
+
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: ["documents"] }),
+          queryClient.invalidateQueries({ queryKey: ["documents", "supervision"] }),
+          queryClient.invalidateQueries({ queryKey: ["documents", "supervision", "stats"] }),
+          queryClient.invalidateQueries({ queryKey: ["documents", "me"] }),
+        ]);
+
+        router.push(`/documento/${documentId}`);
+      } catch (error: any) {
+        console.error("Error updating assignment", error);
+        const message =
+          error?.response?.data?.message || error?.message || "No se pudo actualizar la asignación.";
+        toast({ variant: "destructive", title: "Error", description: String(message) });
+      }
+    },
+    [documentId, me?.id, queryClient, router, toast],
+  );
+
+  if (sessionLoading) {
+    return (
+      <div className="container mx-auto h-full -mt-8">
+        <Skeleton className="h-[600px] w-full" />
+      </div>
+    );
+  }
+
+  if (!isAdmin) {
+    return null;
+  }
+
+  if (loading) {
+    return (
+      <div className="container mx-auto h-full -mt-8 space-y-4">
+        <Skeleton className="h-10 w-1/3" />
+        <Skeleton className="h-[600px] w-full" />
+      </div>
+    );
+  }
+
+  if (notFound || !initialValues) {
+    return (
+      <div className="container mx-auto h-full -mt-8 flex items-center justify-center">
+        <p className="text-sm text-muted-foreground">No se encontró la asignación solicitada.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="container mx-auto h-full -mt-8">
+      <AssignmentForm
+        mode="edit"
+        initialValues={initialValues}
+        onSubmit={handleSubmit}
+        submitLabel="Guardar Cambios"
+        title="Editar asignación"
+        description="Actualiza los metadatos, responsables y archivo del documento."
+      />
+    </div>
+  );
+}
