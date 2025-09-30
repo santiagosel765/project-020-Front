@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useMemo, useRef } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { DocumentsTable } from "@/components/documents-table";
 import type { Document } from "@/lib/data";
@@ -9,17 +10,29 @@ import { Skeleton } from "@/components/ui/skeleton";
 import {
   getDocumentSupervision,
   getFirmantes,
-  getSupervisionStats,
   type DocumentoRow,
   type SignerSummary,
   type DocumentSupervisionParams,
 } from "@/services/documentsService";
+import { getMe } from "@/services/usersService";
 import { SignersModal } from "@/components/signers-modal";
 import { usePaginationState } from "@/hooks/usePaginationState";
 import { pageDebug } from "@/lib/page-debug";
+import {
+  MySignFilter,
+  StatusFilter,
+  mySignFilterFromQuery,
+  mySignFilterToQuery,
+  statusFilterFromQuery,
+  statusFilterToQuery,
+  statusFilterToStatusName,
+} from "@/lib/document-filters";
 
 function toUiDocument(d: DocumentoRow): Document {
   const add = d.add_date ?? "";
+  const signatureEntries = Array.isArray((d as any)?.cuadro_firma?.cuadro_firma_user)
+    ? ((d as any).cuadro_firma.cuadro_firma_user as any[])
+    : [];
   const assignedUsers = (d.firmantesResumen && d.firmantesResumen.length
     ? d.firmantesResumen
     : Array.from({ length: 3 }).map((_, i) => ({
@@ -45,20 +58,22 @@ function toUiDocument(d: DocumentoRow): Document {
     status: (d.estado?.nombre ?? "") as Document["status"],
     businessDays: d.diasTranscurridos ?? 0,
     assignedUsers,
+    signatureEntries,
   };
   return anyDoc as Document;
 }
 
-const defaultCounts: Record<Document["status"] | "Todos", number> = {
-  Todos: 0,
-  Pendiente: 0,
-  "En Progreso": 0,
-  Rechazado: 0,
-  Completado: 0,
-};
-
 export default function DocumentosPage() {
-  const [statusFilter, setStatusFilter] = useState<Document["status"] | "Todos">("Todos");
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const statusParam = searchParams?.get("status");
+  const mySignParam = searchParams?.get("mysign");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>(() =>
+    statusFilterFromQuery(statusParam),
+  );
+  const [mySignFilter, setMySignFilter] = useState<MySignFilter>(() =>
+    mySignFilterFromQuery(mySignParam),
+  );
   const [firmantes, setFirmantes] = useState<SignerSummary[]>([]);
   const [modalOpen, setModalOpen] = useState(false);
   const [modalLoading, setModalLoading] = useState(false);
@@ -81,6 +96,16 @@ export default function DocumentosPage() {
   const [searchInput, setSearchInput] = useState(() => search);
   const initialSearchRef = useRef(search);
   const isFirstSearchEffect = useRef(true);
+
+  useEffect(() => {
+    const next = statusFilterFromQuery(statusParam);
+    setStatusFilter((prev) => (prev === next ? prev : next));
+  }, [statusParam]);
+
+  useEffect(() => {
+    const next = mySignFilterFromQuery(mySignParam);
+    setMySignFilter((prev) => (prev === next ? prev : next));
+  }, [mySignParam]);
 
   useEffect(() => {
     initialSearchRef.current = search;
@@ -118,6 +143,34 @@ export default function DocumentosPage() {
     };
   }, [searchInput, setPage, setSearch]);
 
+  const meQuery = useQuery({
+    queryKey: ["me"],
+    queryFn: async () => getMe(),
+    retry: false,
+  });
+
+  useEffect(() => {
+    if (!meQuery.error) return;
+    toast({
+      variant: "destructive",
+      title: "Error al cargar usuario",
+      description: "No se pudo obtener la información del usuario.",
+    });
+  }, [meQuery.error, toast]);
+
+  const currentUserId = useMemo(() => {
+    const id = Number(meQuery.data?.id);
+    return Number.isFinite(id) && id > 0 ? id : undefined;
+  }, [meQuery.data?.id]);
+
+  const updateFilterParams = (nextStatus: StatusFilter, nextMySign: MySignFilter) => {
+    const params = new URLSearchParams(searchParams?.toString());
+    params.set("status", statusFilterToQuery(nextStatus));
+    params.set("mysign", mySignFilterToQuery(nextMySign));
+    params.set("page", "1");
+    router.replace(`?${params.toString()}`, { scroll: false });
+  };
+
   const documentsQuery = useQuery({
     queryKey: [
       "documents",
@@ -137,7 +190,8 @@ export default function DocumentosPage() {
         sort: sortOrder,
         search,
       };
-      if (statusFilter !== "Todos") params.estado = statusFilter;
+      const statusName = statusFilterToStatusName(statusFilter);
+      if (statusName) params.estado = statusName;
       const response = await getDocumentSupervision(params);
       return {
         ...response,
@@ -157,25 +211,6 @@ export default function DocumentosPage() {
     });
   }, [documentsQuery.error, toast]);
 
-  const countsQuery = useQuery({
-    queryKey: ["documents", "supervision", "stats", { search }],
-    queryFn: async () => getSupervisionStats({ search }),
-    keepPreviousData: true,
-    retry: false,
-  });
-
-  const counts = useMemo(() => {
-    const resumen = countsQuery.data;
-    if (!resumen) return defaultCounts;
-    return {
-      Todos: resumen.Todos ?? 0,
-      Pendiente: resumen.Pendiente ?? 0,
-      "En Progreso": resumen["En Progreso"] ?? 0,
-      Rechazado: resumen.Rechazado ?? 0,
-      Completado: resumen.Completado ?? 0,
-    } as Record<Document["status"] | "Todos", number>;
-  }, [countsQuery.data]);
-
   const handleAsignadosClick = async (doc: Document) => {
     setModalOpen(true);
     setModalLoading(true);
@@ -194,7 +229,10 @@ export default function DocumentosPage() {
     }
   };
 
-  const isInitialLoading = documentsQuery.isPending && !documentsQuery.data;
+  const waitingForUserFilter = mySignFilter !== "ALL" && currentUserId == null;
+  const isInitialLoading =
+    (documentsQuery.isPending && !documentsQuery.data) ||
+    (waitingForUserFilter && meQuery.isPending);
 
   if (isInitialLoading) {
     return (
@@ -219,35 +257,34 @@ export default function DocumentosPage() {
         searchTerm={searchInput}
         onSearchChange={setSearchInput}
         statusFilter={statusFilter}
-        onStatusFilterChange={(s) => {
-          setStatusFilter(s);
-          if (page !== 1) {
-            if (isUserPagingRef.current) {
-              pageDebug("src/app/admin/documentos/page.tsx:225:setPage(skip)", {
-                reason: "userPaging",
-                from: page,
-                to: 1,
-                status: s,
-              });
-              return;
-            }
-            pageDebug("src/app/admin/documentos/page.tsx:233:setPage", {
-              from: page,
-              to: 1,
-              status: s,
-            });
-            setPage(1);
-          }
+        onStatusFilterChange={(next) => {
+          setStatusFilter(next);
+          pageDebug("src/app/admin/documentos/page.tsx:233:updateFilters", {
+            fromStatus: statusFilter,
+            toStatus: next,
+            mySign: mySignFilter,
+          });
+          updateFilterParams(next, mySignFilter);
+        }}
+        mySignFilter={mySignFilter}
+        onMySignFilterChange={(next) => {
+          setMySignFilter(next);
+          pageDebug("src/app/admin/documentos/page.tsx:244:updateMySign", {
+            from: mySignFilter,
+            to: next,
+            status: statusFilter,
+          });
+          updateFilterParams(statusFilter, next);
         }}
         sortOrder={sortOrder}
         onSortToggle={() => {
           toggleSort();
         }}
         onAsignadosClick={handleAsignadosClick}
-        statusCounts={counts}
         onPageChange={setPage}
         onLimitChange={setLimit}
-        loading={documentsQuery.isFetching}
+        currentUserId={currentUserId}
+        loading={documentsQuery.isFetching || (waitingForUserFilter && meQuery.isFetching)}
       />
       <SignersModal
         open={modalOpen}

@@ -35,6 +35,17 @@ import { FiltersDrawer } from "./filters/filters-drawer";
 import { CardList } from "@/components/responsive/card-list";
 import { useBreakpoint } from "@/hooks/use-breakpoint";
 import { useSession } from "@/lib/session";
+import {
+  INITIAL_STATUS_COUNTS,
+  MY_SIGN_FILTER_OPTIONS,
+  MySignFilter,
+  STATUS_FILTER_OPTIONS,
+  StatusFilter,
+  getMySignFilterLabel,
+  getMySignInfo,
+  getStatusFilterLabel,
+  statusFilterToStatusName,
+} from "@/lib/document-filters";
 
 interface DocumentsTableProps {
   data?: PageEnvelope<Document>;
@@ -42,14 +53,16 @@ interface DocumentsTableProps {
   description: string;
   searchTerm: string;
   onSearchChange: (value: string) => void;
-  statusFilter: Document["status"] | "Todos";
-  onStatusFilterChange: (value: Document["status"] | "Todos") => void;
+  statusFilter: StatusFilter;
+  onStatusFilterChange: (value: StatusFilter) => void;
+  mySignFilter: MySignFilter;
+  onMySignFilterChange: (value: MySignFilter) => void;
   sortOrder: "asc" | "desc";
   onSortToggle: () => void;
   onAsignadosClick?: (doc: Document) => void;
-  statusCounts?: Record<Document["status"] | "Todos", number>;
   onPageChange: (page: number) => void;
   onLimitChange: (limit: number) => void;
+  currentUserId?: number;
   loading?: boolean;
 }
 
@@ -68,27 +81,24 @@ const getStatusClass = (status: Document["status"]): string => {
   }
 };
 
-const getButtonStatusClass = (
-  status: Document["status"] | "Todos",
-  currentFilter: Document["status"] | "Todos",
-): string => {
-  if (status === "Todos") {
-    return currentFilter === "Todos"
+const getButtonStatusClass = (status: StatusFilter, currentFilter: StatusFilter): string => {
+  if (status === "ALL") {
+    return currentFilter === "ALL"
       ? "bg-primary text-primary-foreground"
-      : "bg-gray-200 text-gray-800 hover:bg-gray-300";
+      : "bg-muted text-muted-foreground hover:text-foreground";
   }
-  const colorClasses = {
-    Completado:
+
+  const colorClasses: Record<Exclude<StatusFilter, "ALL">, string> = {
+    COMPLETADO:
       "bg-green-100 text-green-800 border border-green-300 hover:bg-green-200 focus:ring-green-500",
-    "En Progreso":
+    EN_PROGRESO:
       "bg-yellow-100 text-yellow-800 border border-yellow-300 hover:bg-yellow-200 focus:ring-yellow-500",
-    Rechazado:
+    RECHAZADO:
       "bg-red-100 text-red-800 border border-red-300 hover:bg-red-200 focus:ring-red-500",
-    Pendiente:
-      "bg-blue-100 text-blue-800 border border-blue-300 hover:bg-blue-200 focus:ring-blue-500",
-  } as const;
+  };
+
   const activeClass = "ring-2 ring-offset-2 ring-primary";
-  const baseClass = colorClasses[status as keyof typeof colorClasses];
+  const baseClass = colorClasses[status];
   return currentFilter === status ? `${baseClass} ${activeClass}` : baseClass;
 };
 
@@ -122,12 +132,14 @@ export function DocumentsTable({
   onSearchChange,
   statusFilter,
   onStatusFilterChange,
+  mySignFilter,
+  onMySignFilterChange,
   sortOrder,
   onSortToggle,
   onAsignadosClick,
-  statusCounts,
   onPageChange,
   onLimitChange,
+  currentUserId,
   loading = false,
 }: DocumentsTableProps) {
   const router = useRouter();
@@ -135,25 +147,55 @@ export function DocumentsTable({
   const { isAdmin } = useSession();
   const canEdit = Boolean(isAdmin);
 
-  const statusButtons: (Document["status"] | "Todos")[] = [
-    "Todos",
-    "Completado",
-    "En Progreso",
-    "Rechazado",
-    "Pendiente",
-  ];
+  const rawDocuments = data?.items ?? [];
+  const hasUserId = typeof currentUserId === "number" && Number.isFinite(currentUserId);
+
+  const filteredBySign = React.useMemo(() => {
+    if (!rawDocuments.length) return [] as Document[];
+    if (mySignFilter === "ALL") return rawDocuments;
+    if (!hasUserId) return [] as Document[];
+
+    return rawDocuments.filter((doc) => {
+      const info = getMySignInfo(doc, currentUserId);
+      if (mySignFilter === "SIGNED") return info.assigned && info.signed;
+      if (mySignFilter === "UNSIGNED") return info.assigned && info.unsigned;
+      return true;
+    });
+  }, [rawDocuments, mySignFilter, currentUserId, hasUserId]);
+
+  const counts = React.useMemo(() => {
+    const base = { ...INITIAL_STATUS_COUNTS };
+    base.ALL = filteredBySign.length;
+    for (const doc of filteredBySign) {
+      const statusName = doc.status ?? ((doc as any)?.cuadro_firma?.estado_firma?.nombre ?? "");
+      if (statusName === "En Progreso") base.EN_PROGRESO += 1;
+      else if (statusName === "Completado") base.COMPLETADO += 1;
+      else if (statusName === "Rechazado") base.RECHAZADO += 1;
+    }
+    return base;
+  }, [filteredBySign]);
+
+  const documents = React.useMemo(() => {
+    if (statusFilter === "ALL") return filteredBySign;
+    const statusName = statusFilterToStatusName(statusFilter);
+    if (!statusName) return filteredBySign;
+    return filteredBySign.filter((doc) => {
+      const name = doc.status ?? ((doc as any)?.cuadro_firma?.estado_firma?.nombre ?? "");
+      return name === statusName;
+    });
+  }, [filteredBySign, statusFilter]);
 
   const handleRowClick = (docId: string) => {
     router.push(`/documento/${docId}`);
   };
 
-  const documents = data?.items ?? [];
   const total = data?.total ?? 0;
   const totalPages = data?.pages ?? 1;
   const currentPage = data?.page ?? 1;
   const hasPrev = Boolean(data?.hasPrev);
   const hasNext = Boolean(data?.hasNext);
   const currentLimit = data?.limit ?? 10;
+  const emptyMessage = "Sin resultados para los filtros seleccionados.";
 
   const toCardItem = (doc: Document) => {
     const users = doc.assignedUsers ?? [];
@@ -259,34 +301,72 @@ export function DocumentsTable({
         </div>
         <div
           className={cn(
-            "flex flex-wrap gap-2",
-            isDrawer ? "flex-col" : "items-center",
+            "flex flex-col gap-2 md:flex-row md:items-center md:justify-between",
+            isDrawer && "md:flex-col",
           )}
         >
-          {statusButtons.map((status) => (
-            <Button
-              key={status}
-              onClick={() => onStatusFilterChange(status)}
-              className={cn(
-                getButtonStatusClass(status, statusFilter),
-                "h-8 px-2.5 py-1.5",
-                isDrawer && "w-full justify-between",
-              )}
-              variant="outline"
-            >
-              <span>{status}</span>
-              {statusCounts && (
-                <span
+          <div
+            role="tablist"
+            aria-label="Filtrar por estado"
+            className={cn(
+              "flex gap-2 overflow-x-auto no-scrollbar py-1",
+              isDrawer && "flex-wrap overflow-x-visible",
+            )}
+          >
+            {STATUS_FILTER_OPTIONS.map((option) => {
+              const count = counts[option.value];
+              return (
+                <Button
+                  key={option.value}
+                  type="button"
+                  onClick={() => onStatusFilterChange(option.value)}
                   className={cn(
-                    "ml-2 text-xs opacity-75",
-                    isDrawer && "ml-0",
+                    getButtonStatusClass(option.value, statusFilter),
+                    "h-8 px-2.5 py-1.5 whitespace-nowrap",
+                    isDrawer && "justify-between",
                   )}
+                  variant="outline"
+                  aria-pressed={statusFilter === option.value}
                 >
-                  ({statusCounts[status] ?? 0})
-                </span>
-              )}
-            </Button>
-          ))}
+                  <span>{option.label}</span>
+                  <span className="ml-2 text-xs opacity-75">({count ?? 0})</span>
+                </Button>
+              );
+            })}
+          </div>
+          <div
+            className={cn(
+              "flex items-center gap-2 shrink-0",
+              isDrawer && "w-full justify-between md:justify-start",
+            )}
+            role="group"
+            aria-label="Filtrar por mi firma"
+          >
+            <span className="text-sm font-medium text-muted-foreground whitespace-nowrap">
+              Mi firma
+            </span>
+            <div className="inline-flex items-center gap-1 rounded-md border bg-background p-0.5 shadow-sm">
+              {MY_SIGN_FILTER_OPTIONS.map((option) => {
+                const isActive = mySignFilter === option.value;
+                return (
+                  <button
+                    key={option.value}
+                    type="button"
+                    onClick={() => onMySignFilterChange(option.value)}
+                    className={cn(
+                      "rounded-md px-3 py-1 text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+                      isActive
+                        ? "bg-primary text-primary-foreground shadow-sm"
+                        : "text-muted-foreground hover:text-foreground",
+                    )}
+                    aria-pressed={isActive}
+                  >
+                    {option.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
         </div>
       </>
     );
@@ -300,11 +380,18 @@ export function DocumentsTable({
       onRemove: () => onSearchChange(""),
     });
   }
-  if (statusFilter !== "Todos") {
+  if (statusFilter !== "ALL") {
     filterChips.push({
       id: "status",
-      label: `Estado: ${statusFilter}`,
-      onRemove: () => onStatusFilterChange("Todos"),
+      label: `Estado: ${getStatusFilterLabel(statusFilter)}`,
+      onRemove: () => onStatusFilterChange("ALL"),
+    });
+  }
+  if (mySignFilter !== "ALL") {
+    filterChips.push({
+      id: "my-sign",
+      label: `Mi firma: ${getMySignFilterLabel(mySignFilter)}`,
+      onRemove: () => onMySignFilterChange("ALL"),
     });
   }
 
@@ -418,7 +505,7 @@ export function DocumentsTable({
                     colSpan={canEdit ? 7 : 6}
                     className="text-center py-4 text-sm text-muted-foreground"
                   >
-                    No hay documentos.
+                    {emptyMessage}
                   </TableCell>
                 </TableRow>
               )}
@@ -438,7 +525,7 @@ export function DocumentsTable({
             ) : (
               !loading && (
                 <p className="py-6 text-center text-sm text-muted-foreground">
-                  No hay documentos.
+                  {emptyMessage}
                 </p>
               )
             )}
