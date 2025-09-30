@@ -34,10 +34,10 @@ import { useToast } from "@/hooks/use-toast";
 import { SignersTable } from "@/components/signers-table";
 import SelectedSigners from "@/components/assignments/SelectedSigners";
 import { getUsers } from "@/services/usersService";
-import { useCompanies } from "@/services/companiesService";
 import type { User } from "@/lib/data";
 import { buildResponsables } from "@/lib/responsables";
 import { useSession } from "@/lib/session";
+import { useForm } from "react-hook-form";
 
 const toNumericId = (raw: unknown): number | null => {
   if (typeof raw === "number" && Number.isFinite(raw)) return raw;
@@ -60,8 +60,8 @@ export type AssignmentFormInitialValues = {
   description?: string | null;
   version?: string | null;
   code?: string | null;
-  companyId?: number | string | null;
-  companyName?: string | null;
+  empresaId?: number | null;
+  empresaNombre?: string | null;
   pdfUrl?: string | null;
   pdfName?: string | null;
   observaciones?: string | null;
@@ -79,7 +79,7 @@ export type AssignmentFormSubmitData = {
   description: string;
   version: string;
   code: string;
-  companyId: number;
+  empresaId: number | null;
   responsables: ReturnType<typeof buildResponsables>;
   pdfFile: File | null;
   observaciones: string;
@@ -91,6 +91,8 @@ export interface AssignmentFormProps {
   mode: "create" | "edit";
   initialValues?: AssignmentFormInitialValues | null;
   onSubmit: (data: AssignmentFormSubmitData) => Promise<void>;
+  companies: { id: number; nombre: string }[];
+  companiesLoading?: boolean;
   submitLabel?: string;
   title?: string;
   description?: string;
@@ -100,6 +102,8 @@ export function AssignmentForm({
   mode,
   initialValues,
   onSubmit,
+  companies,
+  companiesLoading,
   submitLabel,
   title: headingTitle,
   description: headingDescription,
@@ -107,13 +111,9 @@ export function AssignmentForm({
   const { toast } = useToast();
   const { me } = useSession();
 
-  const companiesParams = useMemo(() => (mode === "create" ? { activo: true } : undefined), [mode]);
-  const {
-    data: companiesData,
-    isLoading: isCompaniesLoading,
-    isError: isCompaniesError,
-  } = useCompanies(companiesParams);
-  const companies = companiesData?.items ?? [];
+  const { watch, setValue, reset, getValues } = useForm<{ empresaId: number | null }>({
+    defaultValues: { empresaId: initialValues?.empresaId ?? null },
+  });
 
   const [searchTerm, setSearchTerm] = useState("");
   const [users, setUsers] = useState<User[]>([]);
@@ -122,12 +122,6 @@ export function AssignmentForm({
   const [description, setDescription] = useState(initialValues?.description ?? "");
   const [version, setVersion] = useState(initialValues?.version ?? "");
   const [code, setCode] = useState(initialValues?.code ?? "");
-  const [companyId, setCompanyId] = useState<string | undefined>(() => {
-    if (initialValues?.companyId != null && String(initialValues.companyId).trim() !== "") {
-      return String(initialValues.companyId);
-    }
-    return undefined;
-  });
   const [observaciones, setObservaciones] = useState(initialValues?.observaciones ?? "");
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [existingPdfName, setExistingPdfName] = useState<string | null>(initialValues?.pdfName ?? null);
@@ -137,40 +131,7 @@ export function AssignmentForm({
   const [elaboraId, setElaboraId] = useState<number | null>(initialValues?.elaboraUserId ?? null);
   const pdfInputRef = useRef<HTMLInputElement>(null);
 
-  const normalizedInitialCompanyId =
-    initialValues?.companyId != null && String(initialValues.companyId).trim() !== ""
-      ? String(initialValues.companyId)
-      : undefined;
-
-  const companyOptions = useMemo(() => {
-    const base = companies.map((empresa) => ({
-      id: empresa.id,
-      nombre: empresa.nombre,
-    }));
-
-    if (!normalizedInitialCompanyId) {
-      return base;
-    }
-
-    const exists = base.some((empresa) => String(empresa.id) === normalizedInitialCompanyId);
-    if (exists) return base;
-
-    const parsed = Number(normalizedInitialCompanyId);
-    if (!Number.isFinite(parsed)) return base;
-
-    const name =
-      typeof initialValues?.companyName === "string" && initialValues.companyName.trim() !== ""
-        ? initialValues.companyName
-        : `Empresa ${normalizedInitialCompanyId}`;
-
-    return [
-      ...base,
-      {
-        id: parsed,
-        nombre: name,
-      },
-    ];
-  }, [companies, normalizedInitialCompanyId, initialValues?.companyName]);
+  const empresaId = watch("empresaId");
 
   useEffect(() => {
     if (initialValues) {
@@ -178,11 +139,6 @@ export function AssignmentForm({
       setDescription(initialValues.description ?? "");
       setVersion(initialValues.version ?? "");
       setCode(initialValues.code ?? "");
-      setCompanyId(
-        initialValues.companyId != null && String(initialValues.companyId).trim() !== ""
-          ? String(initialValues.companyId)
-          : undefined,
-      );
       setObservaciones(initialValues.observaciones ?? "");
       setExistingPdfName(initialValues.pdfName ?? null);
       setExistingPdfUrl(initialValues.pdfUrl ?? null);
@@ -201,26 +157,41 @@ export function AssignmentForm({
   }, [initialValues]);
 
   useEffect(() => {
+    reset({ empresaId: initialValues?.empresaId ?? null });
+  }, [initialValues?.empresaId, reset]);
+
+  useEffect(() => {
+    if (!empresaId && initialValues?.empresaId && companies?.length) {
+      setValue("empresaId", initialValues.empresaId, { shouldDirty: false });
+    }
+  }, [empresaId, initialValues?.empresaId, companies?.length, setValue]);
+
+  useEffect(() => {
+    if (mode !== "create") return;
+    if (empresaId) return;
+    if (!companies?.length) return;
+    setValue("empresaId", companies[0].id, { shouldDirty: false });
+  }, [mode, companies, empresaId, setValue]);
+
+  const companiesFixed = useMemo(() => {
+    if (!Array.isArray(companies)) return [] as { id: number; nombre: string }[];
+    if (!initialValues?.empresaId) return companies;
+    const exists = companies.some((empresa) => empresa.id === initialValues.empresaId);
+    if (exists) return companies;
+
+    const nombre =
+      typeof initialValues?.empresaNombre === "string" && initialValues.empresaNombre.trim() !== ""
+        ? initialValues.empresaNombre
+        : `Empresa #${initialValues.empresaId} (inactiva)`;
+
+    return [{ id: initialValues.empresaId, nombre }, ...companies];
+  }, [companies, initialValues?.empresaId, initialValues?.empresaNombre]);
+
+  useEffect(() => {
     if (me?.id && !elaboraId) {
       setElaboraId(Number(me.id));
     }
   }, [me?.id, elaboraId]);
-
-  useEffect(() => {
-    if (mode !== "create") return;
-    if (companyId != null && companyId !== "") return;
-    if (!companies.length) return;
-    setCompanyId(String(companies[0].id));
-  }, [mode, companies, companyId]);
-
-  useEffect(() => {
-    if (!isCompaniesError) return;
-    toast({
-      variant: "destructive",
-      title: "Error al cargar empresas",
-      description: "No fue posible obtener la lista de empresas.",
-    });
-  }, [isCompaniesError, toast]);
 
   useEffect(() => {
     let mounted = true;
@@ -303,7 +274,11 @@ export function AssignmentForm({
     setDescription("");
     setVersion("");
     setCode("");
-    setCompanyId(companies.length > 0 ? String(companies[0].id) : undefined);
+    if (companies.length > 0) {
+      setValue("empresaId", companies[0].id, { shouldDirty: false });
+    } else {
+      setValue("empresaId", null, { shouldDirty: false });
+    }
     setObservaciones("");
     setSignatories([]);
     setPdfFile(null);
@@ -322,6 +297,7 @@ export function AssignmentForm({
     if (isSubmitting) return true;
     if (!hasPdfSelected) return true;
     if (!title.trim() || !description.trim() || !version.trim() || !code.trim()) return true;
+    if (empresaId == null) return true;
     if (signatories.length === 0) return true;
     const hasAllResponsibilities = signatories.every((s) => s.responsibility);
     if (!hasAllResponsibilities) return true;
@@ -329,7 +305,7 @@ export function AssignmentForm({
     const hasAprueba = signatories.some((s) => s.responsibility === "APRUEBA");
     if (!(hasRevisa && hasAprueba)) return true;
     return false;
-  }, [isSubmitting, hasPdfSelected, title, description, version, code, signatories]);
+  }, [isSubmitting, hasPdfSelected, title, description, version, code, signatories, empresaId]);
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -354,6 +330,17 @@ export function AssignmentForm({
 
     setIsSubmitting(true);
 
+    const currentEmpresaId = getValues("empresaId");
+    if (currentEmpresaId == null) {
+      toast({
+        variant: "destructive",
+        title: "Empresa requerida",
+        description: "Seleccione una empresa para continuar.",
+      });
+      setIsSubmitting(false);
+      return;
+    }
+
     const responsables = buildResponsables({
       elaboraUserId: elaboraId,
       revisaUserIds: signatories.filter((s) => s.responsibility === "REVISA").map((s) => s.id),
@@ -366,7 +353,7 @@ export function AssignmentForm({
         description: description.trim(),
         version: version.trim(),
         code: code.trim(),
-        companyId: Number(companyId) || 0,
+        empresaId: currentEmpresaId,
         responsables,
         pdfFile,
         observaciones: observaciones.trim(),
@@ -500,27 +487,30 @@ export function AssignmentForm({
                   <Label htmlFor="assignment-company">Seleccione la Empresa</Label>
                   <Select
                     required
-                    disabled={isCompaniesLoading}
-                    value={companyId}
+                    disabled={companiesLoading}
+                    value={empresaId != null ? String(empresaId) : ""}
                     onValueChange={(value) => {
-                      setCompanyId(value);
+                      const parsed = Number(value);
+                      setValue("empresaId", Number.isFinite(parsed) ? parsed : null, { shouldDirty: true });
                     }}
                   >
                     <SelectTrigger id="assignment-company">
                       <SelectValue
-                        placeholder={isCompaniesLoading ? "Cargando empresas…" : "Seleccionar empresa"}
+                        placeholder={
+                          companiesLoading ? "Cargando empresas…" : "Seleccionar empresa"
+                        }
                       />
                     </SelectTrigger>
                     <SelectContent>
-                      {companyOptions.length ? (
-                        companyOptions.map((empresa) => (
+                      {companiesFixed.length ? (
+                        companiesFixed.map((empresa) => (
                           <SelectItem key={empresa.id} value={String(empresa.id)}>
                             {empresa.nombre}
                           </SelectItem>
                         ))
                       ) : (
                         <SelectItem value="__empresa_placeholder" disabled>
-                          {isCompaniesLoading ? "Cargando empresas…" : "Sin empresas disponibles"}
+                          {companiesLoading ? "Cargando empresas…" : "Sin empresas disponibles"}
                         </SelectItem>
                       )}
                     </SelectContent>

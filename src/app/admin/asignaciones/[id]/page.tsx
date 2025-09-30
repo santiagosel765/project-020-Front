@@ -14,6 +14,7 @@ import {
   updateDocumentoAsignacion,
   type SignerSummary,
 } from "@/services/documentsService";
+import { getEmpresas } from "@/services/empresasService";
 import { useSession } from "@/lib/session";
 import { useQueryClient } from "@tanstack/react-query";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -176,6 +177,7 @@ export default function AssignmentEditPage() {
   const [initialValues, setInitialValues] = useState<AssignmentFormInitialValues | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
+  const [companies, setCompanies] = useState<Array<{ id: number; nombre: string }>>([]);
 
   const documentId = useMemo(() => {
     const rawId = params?.id;
@@ -209,27 +211,42 @@ export default function AssignmentEditPage() {
 
     (async () => {
       try {
-        const [detalle, firmantes] = await Promise.all([
+        const [detalle, firmantes, empresas] = await Promise.all([
           getCuadroFirmaDetalle(documentId),
           getFirmantes(documentId),
+          getEmpresas({ activo: true }).catch((error) => {
+            console.error("Error fetching companies", error);
+            if (mounted) {
+              toast({
+                variant: "destructive",
+                title: "Error al cargar empresas",
+                description: "No fue posible obtener la lista de empresas.",
+              });
+            }
+            return { items: [], total: 0 } as { items: { id: number; nombre: string }[]; total: number };
+          }),
         ]);
 
         if (!mounted) return;
 
         const { responsables, elaboraId } = mapResponsables(detalle, firmantes);
 
-        const rawCompanyId = detalle.empresa?.id;
-        let companyIdValue: number | undefined;
-        if (typeof rawCompanyId === "number") {
-          companyIdValue = Number.isFinite(rawCompanyId) ? rawCompanyId : undefined;
-        } else if (typeof rawCompanyId === "string") {
-          const parsed = Number(rawCompanyId);
-          companyIdValue = Number.isFinite(parsed) ? parsed : undefined;
-        }
+        setCompanies(empresas?.items ?? []);
+        const rawEmpresaId =
+          detalle?.empresa_id ??
+          detalle?.empresaId ??
+          detalle?.empresa?.id ??
+          detalle?.empresa?.empresa_id ??
+          null;
+        const empresaIdValue = toNumber(rawEmpresaId);
 
-        const companyNameValue =
-          typeof detalle.empresa?.nombre === "string" && detalle.empresa.nombre.trim() !== ""
+        const empresaNombreValue =
+          typeof detalle?.empresa?.nombre === "string" && detalle.empresa.nombre.trim() !== ""
             ? detalle.empresa.nombre
+            : typeof detalle?.empresa_nombre === "string" && detalle.empresa_nombre.trim() !== ""
+            ? detalle.empresa_nombre
+            : typeof detalle?.empresaNombre === "string" && detalle.empresaNombre.trim() !== ""
+            ? detalle.empresaNombre
             : null;
 
         setInitialValues({
@@ -237,8 +254,8 @@ export default function AssignmentEditPage() {
           description: detalle.descripcion ?? "",
           version: detalle.version ?? "",
           code: detalle.codigo ?? "",
-          companyId: companyIdValue,
-          companyName: companyNameValue,
+          empresaId: empresaIdValue ?? null,
+          empresaNombre: empresaNombreValue,
           pdfUrl: detalle.urlDocumento || detalle.urlCuadroFirmasPDF,
           pdfName: getPdfName(detalle.urlDocumento || detalle.urlCuadroFirmasPDF),
           responsables,
@@ -274,7 +291,7 @@ export default function AssignmentEditPage() {
         descripcion: data.description,
         version: data.version,
         codigo: data.code,
-        empresa_id: data.companyId || null,
+        empresa_id: data.empresaId ?? null,
         responsables: data.responsables,
       };
 
@@ -343,6 +360,7 @@ export default function AssignmentEditPage() {
       <AssignmentForm
         mode="edit"
         initialValues={initialValues}
+        companies={companies}
         onSubmit={handleSubmit}
         submitLabel="Guardar Cambios"
         title="Editar asignación"
