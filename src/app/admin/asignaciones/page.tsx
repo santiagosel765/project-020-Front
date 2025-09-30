@@ -1,12 +1,13 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import AssignmentForm, {
   type AssignmentFormSubmitData,
 } from "@/components/assignments/AssignmentForm";
 import { useToast } from "@/hooks/use-toast";
 import { createCuadroFirma } from "@/services/documentsService";
+import { getEmpresas } from "@/services/empresasService";
 import api from "@/lib/axiosConfig";
 import { useSession } from "@/lib/session";
 
@@ -35,6 +36,37 @@ export default function AsignacionesPage() {
   const router = useRouter();
   const { toast } = useToast();
   const { me } = useSession();
+  const [companies, setCompanies] = useState<Array<{ id: number; nombre: string }>>([]);
+  const [companiesLoading, setCompaniesLoading] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    setCompaniesLoading(true);
+    (async () => {
+      try {
+        const data = await getEmpresas({ activo: true });
+        if (!active) return;
+        setCompanies(data.items ?? []);
+      } catch (error) {
+        console.error("Error fetching companies", error);
+        if (active) {
+          toast({
+            variant: "destructive",
+            title: "Error al cargar empresas",
+            description: "No fue posible obtener la lista de empresas.",
+          });
+        }
+      } finally {
+        if (active) {
+          setCompaniesLoading(false);
+        }
+      }
+    })();
+
+    return () => {
+      active = false;
+    };
+  }, [toast]);
 
   const handleSubmit = useCallback(
     async (data: AssignmentFormSubmitData) => {
@@ -56,7 +88,7 @@ export default function AsignacionesPage() {
         descripcion: data.description,
         version: data.version,
         codigo: data.code,
-        empresa_id: data.companyId || 1,
+        empresa_id: data.empresaId ?? 1,
         createdBy: me?.id,
       } as Record<string, unknown>;
 
@@ -145,7 +177,12 @@ export default function AsignacionesPage() {
 
   return (
     <div className="container mx-auto h-full -mt-8">
-      <AssignmentForm mode="create" onSubmit={handleSubmit} />
+      <AssignmentForm
+        mode="create"
+        onSubmit={handleSubmit}
+        companies={companies}
+        companiesLoading={companiesLoading}
+      />
     </div>
   );
 }
