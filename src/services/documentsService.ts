@@ -2,6 +2,7 @@ import { api } from '@/lib/api';
 import { unwrapArray, unwrapOne } from '@/lib/apiEnvelope';
 import { PageEnvelope } from '@/lib/pagination';
 import { initials, fullName, initialsFromFullName } from '@/lib/avatar';
+import type { SignSource } from '@/types/signatures';
 
 export type DocEstado = 'Pendiente' | 'En Progreso' | 'Rechazado' | 'Completado';
 export type SupervisionDoc = {
@@ -258,6 +259,51 @@ export async function updateCuadroFirma(id: number, payload: Record<string, any>
   }
 
   const { data } = await api.patch(`/documents/cuadro-firmas/${id}`, body);
+  return unwrapOne<any>(data);
+}
+
+const dataUrlToFile = async (dataUrl: string, filename: string) => {
+  const response = await fetch(dataUrl);
+  const blob = await response.blob();
+  const extension = blob.type === 'image/png' ? 'png' : blob.type === 'image/jpeg' ? 'jpg' : '';
+  const safeName = extension && !filename.toLowerCase().endsWith(`.${extension}`)
+    ? `${filename}.${extension}`
+    : filename;
+  return new File([blob], safeName, { type: blob.type || 'image/png' });
+};
+
+export async function signCuadroFirma({
+  cuadroFirmaId,
+  userId,
+  responsabilidadId,
+  source,
+}: {
+  cuadroFirmaId: number;
+  userId: number | string | null;
+  responsabilidadId: number;
+  source: SignSource;
+}) {
+  const form = new FormData();
+  form.append('cuadroFirmaId', String(cuadroFirmaId));
+  if (userId != null) {
+    form.append('userId', String(userId));
+  }
+  form.append('responsabilidadId', String(responsabilidadId));
+
+  if (source.mode === 'stored') {
+    form.append('usarFirmaGuardada', 'true');
+  } else if (source.mode === 'draw') {
+    const file = await dataUrlToFile(source.dataUrl, 'firma.png');
+    form.append('file', file);
+  } else if (source.mode === 'upload') {
+    form.append('file', source.file);
+  }
+
+  const { data } = await api.post(
+    `/documents/cuadro-firmas/${cuadroFirmaId}/firmar`,
+    form,
+  );
+
   return unwrapOne<any>(data);
 }
 
