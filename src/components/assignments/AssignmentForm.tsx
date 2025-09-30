@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Upload, Search, Loader2 } from "lucide-react";
 import {
   Card,
@@ -53,6 +53,7 @@ type Signatory = {
   id: number;
   name: string;
   responsibility: Responsibility | null;
+  userData?: any;
 };
 
 export type AssignmentFormInitialValues = {
@@ -70,6 +71,7 @@ export type AssignmentFormInitialValues = {
     nombre: string;
     responsabilidad: Responsibility | null;
     responsabilidadId: number | null;
+    user?: any;
   }[];
   elaboraUserId?: number | null;
 };
@@ -85,6 +87,96 @@ export type AssignmentFormSubmitData = {
   observaciones: string;
   hasFileChange: boolean;
   signatories: Signatory[];
+};
+
+type NormalizedSignatories = {
+  elabora: number | null;
+  revisa: number[];
+  aprueba: number[];
+  enterado: number[];
+};
+
+const normalizeString = (value?: string | null) => (typeof value === "string" ? value.trim() : "");
+
+const summarizeSignatories = (
+  signers: Array<{ id: number; responsibility: Responsibility | null | undefined }>,
+): NormalizedSignatories => {
+  const revisa = new Set<number>();
+  const aprueba = new Set<number>();
+  const enterado = new Set<number>();
+  let elabora: number | null = null;
+
+  signers.forEach(({ id, responsibility }) => {
+    if (!Number.isFinite(id)) return;
+    switch (responsibility) {
+      case "ELABORA":
+        elabora = id;
+        break;
+      case "REVISA":
+        revisa.add(id);
+        break;
+      case "APRUEBA":
+        aprueba.add(id);
+        break;
+      case "ENTERADO":
+        enterado.add(id);
+        break;
+      default:
+        break;
+    }
+  });
+
+  const toSortedArray = (set: Set<number>) => Array.from(set).sort((a, b) => a - b);
+
+  return {
+    elabora,
+    revisa: toSortedArray(revisa),
+    aprueba: toSortedArray(aprueba),
+    enterado: toSortedArray(enterado),
+  };
+};
+
+const arraysEqual = (a: number[], b: number[]) => a.length === b.length && a.every((value, index) => value === b[index]);
+
+const areResponsablesEqual = (a: NormalizedSignatories, b: NormalizedSignatories) =>
+  a.elabora === b.elabora &&
+  arraysEqual(a.revisa, b.revisa) &&
+  arraysEqual(a.aprueba, b.aprueba) &&
+  arraysEqual(a.enterado, b.enterado);
+
+const bumpVersionString = (value: string) => {
+  const base = normalizeString(value);
+  if (!base) return "1";
+  const parts = base
+    .split(".")
+    .map((part) => part.trim())
+    .filter((part) => part !== "");
+  if (parts.length === 0) return "1";
+  const last = parts.pop()!;
+  const incremented = String((parseInt(last, 10) || 0) + 1);
+  return [...parts, incremented].join(".");
+};
+
+const isGreaterVersion = (a: string, b: string) => {
+  const parse = (value: string) =>
+    value
+      .split(".")
+      .map((part) => part.trim())
+      .map((part) => (part === "" ? NaN : Number.parseInt(part, 10)))
+      .filter((num) => Number.isFinite(num)) as number[];
+
+  const versionA = parse(normalizeString(a));
+  const versionB = parse(normalizeString(b));
+  const maxLength = Math.max(versionA.length, versionB.length);
+
+  for (let i = 0; i < maxLength; i += 1) {
+    const valA = versionA[i] ?? 0;
+    const valB = versionB[i] ?? 0;
+    if (valA > valB) return true;
+    if (valA < valB) return false;
+  }
+
+  return false;
 };
 
 export interface AssignmentFormProps {
@@ -133,6 +225,26 @@ export function AssignmentForm({
 
   const empresaId = watch("empresaId");
 
+  const initialResponsablesSummary = useMemo(() => {
+    if (!initialValues) {
+      return summarizeSignatories([]);
+    }
+
+    const baseList = (initialValues.responsables ?? []).map((responsable) => ({
+      id: responsable.id,
+      responsibility: responsable.responsabilidad ?? null,
+    }));
+
+    if (
+      initialValues.elaboraUserId != null &&
+      !baseList.some((responsable) => responsable.id === initialValues.elaboraUserId)
+    ) {
+      baseList.push({ id: initialValues.elaboraUserId, responsibility: "ELABORA" });
+    }
+
+    return summarizeSignatories(baseList);
+  }, [initialValues]);
+
   useEffect(() => {
     if (initialValues) {
       setTitle(initialValues.title ?? "");
@@ -150,6 +262,7 @@ export function AssignmentForm({
             id: r.id,
             name: r.nombre,
             responsibility: r.responsabilidad,
+            userData: r.user ?? undefined,
           })),
         );
       }
@@ -214,6 +327,48 @@ export function AssignmentForm({
     };
   }, [toast]);
 
+  useEffect(() => {
+    if (!users.length) return;
+
+    const byId = new Map<number, User>();
+    users.forEach((user) => {
+      const uid = toNumericId((user as any).id ?? (user as any).userId ?? (user as any).uid);
+      if (uid != null) {
+        byId.set(uid, user);
+      }
+    });
+
+    setSignatories((prev) => {
+      let changed = false;
+      const next = prev.map((signer) => {
+        if (signer.userData) return signer;
+        const match = byId.get(signer.id);
+        if (!match) return signer;
+        changed = true;
+        return { ...signer, userData: match };
+      });
+      return changed ? next : prev;
+    });
+  }, [users]);
+
+  const resolveUserData = useCallback(
+    (userId: number, fallbackName?: string) => {
+      const currentSigner = signatories.find((signer) => signer.id === userId);
+      if (currentSigner?.userData) return currentSigner.userData;
+
+      const initialUser = initialValues?.responsables?.find((r) => r.id === userId)?.user;
+      if (initialUser) return initialUser;
+
+      const fromUsers = users.find(
+        (user) => toNumericId((user as any).id ?? (user as any).userId ?? (user as any).uid) === userId,
+      );
+      if (fromUsers) return fromUsers;
+
+      return { id: userId, nombre: fallbackName ?? currentSigner?.name ?? "" };
+    },
+    [initialValues?.responsables, signatories, users],
+  );
+
   const filteredUsers = useMemo(() => {
     const term = searchTerm.toLowerCase();
     const base = users.filter((u) => {
@@ -237,7 +392,7 @@ export function AssignmentForm({
       return;
     }
     setSignatories((prev) =>
-      [...prev, { id: nid, name: user.name, responsibility: null }].sort((a, b) =>
+      [...prev, { id: nid, name: user.name, responsibility: null, userData: user }].sort((a, b) =>
         a.name.localeCompare(b.name),
       ),
     );
@@ -328,8 +483,6 @@ export function AssignmentForm({
       return;
     }
 
-    setIsSubmitting(true);
-
     const currentEmpresaId = getValues("empresaId");
     if (currentEmpresaId == null) {
       toast({
@@ -337,27 +490,87 @@ export function AssignmentForm({
         title: "Empresa requerida",
         description: "Seleccione una empresa para continuar.",
       });
-      setIsSubmitting(false);
       return;
     }
 
-    const responsables = buildResponsables({
-      elaboraUserId: elaboraId,
-      revisaUserIds: signatories.filter((s) => s.responsibility === "REVISA").map((s) => s.id),
-      apruebaUserIds: signatories.filter((s) => s.responsibility === "APRUEBA").map((s) => s.id),
-    });
+    const trimmedTitle = title.trim();
+    const trimmedDescription = description.trim();
+    const trimmedCode = code.trim();
+    const trimmedObservaciones = observaciones.trim();
+    let finalVersion = version.trim();
+    const hasFileChange = Boolean(pdfFile);
+
+    let autoVersionApplied = false;
+
+    if (mode === "edit" && initialValues) {
+      const currentResponsablesSummary = summarizeSignatories(signatories);
+      const metaChanged =
+        trimmedTitle !== normalizeString(initialValues.title) ||
+        trimmedDescription !== normalizeString(initialValues.description) ||
+        trimmedCode !== normalizeString(initialValues.code) ||
+        currentEmpresaId !== (initialValues.empresaId ?? null) ||
+        trimmedObservaciones !== normalizeString(initialValues.observaciones);
+      const responsablesChanged = !areResponsablesEqual(currentResponsablesSummary, initialResponsablesSummary);
+      const initialVersionValue = normalizeString(initialValues.version);
+      const versionChanged = finalVersion !== initialVersionValue;
+      const hasChanges = metaChanged || responsablesChanged || hasFileChange || versionChanged;
+
+      if (hasChanges && !isGreaterVersion(finalVersion, initialVersionValue)) {
+        const auto = bumpVersionString(initialVersionValue);
+        setVersion(auto);
+        finalVersion = auto;
+        autoVersionApplied = true;
+      }
+    }
+
+    if (autoVersionApplied) {
+      toast({
+        title: "Versión actualizada",
+        description: `Se incrementó automáticamente la versión a ${finalVersion} para reflejar los cambios.`,
+      });
+    }
+
+    setIsSubmitting(true);
+
+    const elaboraSigner = signatories.find((signer) => signer.responsibility === "ELABORA");
+    const elaboraUserData =
+      elaboraSigner
+        ? resolveUserData(elaboraSigner.id, elaboraSigner.name)
+        : elaboraId != null
+        ? resolveUserData(
+            elaboraId,
+            initialValues?.responsables?.find((responsable) => responsable.id === elaboraId)?.nombre ?? undefined,
+          )
+        : null;
+
+    const revisaUsers = signatories
+      .filter((signer) => signer.responsibility === "REVISA")
+      .map((signer) => resolveUserData(signer.id, signer.name));
+    const apruebaUsers = signatories
+      .filter((signer) => signer.responsibility === "APRUEBA")
+      .map((signer) => resolveUserData(signer.id, signer.name));
+    const enteradoUsers = signatories
+      .filter((signer) => signer.responsibility === "ENTERADO")
+      .map((signer) => resolveUserData(signer.id, signer.name));
 
     try {
+      const responsables = buildResponsables({
+        elaboraUser: elaboraUserData,
+        revisaUsers,
+        apruebaUsers,
+        enteradoUsers,
+      });
+
       await onSubmit({
-        title: title.trim(),
-        description: description.trim(),
-        version: version.trim(),
-        code: code.trim(),
+        title: trimmedTitle,
+        description: trimmedDescription,
+        version: finalVersion,
+        code: trimmedCode,
         empresaId: currentEmpresaId,
         responsables,
         pdfFile,
-        observaciones: observaciones.trim(),
-        hasFileChange: Boolean(pdfFile),
+        observaciones: trimmedObservaciones,
+        hasFileChange,
         signatories,
       });
 
