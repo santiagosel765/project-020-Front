@@ -303,6 +303,8 @@ export default function AssignmentEditPage() {
     async (data: AssignmentFormSubmitData) => {
       if (!documentId) return;
 
+      const currentUserId = toNumber(me?.id);
+
       const payload: Record<string, unknown> = {
         titulo: data.title,
         descripcion: data.description,
@@ -310,6 +312,7 @@ export default function AssignmentEditPage() {
         codigo: data.code,
         empresa_id: data.empresaId ?? null,
         responsables: data.responsables,
+        idUser: currentUserId ?? me?.id ?? null,
       };
 
       try {
@@ -335,9 +338,23 @@ export default function AssignmentEditPage() {
         router.push(`/documento/${documentId}`);
       } catch (error: any) {
         console.error("Error updating assignment", error);
-        const message =
+        const status = error?.response?.status;
+        const rawMessage =
           error?.response?.data?.message || error?.message || "No se pudo actualizar la asignación.";
-        toast({ variant: "destructive", title: "Error", description: String(message) });
+        const message = String(rawMessage);
+        if (
+          status === 500 &&
+          typeof rawMessage === "string" &&
+          rawMessage.toLowerCase().includes("cuadro_firma_estado_historial.create")
+        ) {
+          toast({
+            variant: "destructive",
+            title: "Error",
+            description: "No se pudo registrar historial; intenta de nuevo o contacta soporte",
+          });
+          return;
+        }
+        toast({ variant: "destructive", title: "Error", description: message });
       }
     },
     [documentId, me?.id, queryClient, router, toast],

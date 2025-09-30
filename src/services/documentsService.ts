@@ -234,7 +234,30 @@ export async function createCuadroFirma(body: FormData) {
 }
 
 export async function updateCuadroFirma(id: number, payload: Record<string, any>) {
-  const { data } = await api.patch(`/documents/cuadro-firmas/${id}`, payload);
+  const body: Record<string, any> = { ...payload };
+
+  if (body.idUser == null) {
+    try {
+      const { data: me } = await api.get<{ id?: number | string }>(
+        '/users/me',
+      );
+      const rawId = me?.id;
+      if (typeof rawId === 'number' && Number.isFinite(rawId)) {
+        body.idUser = rawId;
+      } else if (typeof rawId === 'string' && rawId.trim() !== '') {
+        const parsed = Number(rawId);
+        if (Number.isFinite(parsed)) {
+          body.idUser = parsed;
+        } else {
+          body.idUser = rawId;
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching current user for updateCuadroFirma', error);
+    }
+  }
+
+  const { data } = await api.patch(`/documents/cuadro-firmas/${id}`, body);
   return unwrapOne<any>(data);
 }
 
