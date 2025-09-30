@@ -117,13 +117,27 @@ export default function AssignmentEditPage() {
 
         const { responsables, elaboraId } = mapResponsables(firmantes);
 
+        const rawCompanyId = detalle.empresa?.id;
+        let companyIdValue: number | undefined;
+        if (typeof rawCompanyId === "number") {
+          companyIdValue = Number.isFinite(rawCompanyId) ? rawCompanyId : undefined;
+        } else if (typeof rawCompanyId === "string") {
+          const parsed = Number(rawCompanyId);
+          companyIdValue = Number.isFinite(parsed) ? parsed : undefined;
+        }
+
+        const companyNameValue =
+          typeof detalle.empresa?.nombre === "string" && detalle.empresa.nombre.trim() !== ""
+            ? detalle.empresa.nombre
+            : null;
+
         setInitialValues({
           title: detalle.titulo,
           description: detalle.descripcion ?? "",
           version: detalle.version ?? "",
           code: detalle.codigo ?? "",
-          companyId: detalle.empresa?.id ?? undefined,
-          companyName: detalle.empresa?.nombre ?? null,
+          companyId: companyIdValue,
+          companyName: companyNameValue,
           pdfUrl: detalle.urlDocumento || detalle.urlCuadroFirmasPDF,
           pdfName: getPdfName(detalle.urlDocumento || detalle.urlCuadroFirmasPDF),
           responsables,
