@@ -48,6 +48,14 @@ export interface DocumentUser extends UiUser {
 // =======================
 // Tipos de documentos
 // =======================
+export interface DocumentSignatureEntry {
+  user_id?: number | string;
+  userId?: number | string;
+  estaFirmado?: boolean | null;
+  responsabilidad_id?: number | string | null;
+  [key: string]: any;
+}
+
 export interface Document {
   id: string;
   code: string;
@@ -59,6 +67,7 @@ export interface Document {
   status: 'Completado' | 'Rechazado' | 'Pendiente' | 'En Progreso';
   assignedUsers?: DocumentUser[];
   filePath?: string;
+  signatureEntries?: DocumentSignatureEntry[];
 }
 
 // =======================
