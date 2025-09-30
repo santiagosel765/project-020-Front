@@ -1,4 +1,5 @@
-import { Document, DocumentSignatureEntry } from "@/lib/data";
+import { Document } from "@/lib/data";
+import { getMySignInfo as getMySignInfoUtil } from "@/utils/signature";
 
 export type StatusFilter = "ALL" | "EN_PROGRESO" | "COMPLETADO" | "RECHAZADO";
 export type MySignFilter = "ALL" | "SIGNED" | "UNSIGNED";
@@ -93,46 +94,15 @@ export const mySignFilterFromQuery = (value: string | null | undefined): MySignF
   return (entry?.[0] as MySignFilter | undefined) ?? "ALL";
 };
 
-const toSignatureEntries = (
-  item: { signatureEntries?: DocumentSignatureEntry[]; [key: string]: any },
-): DocumentSignatureEntry[] => {
-  if (Array.isArray(item?.signatureEntries)) {
-    return item.signatureEntries as DocumentSignatureEntry[];
-  }
-  const fromCuadro = item?.cuadro_firma?.cuadro_firma_user;
-  if (Array.isArray(fromCuadro)) {
-    return fromCuadro as DocumentSignatureEntry[];
-  }
-  return [];
-};
-
-const resolveEntryUserId = (entry: DocumentSignatureEntry): number | null => {
-  const rawId =
-    entry?.user_id ??
-    entry?.userId ??
-    (entry?.user && (entry.user.id ?? entry.user.user_id ?? entry.user.userId));
-  const numeric = Number(rawId);
-  if (!Number.isFinite(numeric)) return null;
-  return numeric;
-};
-
 export const getMySignInfo = (
-  item: { signatureEntries?: DocumentSignatureEntry[]; [key: string]: any },
+  item: { [key: string]: any },
   currentUserId?: number,
-): { assigned: boolean; signed: boolean; unsigned: boolean } => {
+): { assigned: boolean; signed: boolean; unsigned: boolean; lastSignedAt: number | null } => {
   if (!Number.isFinite(currentUserId)) {
-    return { assigned: false, signed: false, unsigned: false };
+    return { assigned: false, signed: false, unsigned: false, lastSignedAt: null };
   }
 
-  const entries = toSignatureEntries(item);
-  if (!entries.length) {
-    return { assigned: false, signed: false, unsigned: false };
-  }
-
-  const normalizedUserId = Number(currentUserId);
-  const mine = entries.filter((entry) => resolveEntryUserId(entry) === normalizedUserId);
-  const assigned = mine.length > 0;
-  const signed = mine.some((entry) => entry?.estaFirmado === true);
-  const unsigned = assigned && mine.every((entry) => entry?.estaFirmado !== true);
-  return { assigned, signed, unsigned };
+  const info = getMySignInfoUtil(item, Number(currentUserId));
+  const unsigned = info.assigned && !info.signed;
+  return { ...info, unsigned };
 };

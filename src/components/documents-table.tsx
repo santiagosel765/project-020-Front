@@ -20,7 +20,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Document, DocumentUser } from "@/lib/data";
-import { Pencil, Search } from "lucide-react";
+import { ChevronDown, Pencil, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "./ui/button";
 import { useRouter } from "next/navigation";
@@ -42,10 +42,13 @@ import {
   STATUS_FILTER_OPTIONS,
   StatusFilter,
   getMySignFilterLabel,
-  getMySignInfo,
   getStatusFilterLabel,
   statusFilterToStatusName,
 } from "@/lib/document-filters";
+import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
+import { RadioGroup, RadioGroupItem } from "./ui/radio-group";
+import { Label } from "./ui/label";
+import { getMySignInfo } from "@/utils/signature";
 
 interface DocumentsTableProps {
   data?: PageEnvelope<Document>;
@@ -79,27 +82,6 @@ const getStatusClass = (status: Document["status"]): string => {
     default:
       return "bg-gray-100 text-gray-800 border-gray-400";
   }
-};
-
-const getButtonStatusClass = (status: StatusFilter, currentFilter: StatusFilter): string => {
-  if (status === "ALL") {
-    return currentFilter === "ALL"
-      ? "bg-primary text-primary-foreground"
-      : "bg-muted text-muted-foreground hover:text-foreground";
-  }
-
-  const colorClasses: Record<Exclude<StatusFilter, "ALL">, string> = {
-    COMPLETADO:
-      "bg-green-100 text-green-800 border border-green-300 hover:bg-green-200 focus:ring-green-500",
-    EN_PROGRESO:
-      "bg-yellow-100 text-yellow-800 border border-yellow-300 hover:bg-yellow-200 focus:ring-yellow-500",
-    RECHAZADO:
-      "bg-red-100 text-red-800 border border-red-300 hover:bg-red-200 focus:ring-red-500",
-  };
-
-  const activeClass = "ring-2 ring-offset-2 ring-primary";
-  const baseClass = colorClasses[status];
-  return currentFilter === status ? `${baseClass} ${activeClass}` : baseClass;
 };
 
 const AvatarGroup: React.FC<{ users?: DocumentUser[] }> = ({ users = [] }) => (
@@ -156,14 +138,14 @@ export function DocumentsTable({
     if (!hasUserId) return [] as Document[];
 
     return rawDocuments.filter((doc) => {
-      const info = getMySignInfo(doc, currentUserId);
-      if (mySignFilter === "SIGNED") return info.assigned && info.signed;
-      if (mySignFilter === "UNSIGNED") return info.assigned && info.unsigned;
+      const { assigned, signed } = getMySignInfo(doc, Number(currentUserId));
+      if (mySignFilter === "SIGNED") return assigned && signed;
+      if (mySignFilter === "UNSIGNED") return assigned && !signed;
       return true;
     });
   }, [rawDocuments, mySignFilter, currentUserId, hasUserId]);
 
-  const counts = React.useMemo(() => {
+  const statusCounts = React.useMemo(() => {
     const base = { ...INITIAL_STATUS_COUNTS };
     base.ALL = filteredBySign.length;
     for (const doc of filteredBySign) {
@@ -195,7 +177,36 @@ export function DocumentsTable({
   const hasPrev = Boolean(data?.hasPrev);
   const hasNext = Boolean(data?.hasNext);
   const currentLimit = data?.limit ?? 10;
-  const emptyMessage = "Sin resultados para los filtros seleccionados.";
+  const emptyMessage = "No hay documentos que coincidan con los filtros.";
+
+  const renderSignatureChip = React.useCallback(
+    (doc: Document): React.ReactNode => {
+      if (!hasUserId) {
+        return <span className="text-sm text-muted-foreground">—</span>;
+      }
+
+      const { assigned, signed, lastSignedAt } = getMySignInfo(doc, Number(currentUserId));
+      if (!assigned) {
+        return <span className="text-sm text-muted-foreground">—</span>;
+      }
+
+      const title = signed && lastSignedAt ? new Date(lastSignedAt).toLocaleString() : undefined;
+
+      return (
+        <span
+          aria-label="Estado de mi firma"
+          className={cn(
+            "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium",
+            signed ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800",
+          )}
+          title={title}
+        >
+          {signed ? "Firmado" : "No firmado"}
+        </span>
+      );
+    },
+    [currentUserId, hasUserId],
+  );
 
   const toCardItem = (doc: Document) => {
     const users = doc.assignedUsers ?? [];
@@ -231,6 +242,12 @@ export function DocumentsTable({
             <span className="text-sm text-foreground">
               <DateCell value={doc.sendDate} withTime />
             </span>
+          </div>
+          <div className="flex flex-col gap-0.5">
+            <span className="text-xs font-semibold uppercase tracking-wide text-foreground/80">
+              Mi firma
+            </span>
+            <div className="text-sm text-foreground">{renderSignatureChip(doc)}</div>
           </div>
           {users.length ? (
             <button
@@ -280,95 +297,192 @@ export function DocumentsTable({
     };
   };
 
+  const [statusPopoverOpen, setStatusPopoverOpen] = React.useState(false);
+
   const renderFilters = (variant: "bar" | "drawer") => {
     const isDrawer = variant === "drawer";
 
-    return (
-      <>
+    const statusDisplayLabel = getStatusFilterLabel(statusFilter) || "Todos";
+    const statusButtonText =
+      statusFilter === "ALL"
+        ? `Estado: ${statusDisplayLabel} (${statusCounts.ALL})`
+        : `Estado: ${statusDisplayLabel}`;
+
+    const handleStatusChange = (value: StatusFilter) => {
+      onStatusFilterChange(value);
+      if (!isDrawer) {
+        setStatusPopoverOpen(false);
+      }
+    };
+
+    const renderStatusOptions = (idPrefix: string) => (
+      <RadioGroup
+        value={statusFilter}
+        onValueChange={(value) => handleStatusChange(value as StatusFilter)}
+        className="flex flex-col gap-1"
+        aria-label="Filtrar por estado"
+      >
+        {STATUS_FILTER_OPTIONS.map((option) => {
+          const count = statusCounts[option.value];
+          const controlId = `${idPrefix}-${option.value.toLowerCase()}`;
+          const isActive = statusFilter === option.value;
+          return (
+            <Label
+              key={option.value}
+              htmlFor={controlId}
+              className={cn(
+                "flex cursor-pointer items-center justify-between gap-3 rounded-md border px-3 py-2 text-sm transition-colors",
+                isActive
+                  ? "border-primary bg-primary/10 text-foreground"
+                  : "border-transparent hover:bg-muted",
+              )}
+            >
+              <div className="flex items-center gap-2">
+                <RadioGroupItem id={controlId} value={option.value} />
+                <span>{option.label}</span>
+              </div>
+              <span className="text-xs text-muted-foreground">{count}</span>
+            </Label>
+          );
+        })}
+      </RadioGroup>
+    );
+
+    const statusControl = isDrawer ? (
+      <div className="flex flex-col gap-2">
+        <span className="text-sm font-medium text-muted-foreground">Estado</span>
+        <select
+          id="status-filter-mobile"
+          className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-ring"
+          value={statusFilter}
+          onChange={(event) => handleStatusChange(event.target.value as StatusFilter)}
+        >
+          {STATUS_FILTER_OPTIONS.map((option) => {
+            const count = statusCounts[option.value];
+            return (
+              <option key={option.value} value={option.value}>
+                {`${option.label} (${count})`}
+              </option>
+            );
+          })}
+        </select>
+      </div>
+    ) : (
+      <div className="flex w-full flex-col gap-2 md:w-auto md:flex-row md:items-center md:gap-2">
+        <div className="w-full md:hidden">
+          <label htmlFor="status-filter-select" className="sr-only">
+            Estado
+          </label>
+          <select
+            id="status-filter-select"
+            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-ring"
+            value={statusFilter}
+            onChange={(event) => handleStatusChange(event.target.value as StatusFilter)}
+          >
+            {STATUS_FILTER_OPTIONS.map((option) => {
+              const count = statusCounts[option.value];
+              return (
+                <option key={option.value} value={option.value}>
+                  {`${option.label} (${count})`}
+                </option>
+              );
+            })}
+          </select>
+        </div>
+        <div className="hidden md:block">
+          <Popover open={statusPopoverOpen} onOpenChange={setStatusPopoverOpen}>
+            <PopoverTrigger asChild>
+              <Button
+                type="button"
+                variant="outline"
+                className="inline-flex items-center justify-between gap-2 whitespace-nowrap"
+              >
+                <span>{statusButtonText}</span>
+                <ChevronDown className="h-4 w-4" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-64 space-y-2 p-3" align="start">
+              <p className="px-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Estado
+              </p>
+              {renderStatusOptions("popover-status")}
+            </PopoverContent>
+          </Popover>
+        </div>
+      </div>
+    );
+
+    const mySignControl = (
+      <div
+        className={cn(
+          "flex flex-col gap-2",
+          isDrawer ? "w-full" : "md:flex-row md:items-center md:gap-2",
+        )}
+        role="group"
+        aria-label="Filtrar por mi firma"
+      >
+        <span className="text-sm font-medium text-muted-foreground whitespace-nowrap">Mi firma</span>
         <div
           className={cn(
-            "relative w-full md:w-80",
-            isDrawer && "w-full",
+            "grid w-full grid-cols-3 gap-1",
+            "md:inline-flex md:w-auto md:items-center md:gap-0 md:rounded-md md:border md:bg-background md:p-0.5 md:shadow-sm",
+          )}
+        >
+          {MY_SIGN_FILTER_OPTIONS.map((option) => {
+            const isActive = mySignFilter === option.value;
+            return (
+              <button
+                key={option.value}
+                type="button"
+                onClick={() => onMySignFilterChange(option.value)}
+                className={cn(
+                  "flex-1 rounded-md px-3 py-1 text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+                  isActive
+                    ? "bg-primary text-primary-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground",
+                  "md:flex-none",
+                )}
+                aria-pressed={isActive}
+              >
+                {option.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    );
+
+    return (
+      <div
+        className={cn(
+          "flex w-full flex-col gap-2 md:flex-row md:items-center md:justify-between",
+          isDrawer && "md:flex-col",
+        )}
+      >
+        <div
+          className={cn(
+            "relative w-full md:max-w-sm",
+            isDrawer && "md:max-w-none",
           )}
         >
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Buscar por nombre o descripción..."
-            className={cn("pl-8", isDrawer && "w-full")}
+            className="pl-8"
             value={searchTerm}
             onChange={(e) => onSearchChange(e.target.value)}
           />
         </div>
         <div
           className={cn(
-            "flex flex-col gap-2 md:flex-row md:items-center md:justify-between",
-            isDrawer && "md:flex-col",
+            "flex w-full flex-col gap-2 md:w-auto md:flex-row md:items-center md:gap-3",
+            isDrawer && "md:w-full",
           )}
         >
-          <div
-            role="tablist"
-            aria-label="Filtrar por estado"
-            className={cn(
-              "flex gap-2 overflow-x-auto no-scrollbar py-1",
-              isDrawer && "flex-wrap overflow-x-visible",
-            )}
-          >
-            {STATUS_FILTER_OPTIONS.map((option) => {
-              const count = counts[option.value];
-              return (
-                <Button
-                  key={option.value}
-                  type="button"
-                  onClick={() => onStatusFilterChange(option.value)}
-                  className={cn(
-                    getButtonStatusClass(option.value, statusFilter),
-                    "h-8 px-2.5 py-1.5 whitespace-nowrap",
-                    isDrawer && "justify-between",
-                  )}
-                  variant="outline"
-                  aria-pressed={statusFilter === option.value}
-                >
-                  <span>{option.label}</span>
-                  <span className="ml-2 text-xs opacity-75">({count ?? 0})</span>
-                </Button>
-              );
-            })}
-          </div>
-          <div
-            className={cn(
-              "flex items-center gap-2 shrink-0",
-              isDrawer && "w-full justify-between md:justify-start",
-            )}
-            role="group"
-            aria-label="Filtrar por mi firma"
-          >
-            <span className="text-sm font-medium text-muted-foreground whitespace-nowrap">
-              Mi firma
-            </span>
-            <div className="inline-flex items-center gap-1 rounded-md border bg-background p-0.5 shadow-sm">
-              {MY_SIGN_FILTER_OPTIONS.map((option) => {
-                const isActive = mySignFilter === option.value;
-                return (
-                  <button
-                    key={option.value}
-                    type="button"
-                    onClick={() => onMySignFilterChange(option.value)}
-                    className={cn(
-                      "rounded-md px-3 py-1 text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
-                      isActive
-                        ? "bg-primary text-primary-foreground shadow-sm"
-                        : "text-muted-foreground hover:text-foreground",
-                    )}
-                    aria-pressed={isActive}
-                  >
-                    {option.label}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
+          <div className={cn("w-full md:w-auto", isDrawer && "w-full")}>{statusControl}</div>
+          <div className={cn("w-full md:w-auto", isDrawer && "w-full")}>{mySignControl}</div>
         </div>
-      </>
+      </div>
     );
   };
 
@@ -420,7 +534,6 @@ export function DocumentsTable({
             <TableHeader>
               <TableRow>
                 <TableHead>Nombre Doc.</TableHead>
-                <TableHead className="hidden md:table-cell">Descripción</TableHead>
                 <TableHead
                   className="hidden sm:table-cell cursor-pointer select-none"
                   onClick={() => {
@@ -433,6 +546,7 @@ export function DocumentsTable({
                 </TableHead>
                 <TableHead>Estado</TableHead>
                 <TableHead>Días Transcurridos</TableHead>
+                <TableHead>Mi firma</TableHead>
                 <TableHead>Asignados</TableHead>
                 {canEdit && <TableHead className="text-right">Acciones</TableHead>}
               </TableRow>
@@ -453,9 +567,6 @@ export function DocumentsTable({
                         {doc.name}
                       </button>
                     </TableCell>
-                    <TableCell className="hidden md:table-cell text-muted-foreground">
-                      {doc.description}
-                    </TableCell>
                     <TableCell className="hidden sm:table-cell">
                       <DateCell value={doc.sendDate} withTime />
                     </TableCell>
@@ -470,6 +581,7 @@ export function DocumentsTable({
                         title={sendDateTitle}
                       />
                     </TableCell>
+                    <TableCell>{renderSignatureChip(doc)}</TableCell>
                     <TableCell>
                       <button
                         className="cursor-pointer"
