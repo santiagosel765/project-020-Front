@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import AssignmentForm, {
   type AssignmentFormInitialValues,
@@ -10,15 +10,15 @@ import { useToast } from "@/hooks/use-toast";
 import {
   getCuadroFirmaDetalle,
   getFirmantes,
-  updateCuadroFirma,
-  updateDocumentoAsignacion,
   type SignerSummary,
 } from "@/services/documentsService";
 import { getEmpresas } from "@/services/empresasService";
 import { useSession } from "@/lib/session";
-import { useQueryClient } from "@tanstack/react-query";
 import { Skeleton } from "@/components/ui/skeleton";
 import { fullName } from "@/lib/avatar";
+import { SignDocumentModal } from "@/components/sign/SignDocumentModal";
+import { useSignAndPersist } from "@/hooks/useSignAndPersist";
+import type { SignSource } from "@/types/signatures";
 
 type NormalizedResponsibility = "ELABORA" | "REVISA" | "APRUEBA" | "ENTERADO" | null;
 
@@ -188,13 +188,28 @@ export default function AssignmentEditPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
   const { toast } = useToast();
-  const queryClient = useQueryClient();
-  const { isAdmin, isLoading: sessionLoading, me } = useSession();
+  const { isAdmin, isLoading: sessionLoading, me, signatureUrl } = useSession();
+  const { updateThenMaybeSign } = useSignAndPersist();
 
   const [initialValues, setInitialValues] = useState<AssignmentFormInitialValues | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [companies, setCompanies] = useState<Array<{ id: number; nombre: string }>>([]);
+  const [elaboraAlreadySigned, setElaboraAlreadySigned] = useState(false);
+  const [signModalOpen, setSignModalOpen] = useState(false);
+  const [modalLoading, setModalLoading] = useState(false);
+  const [pendingSubmission, setPendingSubmission] = useState<
+    | {
+        values: AssignmentFormSubmitData;
+        isElabora: boolean;
+        alreadySigned: boolean;
+      }
+    | null
+  >(null);
+  const pendingPromiseRef = useRef<{
+    resolve: () => void;
+    reject: (error: unknown) => void;
+  } | null>(null);
 
   const documentId = useMemo(() => {
     const rawId = params?.id;
@@ -248,6 +263,13 @@ export default function AssignmentEditPage() {
 
         const { responsables, elaboraId } = mapResponsables(detalle, firmantes);
 
+        const elaboraFirmante = firmantes.find((firmante) =>
+          normalizeResponsibility(firmante.responsabilidad_firma?.nombre) === "ELABORA",
+        );
+        if (mounted) {
+          setElaboraAlreadySigned(Boolean(elaboraFirmante?.estaFirmado));
+        }
+
         setCompanies(empresas?.items ?? []);
         const rawEmpresaId =
           detalle?.empresa_id ??
@@ -299,66 +321,79 @@ export default function AssignmentEditPage() {
     };
   }, [documentId, isAdmin, me?.id, toast]);
 
+  const clearPendingState = useCallback(() => {
+    setSignModalOpen(false);
+    setPendingSubmission(null);
+    pendingPromiseRef.current = null;
+  }, []);
+
   const handleSubmit = useCallback(
     async (data: AssignmentFormSubmitData) => {
       if (!documentId) return;
 
       const currentUserId = toNumber(me?.id);
+      const elaboraSigner = data.signatories.find((signer) => signer.responsibility === "ELABORA");
+      const nextElaboraId = toNumber(elaboraSigner?.id);
+      const isElabora = currentUserId != null && nextElaboraId != null && currentUserId === nextElaboraId;
+      const alreadySignedForUser =
+        isElabora && initialValues?.elaboraUserId === nextElaboraId ? elaboraAlreadySigned : false;
 
-      const payload: Record<string, unknown> = {
-        titulo: data.title,
-        descripcion: data.description,
-        version: data.version,
-        codigo: data.code,
-        empresa_id: data.empresaId ?? null,
-        responsables: data.responsables,
-        idUser: currentUserId ?? me?.id ?? null,
-      };
+      if (isElabora && !alreadySignedForUser) {
+        return new Promise<void>((resolve, reject) => {
+          pendingPromiseRef.current = { resolve, reject };
+          setPendingSubmission({ values: data, isElabora, alreadySigned: alreadySignedForUser });
+          setSignModalOpen(true);
+        });
+      }
 
+      await updateThenMaybeSign({
+        id: documentId,
+        formValues: data,
+        isElabora,
+        alreadySigned: alreadySignedForUser,
+      });
+    },
+    [
+      documentId,
+      elaboraAlreadySigned,
+      initialValues?.elaboraUserId,
+      me?.id,
+      updateThenMaybeSign,
+    ],
+  );
+
+  const handleModalConfirm = useCallback(
+    async (signSource: SignSource) => {
+      if (!pendingSubmission || !documentId) return;
+      const pending = pendingPromiseRef.current;
+      setModalLoading(true);
       try {
-        await updateCuadroFirma(documentId, payload);
-
-        if (data.hasFileChange && data.pdfFile) {
-          await updateDocumentoAsignacion(documentId, {
-            file: data.pdfFile,
-            idUser: me?.id,
-            observaciones: data.observaciones,
-          });
-        }
-
-        toast({ title: "Actualizado", description: "La asignación se actualizó correctamente." });
-
-        await Promise.all([
-          queryClient.invalidateQueries({ queryKey: ["documents"] }),
-          queryClient.invalidateQueries({ queryKey: ["documents", "supervision"] }),
-          queryClient.invalidateQueries({ queryKey: ["documents", "supervision", "stats"] }),
-          queryClient.invalidateQueries({ queryKey: ["documents", "me"] }),
-        ]);
-
-        router.push(`/documento/${documentId}`);
-      } catch (error: any) {
-        console.error("Error updating assignment", error);
-        const status = error?.response?.status;
-        const rawMessage =
-          error?.response?.data?.message || error?.message || "No se pudo actualizar la asignación.";
-        const message = String(rawMessage);
-        if (
-          status === 500 &&
-          typeof rawMessage === "string" &&
-          rawMessage.toLowerCase().includes("cuadro_firma_estado_historial.create")
-        ) {
-          toast({
-            variant: "destructive",
-            title: "Error",
-            description: "No se pudo registrar historial; intenta de nuevo o contacta soporte",
-          });
-          return;
-        }
-        toast({ variant: "destructive", title: "Error", description: message });
+        await updateThenMaybeSign({
+          id: documentId,
+          formValues: pendingSubmission.values,
+          isElabora: pendingSubmission.isElabora,
+          alreadySigned: pendingSubmission.alreadySigned,
+          signSource,
+        });
+        pending?.resolve();
+      } catch (error) {
+        pending?.reject(error);
+      } finally {
+        setModalLoading(false);
+        clearPendingState();
       }
     },
-    [documentId, me?.id, queryClient, router, toast],
+    [clearPendingState, documentId, pendingSubmission, updateThenMaybeSign],
   );
+
+  const handleModalClose = useCallback(() => {
+    if (modalLoading) return;
+    const pending = pendingPromiseRef.current;
+    if (pending) {
+      pending.reject(new Error("signature-modal-cancelled"));
+    }
+    clearPendingState();
+  }, [clearPendingState, modalLoading]);
 
   if (sessionLoading) {
     return (
@@ -399,6 +434,13 @@ export default function AssignmentEditPage() {
         submitLabel="Guardar Cambios"
         title="Editar asignación"
         description="Actualiza los metadatos, responsables y archivo del documento."
+      />
+      <SignDocumentModal
+        open={signModalOpen}
+        onClose={handleModalClose}
+        onConfirm={handleModalConfirm}
+        loading={modalLoading}
+        currentSignatureUrl={signatureUrl ?? undefined}
       />
     </div>
   );
