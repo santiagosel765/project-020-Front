@@ -51,14 +51,15 @@ const mapResponsables = (firmantes: SignerSummary[]) => {
     const responsibility = normalizeResponsibility(f.responsabilidad_firma?.nombre);
     const id = Number(f.user.id ?? 0);
     if (!Number.isFinite(id) || id <= 0) return;
+    if (!responsibility) return;
+
     const nombre = fullName(f.user) || f.user.correo_institucional || "Usuario";
+
     if (responsibility === "ELABORA") {
       elaboraId = id;
-      return;
     }
-    if (responsibility && responsibility !== "ELABORA") {
-      responsables.push({ id, nombre, responsabilidad: responsibility });
-    }
+
+    responsables.push({ id, nombre, responsabilidad });
   });
 
   return { responsables, elaboraId };
