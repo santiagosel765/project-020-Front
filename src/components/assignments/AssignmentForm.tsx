@@ -34,19 +34,10 @@ import { useToast } from "@/hooks/use-toast";
 import { SignersTable } from "@/components/signers-table";
 import SelectedSigners from "@/components/assignments/SelectedSigners";
 import { getUsers } from "@/services/usersService";
+import { useCompanies } from "@/services/companiesService";
 import type { User } from "@/lib/data";
 import { buildResponsables } from "@/lib/responsables";
 import { useSession } from "@/lib/session";
-
-const COMPANIES = [
-  { id: 1, name: "FGE" },
-  { id: 2, name: "Corporativo" },
-  { id: 3, name: "Pronet" },
-  { id: 4, name: "Asogénesis" },
-  { id: 5, name: "Desarrollo en Movimiento" },
-  { id: 6, name: "FUNTEC" },
-  { id: 7, name: "MAC" },
-];
 
 const toNumericId = (raw: unknown): number | null => {
   if (typeof raw === "number" && Number.isFinite(raw)) return raw;
@@ -111,6 +102,14 @@ export function AssignmentForm({
   const { toast } = useToast();
   const { me } = useSession();
 
+  const companiesParams = useMemo(() => (mode === "create" ? { activo: true } : undefined), [mode]);
+  const {
+    data: companiesData,
+    isLoading: isCompaniesLoading,
+    isError: isCompaniesError,
+  } = useCompanies(companiesParams);
+  const companies = companiesData?.items ?? [];
+
   const [searchTerm, setSearchTerm] = useState("");
   const [users, setUsers] = useState<User[]>([]);
   const [signatories, setSignatories] = useState<Signatory[]>([]);
@@ -118,11 +117,12 @@ export function AssignmentForm({
   const [description, setDescription] = useState(initialValues?.description ?? "");
   const [version, setVersion] = useState(initialValues?.version ?? "");
   const [code, setCode] = useState(initialValues?.code ?? "");
-  const [companyId, setCompanyId] = useState<string>(
-    initialValues?.companyId != null && initialValues.companyId !== ""
-      ? String(initialValues.companyId)
-      : String(COMPANIES[0]?.id ?? ""),
-  );
+  const [companyId, setCompanyId] = useState<string | undefined>(() => {
+    if (initialValues?.companyId != null && String(initialValues.companyId).trim() !== "") {
+      return String(initialValues.companyId);
+    }
+    return undefined;
+  });
   const [observaciones, setObservaciones] = useState(initialValues?.observaciones ?? "");
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [existingPdfName, setExistingPdfName] = useState<string | null>(initialValues?.pdfName ?? null);
@@ -132,25 +132,40 @@ export function AssignmentForm({
   const [elaboraId, setElaboraId] = useState<number | null>(initialValues?.elaboraUserId ?? null);
   const pdfInputRef = useRef<HTMLInputElement>(null);
 
+  const normalizedInitialCompanyId =
+    initialValues?.companyId != null && String(initialValues.companyId).trim() !== ""
+      ? String(initialValues.companyId)
+      : undefined;
+
   const companyOptions = useMemo(() => {
-    if (
-      initialValues?.companyId == null ||
-      initialValues.companyId === "" ||
-      initialValues.companyName == null ||
-      initialValues.companyName === ""
-    ) {
-      return COMPANIES;
+    const base = companies.map((empresa) => ({
+      id: empresa.id,
+      nombre: empresa.nombre,
+    }));
+
+    if (!normalizedInitialCompanyId) {
+      return base;
     }
-    const exists = COMPANIES.some((empresa) => String(empresa.id) === String(initialValues.companyId));
-    if (exists) return COMPANIES;
+
+    const exists = base.some((empresa) => String(empresa.id) === normalizedInitialCompanyId);
+    if (exists) return base;
+
+    const parsed = Number(normalizedInitialCompanyId);
+    if (!Number.isFinite(parsed)) return base;
+
+    const name =
+      typeof initialValues?.companyName === "string" && initialValues.companyName.trim() !== ""
+        ? initialValues.companyName
+        : `Empresa ${normalizedInitialCompanyId}`;
+
     return [
-      ...COMPANIES,
+      ...base,
       {
-        id: Number(initialValues.companyId),
-        name: initialValues.companyName,
+        id: parsed,
+        nombre: name,
       },
     ];
-  }, [initialValues?.companyId, initialValues?.companyName]);
+  }, [companies, normalizedInitialCompanyId, initialValues?.companyName]);
 
   useEffect(() => {
     if (initialValues) {
@@ -159,9 +174,9 @@ export function AssignmentForm({
       setVersion(initialValues.version ?? "");
       setCode(initialValues.code ?? "");
       setCompanyId(
-        initialValues.companyId != null && initialValues.companyId !== ""
+        initialValues.companyId != null && String(initialValues.companyId).trim() !== ""
           ? String(initialValues.companyId)
-          : String(COMPANIES[0]?.id ?? ""),
+          : undefined,
       );
       setObservaciones(initialValues.observaciones ?? "");
       setExistingPdfName(initialValues.pdfName ?? null);
@@ -185,6 +200,22 @@ export function AssignmentForm({
       setElaboraId(Number(me.id));
     }
   }, [me?.id, elaboraId]);
+
+  useEffect(() => {
+    if (mode !== "create") return;
+    if (companyId != null && companyId !== "") return;
+    if (!companies.length) return;
+    setCompanyId(String(companies[0].id));
+  }, [mode, companies, companyId]);
+
+  useEffect(() => {
+    if (!isCompaniesError) return;
+    toast({
+      variant: "destructive",
+      title: "Error al cargar empresas",
+      description: "No fue posible obtener la lista de empresas.",
+    });
+  }, [isCompaniesError, toast]);
 
   useEffect(() => {
     let mounted = true;
@@ -267,7 +298,7 @@ export function AssignmentForm({
     setDescription("");
     setVersion("");
     setCode("");
-    setCompanyId(String(COMPANIES[0]?.id ?? ""));
+    setCompanyId(companies.length > 0 ? String(companies[0].id) : undefined);
     setObservaciones("");
     setSignatories([]);
     setPdfFile(null);
@@ -464,20 +495,29 @@ export function AssignmentForm({
                   <Label htmlFor="assignment-company">Seleccione la Empresa</Label>
                   <Select
                     required
+                    disabled={isCompaniesLoading}
                     value={companyId}
                     onValueChange={(value) => {
                       setCompanyId(value);
                     }}
                   >
                     <SelectTrigger id="assignment-company">
-                      <SelectValue placeholder="Seleccionar empresa" />
+                      <SelectValue
+                        placeholder={isCompaniesLoading ? "Cargando empresas…" : "Seleccionar empresa"}
+                      />
                     </SelectTrigger>
                     <SelectContent>
-                      {companyOptions.map((empresa) => (
-                        <SelectItem key={empresa.id} value={String(empresa.id)}>
-                          {empresa.name}
+                      {companyOptions.length ? (
+                        companyOptions.map((empresa) => (
+                          <SelectItem key={empresa.id} value={String(empresa.id)}>
+                            {empresa.nombre}
+                          </SelectItem>
+                        ))
+                      ) : (
+                        <SelectItem value="__empresa_placeholder" disabled>
+                          {isCompaniesLoading ? "Cargando empresas…" : "Sin empresas disponibles"}
                         </SelectItem>
-                      ))}
+                      )}
                     </SelectContent>
                   </Select>
                 </div>
