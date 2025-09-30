@@ -561,13 +561,63 @@ export function AssignmentForm({
         enteradoUsers,
       });
 
+      const pickText = (candidates: unknown[]) => {
+        for (const candidate of candidates) {
+          if (typeof candidate === "string") {
+            const trimmed = candidate.trim();
+            if (trimmed) {
+              return trimmed;
+            }
+          }
+        }
+        return "N/D";
+      };
+
+      const normalizeResponsable = <T extends { puesto: string; gerencia: string }>(
+        responsable: T | undefined,
+        user?: any,
+      ): T | undefined => {
+        if (!responsable) return responsable;
+
+        const puesto = pickText([
+          responsable.puesto,
+          user?.posicionNombre,
+          user?.posicion?.nombre,
+        ]);
+
+        const gerencia = pickText([
+          responsable.gerencia,
+          user?.gerenciaNombre,
+          user?.gerencia?.nombre,
+        ]);
+
+        return {
+          ...responsable,
+          puesto,
+          gerencia,
+        };
+      };
+
+      const responsablesWithFallback = {
+        elabora: normalizeResponsable(responsables.elabora, elaboraUserData ?? undefined),
+        revisa: responsables.revisa.map((responsable, index) =>
+          normalizeResponsable(responsable, revisaUsers[index])!,
+        ),
+        aprueba: responsables.aprueba.map((responsable, index) =>
+          normalizeResponsable(responsable, apruebaUsers[index])!,
+        ),
+        enterado: responsables.enterado.map((responsable, index) =>
+          normalizeResponsable(responsable, enteradoUsers[index])!,
+        ),
+      };
+
       await onSubmit({
         title: trimmedTitle,
         description: trimmedDescription,
         version: finalVersion,
         code: trimmedCode,
         empresaId: currentEmpresaId,
-        responsables,
+        responsables: responsablesWithFallback,
         pdfFile,
         observaciones: trimmedObservaciones,
         hasFileChange,
