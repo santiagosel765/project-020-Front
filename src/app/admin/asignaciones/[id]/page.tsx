@@ -156,11 +156,28 @@ const mapResponsables = (
       elaboraId = elaboraId ?? uid;
     }
 
+    const userData = firmante.user ? { ...firmante.user } : {};
+    if (userData && typeof userData === "object") {
+      if (userData.id == null) {
+        (userData as any).id = uid;
+      }
+      if (userData.posicionNombre == null && userData.posicion?.nombre) {
+        (userData as any).posicionNombre = userData.posicion.nombre;
+      }
+      if (userData.gerenciaNombre == null && userData.gerencia?.nombre) {
+        (userData as any).gerenciaNombre = userData.gerencia.nombre;
+      }
+      if ((userData as any).nombre == null && typeof nombre === "string") {
+        (userData as any).nombre = nombre;
+      }
+    }
+
     responsables.push({
       id: uid,
       nombre,
       responsabilidad: current.responsabilidad,
       responsabilidadId: current.responsabilidadId,
+      user: userData,
     });
   });
 
