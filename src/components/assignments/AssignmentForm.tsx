@@ -56,7 +56,7 @@ const toNumericId = (raw: unknown): number | null => {
   return null;
 };
 
-type Responsibility = "REVISA" | "APRUEBA" | "ENTERADO";
+type Responsibility = "ELABORA" | "REVISA" | "APRUEBA" | "ENTERADO";
 
 type Signatory = {
   id: number;
@@ -220,7 +220,7 @@ export function AssignmentForm({
       );
     });
     base.sort((a, b) => a.name.localeCompare(b.name));
-    return term ? base : base.slice(0, 5);
+    return base;
   }, [users, searchTerm, signatories]);
 
   const addSignatory = (user: User) => {
@@ -513,7 +513,11 @@ export function AssignmentForm({
             <Separator className="my-2" />
 
             <SelectedSigners
-              selected={signatories.map((signer) => ({ id: signer.id, nombre: signer.name }))}
+              selected={signatories.map((signer) => ({
+                id: signer.id,
+                nombre: signer.name,
+                responsabilidad: signer.responsibility,
+              }))}
               onRemove={(id) => removeSignatory(Number(id))}
             />
 
@@ -534,42 +538,57 @@ export function AssignmentForm({
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {signatories.map((user) => (
-                      <TableRow key={user.id}>
-                        <TableCell className="font-medium">{user.name}</TableCell>
-                        <TableCell>
-                          <RadioGroup
-                            onValueChange={(value) => handleResponsibilityChange(user.id, value as Responsibility)}
-                            value={user.responsibility ?? undefined}
-                            className="flex gap-2 md:gap-4"
-                          >
-                            <div className="flex items-center space-x-2">
-                              <RadioGroupItem value="REVISA" id={`r1-${user.id}`} />
-                              <Label htmlFor={`r1-${user.id}`} className="text-xs">
-                                Revisa
-                              </Label>
-                            </div>
-                            <div className="flex items-center space-x-2">
-                              <RadioGroupItem value="APRUEBA" id={`r2-${user.id}`} />
-                              <Label htmlFor={`r2-${user.id}`} className="text-xs">
-                                Aprueba
-                              </Label>
-                            </div>
-                            <div className="flex items-center space-x-2">
-                              <RadioGroupItem value="ENTERADO" id={`r3-${user.id}`} />
-                              <Label htmlFor={`r3-${user.id}`} className="text-xs">
-                                Enterado
-                              </Label>
-                            </div>
-                          </RadioGroup>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <Button type="button" size="sm" variant="ghost" onClick={() => removeSignatory(user.id)}>
-                            Quitar
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
+                    {signatories.map((user) => {
+                      const isElabora = user.responsibility === "ELABORA";
+                      return (
+                        <TableRow key={user.id}>
+                          <TableCell className="font-medium">{user.name}</TableCell>
+                          <TableCell>
+                            {isElabora ? (
+                              <span className="text-xs font-semibold uppercase text-muted-foreground">Elabora</span>
+                            ) : (
+                              <RadioGroup
+                                onValueChange={(value) =>
+                                  handleResponsibilityChange(user.id, value as Responsibility)
+                                }
+                                value={user.responsibility ?? undefined}
+                                className="flex flex-wrap gap-2 md:flex-nowrap md:gap-4"
+                              >
+                                <div className="flex items-center space-x-2">
+                                  <RadioGroupItem value="REVISA" id={`r1-${user.id}`} />
+                                  <Label htmlFor={`r1-${user.id}`} className="text-xs">
+                                    Revisa
+                                  </Label>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                  <RadioGroupItem value="APRUEBA" id={`r2-${user.id}`} />
+                                  <Label htmlFor={`r2-${user.id}`} className="text-xs">
+                                    Aprueba
+                                  </Label>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                  <RadioGroupItem value="ENTERADO" id={`r3-${user.id}`} />
+                                  <Label htmlFor={`r3-${user.id}`} className="text-xs">
+                                    Enterado
+                                  </Label>
+                                </div>
+                              </RadioGroup>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => removeSignatory(user.id)}
+                              disabled={isElabora}
+                            >
+                              Quitar
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
                   </TableBody>
                 </Table>
               </div>

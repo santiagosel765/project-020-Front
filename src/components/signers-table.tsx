@@ -97,7 +97,7 @@ export function SignersTable({ users, onAdd, className }: SignersTableProps) {
             </TableHeader>
             <TableBody>
               {users.map((user) => (
-                <TableRow key={user.id ?? user.correoInstitucional}>
+                <TableRow key={user.id}>
                   <TableCell>
                     <Avatar className="h-8 w-8">
                       <AvatarImage

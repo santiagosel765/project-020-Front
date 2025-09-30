@@ -2,7 +2,7 @@
 
 import { X } from "lucide-react";
 
-export type SelectedSigner = { id: number; nombre: string };
+export type SelectedSigner = { id: number; nombre: string; responsabilidad?: string | null };
 
 export default function SelectedSigners({
   selected,
@@ -28,7 +28,8 @@ export default function SelectedSigners({
                 type="button"
                 onClick={() => onRemove(u.id)}
                 aria-label={`Quitar ${u.nombre}`}
-                className="inline-flex items-center gap-1 rounded-full border px-2 py-1 text-xs transition-colors hover:bg-destructive/10"
+                className="inline-flex items-center gap-1 rounded-full border px-2 py-1 text-xs transition-colors hover:bg-destructive/10 disabled:opacity-60"
+                disabled={u.responsabilidad?.toUpperCase() === "ELABORA"}
               >
                 <X className="h-3.5 w-3.5" aria-hidden="true" />
                 <span className="hidden sm:inline">Quitar</span>

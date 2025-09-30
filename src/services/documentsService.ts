@@ -343,8 +343,19 @@ export async function getByUserStats(userId: number, params?: { search?: string 
 }
 
 export async function getFirmantes(cuadroId: number): Promise<SignerSummary[]> {
-  const { data } = await api.get<any>(`/documents/cuadro-firmas/firmantes/${cuadroId}`);
-  return unwrapArray<SignerSummary>(data?.data ?? data?.firmantes ?? data);
+  const { data } = await api.get<any>(`/documents/cuadro-firmas/firmantes/${cuadroId}`, {
+    params: { page: 1, limit: 100 },
+  });
+
+  const payload = data?.data ?? data;
+  if (Array.isArray(payload?.items)) {
+    return payload.items as SignerSummary[];
+  }
+  if (Array.isArray(payload?.firmantes)) {
+    return payload.firmantes as SignerSummary[];
+  }
+
+  return unwrapArray<SignerSummary>(payload);
 }
 
 export type CuadroFirmaDetalle = {
