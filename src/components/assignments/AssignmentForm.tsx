@@ -65,7 +65,12 @@ export type AssignmentFormInitialValues = {
   pdfUrl?: string | null;
   pdfName?: string | null;
   observaciones?: string | null;
-  responsables?: { id: number; nombre: string; responsabilidad: Responsibility }[];
+  responsables?: {
+    id: number;
+    nombre: string;
+    responsabilidad: Responsibility | null;
+    responsabilidadId: number | null;
+  }[];
   elaboraUserId?: number | null;
 };
 

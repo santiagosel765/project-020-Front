@@ -43,23 +43,124 @@ const getPdfName = (url?: string | null): string | null => {
   }
 };
 
-const mapResponsables = (firmantes: SignerSummary[]) => {
-  const responsables: NonNullable<AssignmentFormInitialValues["responsables"]> = [];
+const toNumber = (value: unknown): number | null => {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string" && value.trim() !== "") {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return null;
+};
+
+const getRespId = (x: any): number | null =>
+  toNumber(x?.responsabilidadId ?? x?.responsabilidad_id ?? x?.responsabilidad ?? null);
+
+const getUserId = (value: any): number | null => {
+  if (typeof value === "number" || typeof value === "string") {
+    return toNumber(value);
+  }
+  return toNumber(
+    value?.userId ??
+      value?.usuarioId ??
+      value?.idUsuario ??
+      value?.usuario_id ??
+      value?.usuario?.id ??
+      value?.user?.id ??
+      value?.id,
+  );
+};
+
+const mapResponsables = (
+  detalle: any,
+  firmantes: SignerSummary[],
+): {
+  responsables: NonNullable<AssignmentFormInitialValues["responsables"]>;
+  elaboraId: number | null;
+} => {
+  const byUser = new Map<number, { responsabilidadId: number | null; responsabilidad: NormalizedResponsibility }>();
+
+  const ensureEntry = (uid: number) => {
+    if (!byUser.has(uid)) {
+      byUser.set(uid, { responsabilidadId: null, responsabilidad: null });
+    }
+    return byUser.get(uid)!;
+  };
+
+  const assignEntry = (
+    payload: any,
+    fallback: NormalizedResponsibility,
+  ): number | null => {
+    const uid = getUserId(payload);
+    if (uid == null) return null;
+    const entry = ensureEntry(uid);
+    const respId = getRespId(payload);
+    const responsibilityName = normalizeResponsibility(
+      typeof payload?.responsabilidadNombre === "string"
+        ? payload?.responsabilidadNombre
+        : typeof payload?.responsabilidad_nombre === "string"
+        ? payload?.responsabilidad_nombre
+        : typeof payload?.responsabilidad?.nombre === "string"
+        ? payload?.responsabilidad?.nombre
+        : typeof payload?.responsabilidad === "string"
+        ? payload?.responsabilidad
+        : null,
+    );
+
+    byUser.set(uid, {
+      responsabilidadId: respId ?? entry.responsabilidadId ?? null,
+      responsabilidad: responsibilityName ?? entry.responsabilidad ?? fallback,
+    });
+    return uid;
+  };
+
+  const addList = (list: any, fallback: NormalizedResponsibility) => {
+    if (!Array.isArray(list)) return;
+    list.forEach((item) => assignEntry(item, fallback));
+  };
+
   let elaboraId: number | null = null;
+  const responsablesDetalle = detalle?.responsables ?? {};
 
-  firmantes.forEach((f) => {
-    const responsibility = normalizeResponsibility(f.responsabilidad_firma?.nombre);
-    const id = Number(f.user.id ?? 0);
-    if (!Number.isFinite(id) || id <= 0) return;
-    if (!responsibility) return;
+  if (responsablesDetalle?.elabora) {
+    const uid = assignEntry(responsablesDetalle.elabora, "ELABORA");
+    if (uid != null) {
+      elaboraId = uid;
+    }
+  }
 
-    const nombre = fullName(f.user) || f.user.correo_institucional || "Usuario";
+  addList(responsablesDetalle?.revisa, "REVISA");
+  addList(responsablesDetalle?.aprueba, "APRUEBA");
+  addList(responsablesDetalle?.enterado, "ENTERADO");
 
-    if (responsibility === "ELABORA") {
-      elaboraId = id;
+  const responsables: NonNullable<AssignmentFormInitialValues["responsables"]> = [];
+
+  firmantes.forEach((firmante) => {
+    const uid = getUserId(firmante.user);
+    if (uid == null) return;
+
+    const nombre = fullName(firmante.user) || firmante.user.correo_institucional || "Usuario";
+    const normalizedResponsibility = normalizeResponsibility(firmante.responsabilidad_firma?.nombre);
+    const stored = ensureEntry(uid);
+
+    if (!stored.responsabilidad && normalizedResponsibility) {
+      byUser.set(uid, {
+        responsabilidadId: stored.responsabilidadId,
+        responsabilidad: normalizedResponsibility,
+      });
     }
 
-    responsables.push({ id, nombre, responsabilidad });
+    const current = byUser.get(uid) ?? { responsabilidadId: null, responsabilidad: null };
+
+    if (current.responsabilidad === "ELABORA") {
+      elaboraId = elaboraId ?? uid;
+    }
+
+    responsables.push({
+      id: uid,
+      nombre,
+      responsabilidad: current.responsabilidad,
+      responsabilidadId: current.responsabilidadId,
+    });
   });
 
   return { responsables, elaboraId };
@@ -115,7 +216,7 @@ export default function AssignmentEditPage() {
 
         if (!mounted) return;
 
-        const { responsables, elaboraId } = mapResponsables(firmantes);
+        const { responsables, elaboraId } = mapResponsables(detalle, firmantes);
 
         const rawCompanyId = detalle.empresa?.id;
         let companyIdValue: number | undefined;

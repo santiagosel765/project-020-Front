@@ -4,4 +4,9 @@ import tseslint from 'typescript-eslint';
 export default tseslint.config(
   { ignores: ['.next/**', 'dist/**'] },
   js.configs.recommended,
+  {
+    rules: {
+      'no-undef': 'error',
+    },
+  },
 );
