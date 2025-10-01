@@ -35,9 +35,15 @@ import { SignersTable } from "@/components/signers-table";
 import SelectedSigners from "@/components/assignments/SelectedSigners";
 import { getUsers } from "@/services/usersService";
 import type { User } from "@/lib/data";
-import { buildResponsables } from "@/lib/responsables";
+import {
+  buildResponsablesPayload,
+  collectAllResponsables,
+  getResponsabilidadIdForRole,
+  type ResponsabilidadRole,
+} from "@/lib/responsables";
 import { useSession } from "@/lib/session";
 import { useForm } from "react-hook-form";
+import type { ResponsablesPayload } from "@/types/documents";
 
 const toNumericId = (raw: unknown): number | null => {
   if (typeof raw === "number" && Number.isFinite(raw)) return raw;
@@ -47,12 +53,13 @@ const toNumericId = (raw: unknown): number | null => {
   return null;
 };
 
-type Responsibility = "ELABORA" | "REVISA" | "APRUEBA" | "ENTERADO";
+type Responsibility = ResponsabilidadRole;
 
 type Signatory = {
   id: number;
   name: string;
   responsibility: Responsibility | null;
+  responsabilidadId: number | null;
   userData?: any;
 };
 
@@ -82,7 +89,7 @@ export type AssignmentFormSubmitData = {
   version: string;
   code: string;
   empresaId: number | null;
-  responsables: ReturnType<typeof buildResponsables>;
+  responsables: ResponsablesPayload;
   pdfFile: File | null;
   observaciones: string;
   hasFileChange: boolean;
@@ -261,7 +268,8 @@ export function AssignmentForm({
           initialValues.responsables.map((r) => ({
             id: r.id,
             name: r.nombre,
-            responsibility: r.responsabilidad,
+            responsibility: (r.responsabilidad ?? null) as Responsibility | null,
+            responsabilidadId: r.responsabilidadId ?? null,
             userData: r.user ?? undefined,
           })),
         );
@@ -392,8 +400,9 @@ export function AssignmentForm({
       return;
     }
     setSignatories((prev) =>
-      [...prev, { id: nid, name: user.name, responsibility: null, userData: user }].sort((a, b) =>
-        a.name.localeCompare(b.name),
+      [...prev, { id: nid, name: user.name, responsibility: null, responsabilidadId: null, userData: user }].sort(
+        (a, b) =>
+          a.name.localeCompare(b.name),
       ),
     );
     setSearchTerm("");
@@ -401,10 +410,23 @@ export function AssignmentForm({
 
   const removeSignatory = (userId: number) => {
     setSignatories((prev) => prev.filter((s) => s.id !== userId));
+    setElaboraId((prev) => (prev === userId ? null : prev));
   };
 
   const handleResponsibilityChange = (userId: number, value: Responsibility) => {
-    setSignatories((prev) => prev.map((s) => (s.id === userId ? { ...s, responsibility: value } : s)));
+    const responsabilidadId = getResponsabilidadIdForRole(value);
+    setSignatories((prev) =>
+      prev.map((s) =>
+        s.id === userId
+          ? { ...s, responsibility: value, responsabilidadId }
+          : s,
+      ),
+    );
+    setElaboraId((prev) => {
+      if (value === "ELABORA") return userId;
+      if (prev === userId) return null;
+      return prev;
+    });
   };
 
   const handlePdfUploadClick = () => {
@@ -532,84 +554,55 @@ export function AssignmentForm({
 
     setIsSubmitting(true);
 
-    const elaboraSigner = signatories.find((signer) => signer.responsibility === "ELABORA");
-    const elaboraUserData =
-      elaboraSigner
-        ? resolveUserData(elaboraSigner.id, elaboraSigner.name)
-        : elaboraId != null
-        ? resolveUserData(
-            elaboraId,
-            initialValues?.responsables?.find((responsable) => responsable.id === elaboraId)?.nombre ?? undefined,
-          )
-        : null;
+    const selectedResponsables: Parameters<
+      typeof buildResponsablesPayload
+    >[0]["seleccionados"] = signatories.map((signer) => {
+      const role = signer.responsibility;
+      const resolvedUser = resolveUserData(signer.id, signer.name);
+      const responsabilidadId =
+        signer.responsabilidadId != null
+          ? signer.responsabilidadId
+          : role
+          ? getResponsabilidadIdForRole(role)
+          : null;
 
-    const revisaUsers = signatories
-      .filter((signer) => signer.responsibility === "REVISA")
-      .map((signer) => resolveUserData(signer.id, signer.name));
-    const apruebaUsers = signatories
-      .filter((signer) => signer.responsibility === "APRUEBA")
-      .map((signer) => resolveUserData(signer.id, signer.name));
-    const enteradoUsers = signatories
-      .filter((signer) => signer.responsibility === "ENTERADO")
-      .map((signer) => resolveUserData(signer.id, signer.name));
+      if (!role || responsabilidadId == null) {
+        throw Object.assign(new Error(`Falta responsabilidad para ${signer.name}`), {
+          name: "AssignmentValidationError",
+        });
+      }
+
+      return {
+        user: resolvedUser,
+        responsabilidadId,
+        role,
+        responsabilidadNombre: role,
+        fallbackNombre: signer.name,
+      };
+    });
 
     try {
-      const responsables = buildResponsables({
-        elaboraUser: elaboraUserData,
-        revisaUsers,
-        apruebaUsers,
-        enteradoUsers,
+      const responsables = buildResponsablesPayload({
+        seleccionados: selectedResponsables,
+        elaboraUserId: elaboraId,
       });
 
-      const pickText = (candidates: unknown[]) => {
-        for (const candidate of candidates) {
-          if (typeof candidate === "string") {
-            const trimmed = candidate.trim();
-            if (trimmed) {
-              return trimmed;
-            }
-          }
-        }
-        return "N/D";
-      };
-
-      const normalizeResponsable = <T extends { puesto: string; gerencia: string }>(
-        responsable: T | undefined,
-        user?: any,
-      ): T | undefined => {
-        if (!responsable) return responsable;
-
-        const puesto = pickText([
-          responsable.puesto,
-          user?.posicionNombre,
-          user?.posicion?.nombre,
-        ]);
-
-        const gerencia = pickText([
-          responsable.gerencia,
-          user?.gerenciaNombre,
-          user?.gerencia?.nombre,
-        ]);
-
-        return {
-          ...responsable,
-          puesto,
-          gerencia,
-        };
-      };
-
-      const responsablesWithFallback = {
-        elabora: normalizeResponsable(responsables.elabora, elaboraUserData ?? undefined),
-        revisa: responsables.revisa.map((responsable, index) =>
-          normalizeResponsable(responsable, revisaUsers[index])!,
+      const faltantes = Array.from(
+        new Set(
+          collectAllResponsables(responsables)
+            .filter((responsable) => !responsable.puesto || !responsable.gerencia)
+            .map((responsable) => responsable.nombre),
         ),
-        aprueba: responsables.aprueba.map((responsable, index) =>
-          normalizeResponsable(responsable, apruebaUsers[index])!,
-        ),
-        enterado: responsables.enterado.map((responsable, index) =>
-          normalizeResponsable(responsable, enteradoUsers[index])!,
-        ),
-      };
+      );
+
+      if (faltantes.length > 0) {
+        toast({
+          variant: "destructive",
+          title: "Información faltante",
+          description: `Falta puesto/gerencia para ${faltantes.join(", ")}`,
+        });
+        return;
+      }
 
       await onSubmit({
         title: trimmedTitle,
@@ -617,7 +610,7 @@ export function AssignmentForm({
         version: finalVersion,
         code: trimmedCode,
         empresaId: currentEmpresaId,
-        responsables: responsablesWithFallback,
+        responsables,
         pdfFile,
         observaciones: trimmedObservaciones,
         hasFileChange,
@@ -634,7 +627,15 @@ export function AssignmentForm({
         }
         setPdfFile(null);
       }
-    } catch (error) {
+    } catch (error: any) {
+      if (error?.name === "AssignmentValidationError") {
+        toast({
+          variant: "destructive",
+          title: "Información faltante",
+          description: error?.message ?? "Verifica los datos de los responsables.",
+        });
+        return;
+      }
       console.error("Assignment form submit error", error);
     } finally {
       setIsSubmitting(false);
