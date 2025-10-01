@@ -34,7 +34,7 @@ export async function getEmpresas(
   }
 
   const queryString = searchParams.toString();
-  const url = queryString.length > 0 ? `/v1/empresas?${queryString}` : "/v1/empresas";
+  const url = queryString.length > 0 ? `/empresas?${queryString}` : "/empresas";
 
   const { data } = await api.get<EmpresasApiResponse>(url);
   const payload = data as EmpresasApiResponse;
