@@ -143,7 +143,7 @@ export function SettingsDialog({ children }: { children: React.ReactNode }) {
     return descriptions[error.code];
   };
 
-  const handleSignatureError = (error: unknown) => {
+  const handleSignatureError = (error: any) => {
     if (error instanceof SignatureValidationError) {
       const message = getValidationMessage(error);
       setSignatureError(message);
@@ -151,6 +151,14 @@ export function SettingsDialog({ children }: { children: React.ReactNode }) {
         variant: "destructive",
         title: "Imagen no válida",
         description: message,
+      });
+      return;
+    } else {
+      setSignatureError(error.payload.message as string);
+      toast({
+        variant: "destructive",
+        title: "Imagen no válida",
+        description: error.payload.message as string,
       });
       return;
     }
@@ -187,7 +195,7 @@ export function SettingsDialog({ children }: { children: React.ReactNode }) {
         : new Blob([canvasBlob], { type: "image/png" });
       const { blob } = await validateAndSanitizeSignature(normalizedBlob);
       const { data } = await updateMySignature(blob);
-      const url = data.url ?? data.signatureUrl;
+      const url = data.data.url ?? data.data.signatureUrl;
       if (!url) {
         throw new Error("No se recibió la URL de la firma.");
       }
@@ -213,6 +221,7 @@ export function SettingsDialog({ children }: { children: React.ReactNode }) {
   const handleSignatureFileChange = async (
     event: React.ChangeEvent<HTMLInputElement>
   ) => {
+    setSignatureError(null);
     const file = event.target.files?.[0];
     if (!file) {
       if (event.target) {
@@ -223,10 +232,13 @@ export function SettingsDialog({ children }: { children: React.ReactNode }) {
 
     try {
       setIsLoadingSignature(true);
-      setSignatureError(null);
       const { blob } = await validateAndSanitizeSignature(file);
       const { data } = await updateMySignature(blob);
-      const url = data.url ?? data.signatureUrl;
+      console.log({data})
+      let url = undefined;
+      if( data.data ) {
+        url = data.data.url ?? data.data.signatureUrl;
+      }
       if (!url) {
         throw new Error("No se recibió la URL de la firma.");
       }
@@ -237,6 +249,7 @@ export function SettingsDialog({ children }: { children: React.ReactNode }) {
       });
       await refresh().catch(() => undefined);
     } catch (error) {
+      console.log({error})
       handleSignatureError(error);
     } finally {
       setIsLoadingSignature(false);

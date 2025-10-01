@@ -131,7 +131,8 @@ export function SignDialog({
     try {
       const { blob } = await validateAndSanitizeSignature(file);
       const { data } = await updateMySignature(blob);
-      const url = data.url ?? data.signatureUrl;
+      console.log(data)
+      const url = data.data.url ?? data.data.signatureUrl;
       if (!url) {
         throw new Error('No se recibió la URL de la firma.');
       }
@@ -140,6 +141,7 @@ export function SignDialog({
       await refresh().catch(() => undefined);
       toast({ title: 'Firma actualizada' });
     } catch (error) {
+      console.log({error})
       handleSignatureError(error);
       setUploadPreview(null);
     } finally {
@@ -198,7 +200,7 @@ export function SignDialog({
           : new Blob([canvasBlob], { type: 'image/png' });
         const { blob } = await validateAndSanitizeSignature(normalizedBlob);
         const { data } = await updateMySignature(blob);
-        const url = data.url ?? data.signatureUrl;
+        const url = data.data.url ?? data.data.signatureUrl;
         if (!url) {
           throw new Error('No se recibió la URL de la firma.');
         }
