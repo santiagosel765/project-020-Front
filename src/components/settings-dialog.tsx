@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -24,9 +24,13 @@ import type SignatureCanvas from 'react-signature-canvas';
 import Image from 'next/image';
 import { Input } from './ui/input';
 import { useSession } from '@/lib/session';
-import { api } from '@/lib/api';
 import { buildUserFormData, updateUser } from '@/services/usersService';
 import { UserAvatar } from '@/components/avatar/user-avatar';
+import { updateMySignature } from '@/services/api/users';
+import {
+  SignatureValidationError,
+  validateAndSanitizeSignature,
+} from '@/lib/signature-validation';
 
 const SettingsDialogContext = React.createContext({
     setOpen: (open: boolean) => {}
@@ -67,11 +71,45 @@ export function SettingsDialog({ children }: { children: React.ReactNode }) {
   const [currentSignature, setCurrentSignature] = useState<string | null>(null);
   const signatureCanvasRef = useRef<SignatureCanvas>(null);
   const signatureUploadRef = useRef<HTMLInputElement>(null);
+  const [isSavingSignature, setIsSavingSignature] = useState(false);
+  const [isUploadingSignature, setIsUploadingSignature] = useState(false);
+  const [isSignaturePadDirty, setIsSignaturePadDirty] = useState(false);
 
   const profileImageUploadRef = useRef<HTMLInputElement>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [isUpdatingAvatar, setIsUpdatingAvatar] = useState(false);
   const { setOpen } = React.useContext(SettingsDialogContext);
+
+  const handleSignatureError = useCallback(
+    (error: unknown) => {
+      if (error instanceof SignatureValidationError) {
+        const descriptions: Record<
+          SignatureValidationError['code'],
+          string
+        > = {
+          'invalid-type': 'Formato no permitido (solo PNG/JPG).',
+          'file-too-large': 'Archivo demasiado grande (máximo 2 MB).',
+          'invalid-dimensions': 'Dimensiones no válidas (máximo 800×400 px).',
+          'invalid-aspect': 'Relación de aspecto no válida (entre 2:1 y 8:1).',
+          'invalid-ink': 'La imagen no parece una firma (demasiado vacía o demasiada tinta).',
+          'empty-image': 'La imagen no parece una firma (demasiado vacía o demasiada tinta).',
+        };
+        toast({
+          variant: 'destructive',
+          title: 'Imagen no válida',
+          description: descriptions[error.code] ?? 'No se pudo validar la firma.',
+        });
+        return;
+      }
+
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'No se pudo procesar la firma. Intente nuevamente.',
+      });
+    },
+    [toast],
+  );
 
 
   useEffect(() => {
@@ -120,58 +158,81 @@ export function SettingsDialog({ children }: { children: React.ReactNode }) {
     if (signatureCanvasRef.current.isEmpty()) {
       toast({
         variant: 'destructive',
-        title: 'Lienzo Vacío',
+        title: 'Lienzo vacío',
         description: 'Por favor, dibuje su firma antes de guardar.',
       });
       return;
     }
-    const dataUrl = signatureCanvasRef.current.toDataURL('image/png');
+
+    setIsSavingSignature(true);
     try {
-      await api.patch('/users/me/signature', { dataUrl });
-      setCurrentSignature(dataUrl);
+      const dataUrl = signatureCanvasRef.current.toDataURL('image/png');
+      const canvasBlob = await fetch(dataUrl).then((r) => r.blob());
+      const normalizedBlob = canvasBlob.type
+        ? canvasBlob
+        : new Blob([canvasBlob], { type: 'image/png' });
+      const { blob } = await validateAndSanitizeSignature(normalizedBlob);
+      const { data } = await updateMySignature(blob);
+      const url = data.url ?? data.signatureUrl;
+      if (!url) {
+        throw new Error('No se recibió la URL de la firma.');
+      }
+      setCurrentSignature(url);
       toast({
-        title: 'Firma Guardada',
+        title: 'Firma actualizada',
         description: 'Su nueva firma ha sido guardada exitosamente.',
       });
-      await refresh();
-    } catch {
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: 'No se pudo guardar la firma.',
-      });
+      await refresh().catch(() => undefined);
+      handleClearSignature();
+    } catch (error) {
+      if (error instanceof SignatureValidationError) {
+        handleSignatureError(error);
+      } else {
+        toast({
+          variant: 'destructive',
+          title: 'Error',
+          description: 'No se pudo guardar la firma.',
+        });
+      }
+    } finally {
+      setIsSavingSignature(false);
     }
   };
 
   const handleClearSignature = () => {
     signatureCanvasRef.current?.clear();
-  };
-  
-  const handleSignatureUploadClick = () => {
-    signatureUploadRef.current?.click();
+    setIsSignaturePadDirty(false);
   };
   
   const handleSignatureFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (file) {
-      try {
-        const fd = new FormData();
-        fd.append('file', file);
-        await api.patch('/users/me/signature', fd, {
-          headers: { 'Content-Type': 'multipart/form-data' },
-        });
-        setCurrentSignature(URL.createObjectURL(file));
-        toast({
-          title: 'Firma Actualizada',
-          description: 'Su firma ha sido actualizada desde el archivo.',
-        });
-        await refresh();
-      } catch {
-        toast({
-          variant: 'destructive',
-          title: 'Error',
-          description: 'No se pudo actualizar la firma.',
-        });
+    if (!file) {
+      if (event.target) {
+        event.target.value = '';
+      }
+      return;
+    }
+
+    setIsUploadingSignature(true);
+    try {
+      const { blob } = await validateAndSanitizeSignature(file);
+      const { data } = await updateMySignature(blob);
+      const url = data.url ?? data.signatureUrl;
+      if (!url) {
+        throw new Error('No se recibió la URL de la firma.');
+      }
+      setCurrentSignature(url);
+      toast({
+        title: 'Firma actualizada',
+        description: 'Su firma ha sido actualizada desde el archivo.',
+      });
+      await refresh().catch(() => undefined);
+    } catch (error) {
+      handleSignatureError(error);
+    } finally {
+      setIsUploadingSignature(false);
+      if (event.target) {
+        event.target.value = '';
       }
     }
   };
@@ -322,7 +383,7 @@ export function SettingsDialog({ children }: { children: React.ReactNode }) {
                 <div className='space-y-2'>
                     <Label className='text-sm'>Firma Actual</Label>
                     <div className='w-full h-32 rounded-lg border border-dashed flex items-center justify-center bg-muted/50'>
-                       <Image src={signatureUrl ?? currentSignature ?? '/placeholder-signature.png'} alt="Firma actual" width={200} height={100} style={{objectFit: 'contain'}} />
+                       <Image src={currentSignature ?? signatureUrl ?? '/placeholder-signature.png'} alt="Firma actual" width={200} height={100} style={{objectFit: 'contain'}} />
                     </div>
                 </div>
                 <Tabs defaultValue="draw">
@@ -331,26 +392,67 @@ export function SettingsDialog({ children }: { children: React.ReactNode }) {
                         <TabsTrigger value="upload"><Upload className="mr-2 h-4 w-4"/> Subir Imagen</TabsTrigger>
                     </TabsList>
                     <TabsContent value="draw" className="space-y-2">
-                        <SignaturePad ref={signatureCanvasRef} />
+                        <SignaturePad
+                          ref={signatureCanvasRef}
+                          onEnd={() =>
+                            setIsSignaturePadDirty(
+                              Boolean(
+                                signatureCanvasRef.current &&
+                                  !signatureCanvasRef.current.isEmpty(),
+                              ),
+                            )
+                          }
+                        />
                         <div className='flex gap-2 justify-end'>
-                            <Button variant="ghost" size="sm" onClick={handleClearSignature}><Trash2 className='mr-2 h-4 w-4'/> Limpiar</Button>
-                            <Button size="sm" onClick={handleSaveSignature}>Guardar Firma Dibujada</Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={handleClearSignature}
+                              disabled={isSavingSignature}
+                            >
+                              <Trash2 className='mr-2 h-4 w-4'/> Limpiar
+                            </Button>
+                            <Button
+                              size="sm"
+                              onClick={handleSaveSignature}
+                              disabled={isSavingSignature || !isSignaturePadDirty}
+                            >
+                              {isSavingSignature && (
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
+                              )}
+                              {isSavingSignature ? 'Guardando…' : 'Guardar Firma Dibujada'}
+                            </Button>
                         </div>
                     </TabsContent>
                     <TabsContent value="upload">
                         <div className="flex items-center justify-center w-full">
                             <Label
                                 htmlFor="signature-upload"
-                                className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-lg cursor-pointer bg-muted/20 hover:bg-muted/50"
+                                className={`flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-lg cursor-pointer bg-muted/20 hover:bg-muted/50 ${
+                                  isUploadingSignature ? 'pointer-events-none opacity-60' : ''
+                                }`}
                             >
                                 <div className="flex flex-col items-center justify-center pt-5 pb-6">
                                     <Upload className="w-8 h-8 mb-4 text-muted-foreground" />
                                     <p className="mb-2 text-sm text-muted-foreground"><span className="font-semibold">Click para subir</span> o arrastre</p>
                                     <p className="text-xs text-muted-foreground">PNG, JPG (MAX. 800x400px)</p>
                                 </div>
-                                <input ref={signatureUploadRef} id="signature-upload" type="file" className="hidden" accept="image/png, image/jpeg" onChange={handleSignatureFileChange} />
+                                <input
+                                  ref={signatureUploadRef}
+                                  id="signature-upload"
+                                  type="file"
+                                  className="hidden"
+                                  accept="image/png, image/jpeg"
+                                  onChange={handleSignatureFileChange}
+                                  disabled={isUploadingSignature}
+                                />
                             </Label>
                         </div>
+                        {isUploadingSignature && (
+                          <p className="mt-2 flex items-center justify-center text-sm text-muted-foreground">
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" /> Procesando firma…
+                          </p>
+                        )}
                     </TabsContent>
                 </Tabs>
             </div>

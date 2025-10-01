@@ -25,6 +25,10 @@ import { initials } from '@/lib/avatar';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Checkbox } from '@/components/ui/checkbox';
 import { AlertTriangle as ExclamationTriangleIcon } from 'lucide-react';
+import {
+  SignatureValidationError,
+  validateAndSanitizeSignature,
+} from '@/lib/signature-validation';
 
 export type SignDialogProps = {
   open: boolean;
@@ -59,14 +63,8 @@ export function SignDialog({
   const [confirmChecked, setConfirmChecked] = useState(false);
   const [mode, setMode] = useState<'stored' | 'draw' | 'upload'>('stored');
   const [uploadPreview, setUploadPreview] = useState<string | null>(null);
-  const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [isUploadingSignature, setIsUploadingSignature] = useState(false);
   const [isCanvasDirty, setIsCanvasDirty] = useState(false);
-
-  const revokePreview = useCallback(() => {
-    if (uploadPreview) {
-      URL.revokeObjectURL(uploadPreview);
-    }
-  }, [uploadPreview]);
 
   const handleClearCanvas = useCallback(() => {
     signatureCanvasRef.current?.clear();
@@ -89,42 +87,67 @@ export function SignDialog({
     setCurrentSignature(signatureUrl);
   }, [signatureUrl]);
 
-  const MAX_UPLOAD = 2 * 1024 * 1024;
+  const handleSignatureError = useCallback(
+    (error: unknown) => {
+      if (error instanceof SignatureValidationError) {
+        const descriptions: Record<
+          SignatureValidationError['code'],
+          string
+        > = {
+          'invalid-type': 'Formato no permitido (solo PNG/JPG).',
+          'file-too-large': 'Archivo demasiado grande (máximo 2 MB).',
+          'invalid-dimensions': 'Dimensiones no válidas (máximo 800×400 px).',
+          'invalid-aspect': 'Relación de aspecto no válida (entre 2:1 y 8:1).',
+          'invalid-ink': 'La imagen no parece una firma (demasiado vacía o demasiada tinta).',
+          'empty-image': 'La imagen no parece una firma (demasiado vacía o demasiada tinta).',
+        };
+        toast({
+          variant: 'destructive',
+          title: 'Imagen no válida',
+          description: descriptions[error.code] ?? 'No se pudo validar la firma.',
+        });
+        return;
+      }
 
-  const handleSignatureFileChangeValidated = (e: React.ChangeEvent<HTMLInputElement>) => {
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'No se pudo procesar la firma. Intenta nuevamente.',
+      });
+    },
+    [toast],
+  );
+
+  const handleSignatureFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
 
-    revokePreview();
     setUploadPreview(null);
-    setUploadFile(null);
 
     if (!file) {
       return;
     }
 
-    if (!/image\/png|image\/jpe?g/i.test(file.type)) {
-      toast({
-        variant: 'destructive',
-        title: 'Formato no permitido',
-        description: 'Solo PNG o JPG.',
-      });
-      e.target.value = '';
-      return;
+    setIsUploadingSignature(true);
+    try {
+      const { blob } = await validateAndSanitizeSignature(file);
+      const { data } = await updateMySignature(blob);
+      const url = data.url ?? data.signatureUrl;
+      if (!url) {
+        throw new Error('No se recibió la URL de la firma.');
+      }
+      setUploadPreview(url);
+      setCurrentSignature(url);
+      await refresh().catch(() => undefined);
+      toast({ title: 'Firma actualizada' });
+    } catch (error) {
+      handleSignatureError(error);
+      setUploadPreview(null);
+    } finally {
+      setIsUploadingSignature(false);
+      if (e.target) {
+        e.target.value = '';
+      }
     }
-
-    if (file.size > MAX_UPLOAD) {
-      toast({
-        variant: 'destructive',
-        title: 'Archivo demasiado grande',
-        description: 'Máximo 2MB.',
-      });
-      e.target.value = '';
-      return;
-    }
-
-    const previewUrl = URL.createObjectURL(file);
-    setUploadPreview(previewUrl);
-    setUploadFile(file);
   };
 
   const handleSign = useCallback(async () => {
@@ -153,7 +176,7 @@ export function SignDialog({
       return;
     }
 
-    if (mode === 'upload' && !uploadFile) {
+    if (mode === 'upload' && !uploadPreview) {
       toast({
         variant: 'destructive',
         title: 'Sin archivo',
@@ -169,21 +192,21 @@ export function SignDialog({
           throw new Error('No se pudo acceder al lienzo de firma.');
         }
         const dataUrl = signatureCanvasRef.current.toDataURL('image/png');
-        const blob = await fetch(dataUrl).then((r) => r.blob());
+        const canvasBlob = await fetch(dataUrl).then((r) => r.blob());
+        const normalizedBlob = canvasBlob.type
+          ? canvasBlob
+          : new Blob([canvasBlob], { type: 'image/png' });
+        const { blob } = await validateAndSanitizeSignature(normalizedBlob);
         const { data } = await updateMySignature(blob);
-        const url = (data as any)?.url ?? (data as any)?.signatureUrl ?? data;
+        const url = data.url ?? data.signatureUrl;
+        if (!url) {
+          throw new Error('No se recibió la URL de la firma.');
+        }
         setCurrentSignature(url);
+        setUploadPreview(url);
         await refresh().catch(() => undefined);
         toast({ title: 'Firma actualizada' });
         handleClearCanvas();
-      }
-
-      if (mode === 'upload' && uploadFile) {
-        const { data } = await updateMySignature(uploadFile);
-        const url = (data as any)?.url ?? (data as any)?.signatureUrl ?? data;
-        setCurrentSignature(url);
-        await refresh().catch(() => undefined);
-        toast({ title: 'Firma actualizada' });
       }
 
       await signDocument({
@@ -197,8 +220,7 @@ export function SignDialog({
       toast({ title: 'Firma registrada' });
       setConfirmChecked(false);
       handleClearCanvas();
-      setUploadFile(null);
-      revokePreview();
+      setMode('stored');
       setUploadPreview(null);
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
@@ -206,6 +228,11 @@ export function SignDialog({
       await onSigned();
       onClose();
     } catch (e: any) {
+      if (e instanceof SignatureValidationError) {
+        handleSignatureError(e);
+        return;
+      }
+
       const status = e?.status ?? e?.response?.status;
       const serverMessage =
         e?.response?.data?.message ?? e?.response?.data?.error ?? e?.message;
@@ -244,25 +271,24 @@ export function SignDialog({
     onClose,
     mode,
     currentSignature,
-    uploadFile,
+    uploadPreview,
     refresh,
-    revokePreview,
     handleClearCanvas,
+    handleSignatureError,
   ]);
 
   const canSign = pendientes.length > 0;
   const canProceedByMode =
     (mode === 'stored' && !!currentSignature) ||
     (mode === 'draw' && isCanvasDirty) ||
-    (mode === 'upload' && !!uploadFile);
+    (mode === 'upload' && !!uploadPreview && !isUploadingSignature);
   const canSubmit =
-    canSign && !!responsabilidadId && canProceedByMode && confirmChecked && !isSubmitting;
-
-  useEffect(() => {
-    return () => {
-      revokePreview();
-    };
-  }, [revokePreview]);
+    canSign &&
+    !!responsabilidadId &&
+    canProceedByMode &&
+    confirmChecked &&
+    !isSubmitting &&
+    !isUploadingSignature;
 
   useEffect(() => {
     setMode('stored');
@@ -270,10 +296,8 @@ export function SignDialog({
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
-    setUploadFile(null);
-    revokePreview();
     setUploadPreview(null);
-  }, [open, handleClearCanvas, revokePreview]);
+  }, [open, handleClearCanvas]);
 
   return (
     <Dialog
@@ -393,8 +417,15 @@ export function SignDialog({
                   ref={fileInputRef}
                   type="file"
                   accept="image/png,image/jpeg"
-                  onChange={handleSignatureFileChangeValidated}
+                  onChange={handleSignatureFileChange}
+                  disabled={isUploadingSignature}
                 />
+                {isUploadingSignature && (
+                  <p className="flex items-center text-sm text-muted-foreground">
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
+                    Procesando firma…
+                  </p>
+                )}
                 {uploadPreview && (
                   <div className="w-full h-32 border rounded flex items-center justify-center bg-muted/50">
                     <Image
