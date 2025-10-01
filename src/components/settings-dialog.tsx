@@ -23,9 +23,13 @@ import type SignatureCanvas from "react-signature-canvas";
 import Image from "next/image";
 import { Input } from "./ui/input";
 import { useSession } from "@/lib/session";
-import { api } from "@/lib/api";
 import { buildUserFormData, updateUser } from "@/services/usersService";
 import { UserAvatar } from "@/components/avatar/user-avatar";
+import {
+  SignatureValidationError,
+  validateAndSanitizeSignature,
+} from "@/lib/signature-validation";
+import { updateMySignature } from "@/services/api/users";
 
 const SettingsDialogContext = React.createContext({
   setOpen: (open: boolean) => {},
@@ -123,13 +127,53 @@ export function SettingsDialog({ children }: { children: React.ReactNode }) {
     document.documentElement.classList.toggle("dark", isDark);
   };
 
+  const getValidationMessage = (
+    error: SignatureValidationError,
+  ): string => {
+    const descriptions: Record<SignatureValidationError["code"], string> = {
+      "invalid-type": "Formato no permitido (solo PNG/JPG).",
+      "file-too-large": "Archivo demasiado grande (máximo 2 MB).",
+      "invalid-dimensions": "Dimensiones no válidas (máximo 800×400 px).",
+      "invalid-aspect": "Relación de aspecto no válida (entre 2:1 y 8:1).",
+      "invalid-ink":
+        "La imagen no parece una firma (demasiado vacía o demasiada tinta).",
+      "empty-image":
+        "La imagen no parece una firma (demasiado vacía o demasiada tinta).",
+    };
+    return descriptions[error.code];
+  };
+
+  const handleSignatureError = (error: unknown) => {
+    if (error instanceof SignatureValidationError) {
+      const message = getValidationMessage(error);
+      setSignatureError(message);
+      toast({
+        variant: "destructive",
+        title: "Imagen no válida",
+        description: message,
+      });
+      return;
+    }
+
+    const fallbackMessage =
+      "No se pudo procesar la firma. Intenta nuevamente más tarde.";
+    setSignatureError(fallbackMessage);
+    toast({
+      variant: "destructive",
+      title: "Error",
+      description: fallbackMessage,
+    });
+  };
+
   const handleSaveSignature = async () => {
     if (!signatureCanvasRef.current) return;
     if (signatureCanvasRef.current.isEmpty()) {
+      const message = "Por favor, dibuje su firma antes de guardar.";
+      setSignatureError(message);
       toast({
         variant: "destructive",
-        title: "Lienzo Vacío",
-        description: "Por favor, dibuje su firma antes de guardar.",
+        title: "Lienzo vacío",
+        description: message,
       });
       return;
     }
@@ -137,20 +181,25 @@ export function SettingsDialog({ children }: { children: React.ReactNode }) {
     try {
       setIsLoadingSignature(true);
       setSignatureError(null);
-      await api.patch("/users/me/signature", { dataUrl });
-      setCurrentSignature(dataUrl);
+      const canvasBlob = await fetch(dataUrl).then((r) => r.blob());
+      const normalizedBlob = canvasBlob.type
+        ? canvasBlob
+        : new Blob([canvasBlob], { type: "image/png" });
+      const { blob } = await validateAndSanitizeSignature(normalizedBlob);
+      const { data } = await updateMySignature(blob);
+      const url = data.url ?? data.signatureUrl;
+      if (!url) {
+        throw new Error("No se recibió la URL de la firma.");
+      }
+      setCurrentSignature(url);
       toast({
-        title: "Firma Guardada",
+        title: "Firma guardada",
         description: "Su nueva firma ha sido guardada exitosamente.",
       });
-      await refresh();
-    } catch {
-      setSignatureError("No se pudo guardar la firma.");
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "No se pudo guardar la firma.",
-      });
+      signatureCanvasRef.current.clear();
+      await refresh().catch(() => undefined);
+    } catch (error) {
+      handleSignatureError(error);
     } finally {
       setIsLoadingSignature(false);
     }
@@ -158,43 +207,41 @@ export function SettingsDialog({ children }: { children: React.ReactNode }) {
 
   const handleClearSignature = () => {
     signatureCanvasRef.current?.clear();
-  };
-
-  const handleSignatureUploadClick = () => {
-    signatureUploadRef.current?.click();
+    setSignatureError(null);
   };
 
   const handleSignatureFileChange = async (
     event: React.ChangeEvent<HTMLInputElement>
   ) => {
     const file = event.target.files?.[0];
-    if (file) {
-      try {
-        setIsLoadingSignature(true);
-        setSignatureError(null);
-        const fd = new FormData();
-        fd.append("file", file);
-        const res = await api.patch("/users/me/signature", fd, {
-          headers: { "Content-Type": "multipart/form-data" },
-        });
+    if (!file) {
+      if (event.target) {
+        event.target.value = "";
+      }
+      return;
+    }
 
-        
-        setCurrentSignature(URL.createObjectURL(file));
-        toast({
-          title: "Firma Actualizada",
-          description: "Su firma ha sido actualizada desde el archivo.",
-        });
-        await refresh();
-      } catch {
-        
-        setSignatureError("No se pudo guardar la firma. Revisa que la imagen de la firma sea válida.");
-        toast({
-          variant: "destructive",
-          title: "Error",
-          description: "No se pudo actualizar la firma.",
-        });
-      } finally {
-        setIsLoadingSignature(false);
+    try {
+      setIsLoadingSignature(true);
+      setSignatureError(null);
+      const { blob } = await validateAndSanitizeSignature(file);
+      const { data } = await updateMySignature(blob);
+      const url = data.url ?? data.signatureUrl;
+      if (!url) {
+        throw new Error("No se recibió la URL de la firma.");
+      }
+      setCurrentSignature(url);
+      toast({
+        title: "Firma actualizada",
+        description: "Su firma ha sido actualizada desde el archivo.",
+      });
+      await refresh().catch(() => undefined);
+    } catch (error) {
+      handleSignatureError(error);
+    } finally {
+      setIsLoadingSignature(false);
+      if (event.target) {
+        event.target.value = "";
       }
     }
   };

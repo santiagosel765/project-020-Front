@@ -1,21 +1,21 @@
-const DEFAULT_VALIDATION_OPTIONS = {
+export type SignatureValidationOptions = {
+  maxBytes: number;
+  maxWidth: number;
+  maxHeight: number;
+  minAspect: number;
+  maxAspect: number;
+  minInk: number;
+  maxInk: number;
+};
+
+const DEFAULT_OPTIONS: SignatureValidationOptions = {
   maxBytes: 2 * 1024 * 1024,
   maxWidth: 800,
   maxHeight: 400,
-  minAspect: 2.0,
-  maxAspect: 8.0,
+  minAspect: 2,
+  maxAspect: 8,
   minInk: 0.003,
   maxInk: 0.2,
-} as const;
-
-export type SignatureValidationOptions = typeof DEFAULT_VALIDATION_OPTIONS;
-
-export type SignatureValidationResult = {
-  blob: Blob;
-  width: number;
-  height: number;
-  aspect: number;
-  inkRatio: number;
 };
 
 export type SignatureValidationErrorCode =
@@ -27,92 +27,125 @@ export type SignatureValidationErrorCode =
   | 'empty-image';
 
 export class SignatureValidationError extends Error {
-  readonly code: SignatureValidationErrorCode;
+  code: SignatureValidationErrorCode;
 
-  constructor(code: SignatureValidationErrorCode, message: string) {
+  constructor(code: SignatureValidationErrorCode, message?: string) {
     super(message);
     this.name = 'SignatureValidationError';
     this.code = code;
   }
 }
 
-function ensureBrowser(): void {
-  if (typeof window === 'undefined' || typeof document === 'undefined') {
-    throw new Error('La validación de firmas solo está disponible en el navegador.');
-  }
-}
+const ALLOWED_TYPES = ['image/png', 'image/jpeg'];
 
-function mergeOptions(
-  options?: Partial<SignatureValidationOptions>,
-): SignatureValidationOptions {
-  return {
-    ...DEFAULT_VALIDATION_OPTIONS,
-    ...options,
-  };
-}
-
-function isAllowedType(file: File | Blob): boolean {
-  if ('type' in file && file.type) {
-    return /image\/png|image\/jpe?g/i.test(file.type);
-  }
-  return false;
-}
-
-async function loadImage(file: File | Blob): Promise<HTMLImageElement> {
-  ensureBrowser();
-  const url = URL.createObjectURL(file);
-  return await new Promise<HTMLImageElement>((resolve, reject) => {
-    const image = new Image();
-    image.onload = () => {
-      URL.revokeObjectURL(url);
-      resolve(image);
-    };
-    image.onerror = (event) => {
-      URL.revokeObjectURL(url);
-      reject(event);
-    };
-    image.src = url;
-  });
-}
-
-function createCanvas(width: number, height: number): HTMLCanvasElement {
+const createCanvas = (width: number, height: number) => {
   const canvas = document.createElement('canvas');
   canvas.width = width;
   canvas.height = height;
   return canvas;
-}
+};
 
-function luminance(r: number, g: number, b: number): number {
-  return (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
-}
+const loadImage = (blob: Blob) =>
+  new Promise<HTMLImageElement>((resolve, reject) => {
+    const url = URL.createObjectURL(blob);
+    const image = new Image();
+    image.crossOrigin = 'anonymous';
+    image.decoding = 'async';
+    image.onload = () => {
+      URL.revokeObjectURL(url);
+      resolve(image);
+    };
+    image.onerror = (error) => {
+      URL.revokeObjectURL(url);
+      reject(error);
+    };
+    image.src = url;
+  });
 
-function isInkPixel(r: number, g: number, b: number, a: number): boolean {
-  const alpha = a / 255;
-  if (alpha < 0.05) return false;
-  const lum = luminance(r, g, b);
-  return lum < 0.85 || (r < 220 && g < 220 && b < 220);
-}
+const isInkPixel = (r: number, g: number, b: number, a: number) => {
+  if (a <= 13) return false; // ~0.05 alpha threshold
+  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  if (luminance < 0.85) return true;
+  return r < 220 && g < 220 && b < 220;
+};
 
-function isVisiblePixel(r: number, g: number, b: number, a: number): boolean {
-  const alpha = a / 255;
-  if (alpha < 0.02) return false;
-  const lum = luminance(r, g, b);
-  return lum < 0.99;
-}
+const trimWhitespace = (canvas: HTMLCanvasElement) => {
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  if (!ctx) throw new Error('Canvas context not available');
 
-function computeInkMetrics(
-  data: Uint8ClampedArray,
-  width: number,
-  height: number,
-) {
-  let inkPixels = 0;
+  const { width, height } = canvas;
+  const imageData = ctx.getImageData(0, 0, width, height);
+  const { data } = imageData;
+
   let top = height;
   let bottom = -1;
   let left = width;
   let right = -1;
+  let inkPixels = 0;
 
-  for (let y = 0; y < height; y += 1) {
-    for (let x = 0; x < width; x += 1) {
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const index = (y * width + x) * 4;
+      const r = data[index];
+      const g = data[index + 1];
+      const b = data[index + 2];
+      const a = data[index + 3];
+
+      if (!isInkPixel(r, g, b, a)) continue;
+
+      inkPixels++;
+      if (x < left) left = x;
+      if (x > right) right = x;
+      if (y < top) top = y;
+      if (y > bottom) bottom = y;
+    }
+  }
+
+  if (inkPixels === 0 || left > right || top > bottom) {
+    throw new SignatureValidationError('empty-image', 'No se encontraron trazos.');
+  }
+
+  const trimmedWidth = right - left + 1;
+  const trimmedHeight = bottom - top + 1;
+
+  const trimmedCanvas = createCanvas(trimmedWidth, trimmedHeight);
+  const trimmedCtx = trimmedCanvas.getContext('2d');
+  if (!trimmedCtx) throw new Error('Canvas context not available');
+
+  trimmedCtx.drawImage(
+    canvas,
+    left,
+    top,
+    trimmedWidth,
+    trimmedHeight,
+    0,
+    0,
+    trimmedWidth,
+    trimmedHeight,
+  );
+
+  return trimmedCanvas;
+};
+
+const calculateInkRatio = (canvas: HTMLCanvasElement) => {
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  if (!ctx) throw new Error('Canvas context not available');
+
+  const { width, height } = canvas;
+  if (width === 0 || height === 0) {
+    throw new SignatureValidationError('invalid-dimensions', 'Dimensiones inválidas.');
+  }
+  const imageData = ctx.getImageData(0, 0, width, height);
+  const { data } = imageData;
+  const totalPixels = width * height;
+  const maxSamples = 400 * 400;
+  const step = Math.max(1, Math.floor(Math.sqrt(totalPixels / maxSamples)));
+
+  let inkCount = 0;
+  let samples = 0;
+
+  for (let y = 0; y < height; y += step) {
+    for (let x = 0; x < width; x += step) {
       const index = (y * width + x) * 4;
       const r = data[index];
       const g = data[index + 1];
@@ -120,149 +153,99 @@ function computeInkMetrics(
       const a = data[index + 3];
 
       if (isInkPixel(r, g, b, a)) {
-        inkPixels += 1;
+        inkCount++;
       }
-
-      if (isVisiblePixel(r, g, b, a)) {
-        if (y < top) top = y;
-        if (y > bottom) bottom = y;
-        if (x < left) left = x;
-        if (x > right) right = x;
-      }
+      samples++;
     }
   }
 
-  if (bottom === -1 || right === -1) {
-    return { inkRatio: inkPixels / (width * height), bounds: null } as const;
+  if (samples === 0) {
+    throw new SignatureValidationError('invalid-dimensions', 'Dimensiones inválidas.');
   }
 
-  return {
-    inkRatio: inkPixels / (width * height),
-    bounds: { top, bottom, left, right },
-  } as const;
-}
+  return inkCount / samples;
+};
 
-async function canvasToBlob(canvas: HTMLCanvasElement): Promise<Blob> {
-  const blob = await new Promise<Blob | null>((resolve) =>
-    canvas.toBlob((result) => resolve(result), 'image/png', 1.0),
-  );
-  if (!blob) {
-    throw new Error('No se pudo generar la imagen de la firma.');
+const resizeCanvasIfNeeded = (
+  canvas: HTMLCanvasElement,
+  maxWidth: number,
+  maxHeight: number,
+) => {
+  const { width, height } = canvas;
+  if (width <= maxWidth && height <= maxHeight) {
+    return canvas;
   }
-  return blob;
-}
+
+  const scale = Math.min(maxWidth / width, maxHeight / height);
+  const nextWidth = Math.max(1, Math.round(width * scale));
+  const nextHeight = Math.max(1, Math.round(height * scale));
+
+  const resizedCanvas = createCanvas(nextWidth, nextHeight);
+  const resizedCtx = resizedCanvas.getContext('2d');
+  if (!resizedCtx) throw new Error('Canvas context not available');
+
+  resizedCtx.drawImage(canvas, 0, 0, nextWidth, nextHeight);
+  return resizedCanvas;
+};
+
+const canvasToBlob = (canvas: HTMLCanvasElement) =>
+  new Promise<Blob>((resolve, reject) => {
+    canvas.toBlob((blob) => {
+      if (blob) {
+        resolve(blob);
+      } else {
+        reject(new Error('No se pudo generar la imagen.'));
+      }
+    }, 'image/png', 1);
+  });
 
 export async function validateAndSanitizeSignature(
   file: File | Blob,
-  opts?: Partial<SignatureValidationOptions>,
-): Promise<SignatureValidationResult> {
-  const options = mergeOptions(opts);
+  options: Partial<SignatureValidationOptions> = {},
+): Promise<{
+  blob: Blob;
+  width: number;
+  height: number;
+  aspect: number;
+  inkRatio: number;
+}> {
+  const opts: SignatureValidationOptions = { ...DEFAULT_OPTIONS, ...options };
 
-  if (!isAllowedType(file)) {
-    throw new SignatureValidationError(
-      'invalid-type',
-      'Formato no permitido (solo PNG/JPG).',
-    );
+  if (!ALLOWED_TYPES.includes(file.type)) {
+    throw new SignatureValidationError('invalid-type', 'Formato no permitido.');
   }
 
-  if ('size' in file && file.size > options.maxBytes) {
-    throw new SignatureValidationError(
-      'file-too-large',
-      'Archivo demasiado grande (máximo 2 MB).',
-    );
+  if (file.size > opts.maxBytes) {
+    throw new SignatureValidationError('file-too-large', 'Archivo demasiado grande.');
   }
 
   const image = await loadImage(file);
-  const { naturalWidth: width, naturalHeight: height } = image;
+  const baseCanvas = createCanvas(image.width, image.height);
+  const baseCtx = baseCanvas.getContext('2d');
+  if (!baseCtx) throw new Error('Canvas context not available');
+  baseCtx.drawImage(image, 0, 0);
 
-  if (!width || !height) {
-    throw new SignatureValidationError(
-      'invalid-dimensions',
-      'Dimensiones no válidas (máximo 800×400 px).',
-    );
+  let workingCanvas = trimWhitespace(baseCanvas);
+  const aspect = workingCanvas.width / workingCanvas.height;
+
+  if (aspect < opts.minAspect || aspect > opts.maxAspect) {
+    throw new SignatureValidationError('invalid-aspect', 'Relación de aspecto no válida.');
   }
 
-  const sourceCanvas = createCanvas(width, height);
-  const ctx = sourceCanvas.getContext('2d');
-  if (!ctx) {
-    throw new Error('No se pudo preparar el lienzo para validar la firma.');
-  }
-  ctx.drawImage(image, 0, 0, width, height);
+  workingCanvas = resizeCanvasIfNeeded(workingCanvas, opts.maxWidth, opts.maxHeight);
 
-  const imageData = ctx.getImageData(0, 0, width, height);
-  const { inkRatio, bounds } = computeInkMetrics(imageData.data, width, height);
-
-  if (!bounds) {
-    throw new SignatureValidationError(
-      'empty-image',
-      'La imagen no parece una firma (demasiado vacía o demasiada tinta).',
-    );
+  const inkRatio = calculateInkRatio(workingCanvas);
+  if (inkRatio < opts.minInk || inkRatio > opts.maxInk) {
+    throw new SignatureValidationError('invalid-ink', 'Proporción de tinta no válida.');
   }
 
-  if (inkRatio < options.minInk || inkRatio > options.maxInk) {
-    throw new SignatureValidationError(
-      'invalid-ink',
-      'La imagen no parece una firma (demasiado vacía o demasiada tinta).',
-    );
-  }
-
-  const cropWidth = bounds.right - bounds.left + 1;
-  const cropHeight = bounds.bottom - bounds.top + 1;
-
-  if (cropWidth <= 0 || cropHeight <= 0) {
-    throw new SignatureValidationError(
-      'empty-image',
-      'La imagen no parece una firma (demasiado vacía o demasiada tinta).',
-    );
-  }
-
-  const trimmedCanvas = createCanvas(cropWidth, cropHeight);
-  const trimmedCtx = trimmedCanvas.getContext('2d');
-  if (!trimmedCtx) {
-    throw new Error('No se pudo procesar la firma.');
-  }
-  trimmedCtx.putImageData(
-    ctx.getImageData(bounds.left, bounds.top, cropWidth, cropHeight),
-    0,
-    0,
-  );
-
-  let targetWidth = cropWidth;
-  let targetHeight = cropHeight;
-
-  const aspect = targetWidth / targetHeight;
-  if (aspect < options.minAspect || aspect > options.maxAspect) {
-    throw new SignatureValidationError(
-      'invalid-aspect',
-      'Relación de aspecto no válida (entre 2:1 y 8:1).',
-    );
-  }
-
-  const widthRatio = options.maxWidth / targetWidth;
-  const heightRatio = options.maxHeight / targetHeight;
-  const scale = Math.min(1, widthRatio, heightRatio);
-
-  if (scale < 1) {
-    targetWidth = Math.max(1, Math.round(targetWidth * scale));
-    targetHeight = Math.max(1, Math.round(targetHeight * scale));
-  }
-
-  const resultCanvas = createCanvas(targetWidth, targetHeight);
-  const resultCtx = resultCanvas.getContext('2d');
-  if (!resultCtx) {
-    throw new Error('No se pudo generar la firma final.');
-  }
-  resultCtx.drawImage(trimmedCanvas, 0, 0, targetWidth, targetHeight);
-
-  const blob = await canvasToBlob(resultCanvas);
+  const blob = await canvasToBlob(workingCanvas);
 
   return {
     blob,
-    width: targetWidth,
-    height: targetHeight,
+    width: workingCanvas.width,
+    height: workingCanvas.height,
     aspect,
     inkRatio,
   };
 }
-
-export const SIGNATURE_VALIDATION_DEFAULTS = DEFAULT_VALIDATION_OPTIONS;
