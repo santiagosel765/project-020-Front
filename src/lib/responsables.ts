@@ -248,6 +248,76 @@ export const buildResponsablesPayload = ({
   return payload;
 };
 
+const fillResponsableFromUser = (
+  responsable: ResponsablePayload,
+  resolveById: (id: number) => any | null,
+  missingNames: Set<string>,
+): ResponsablePayload => {
+  const resolvedUser = Number.isFinite(responsable.userId)
+    ? resolveById(responsable.userId)
+    : null;
+
+  let puesto = sanitizeText(responsable.puesto);
+  let gerencia = sanitizeText(responsable.gerencia);
+
+  if (!puesto && resolvedUser) {
+    puesto = sanitizeText(extractPosition(resolvedUser));
+  }
+
+  if (!gerencia && resolvedUser) {
+    gerencia = sanitizeText(extractGerencia(resolvedUser));
+  }
+
+  let markedMissing = false;
+
+  if (!puesto) {
+    puesto = "N/D";
+    markedMissing = true;
+  }
+
+  if (!gerencia) {
+    gerencia = "N/D";
+    markedMissing = true;
+  }
+
+  if (markedMissing) {
+    missingNames.add(responsable.nombre);
+  }
+
+  return {
+    ...responsable,
+    puesto,
+    gerencia,
+  } satisfies ResponsablePayload;
+};
+
+export function enrichResponsables(
+  payload: ResponsablesPayload,
+  resolveById: (id: number) => any | null,
+): { payload: ResponsablesPayload; missing: string[] } {
+  const missingNames = new Set<string>();
+
+  const fillOptional = (responsable: ResponsablePayload | null): ResponsablePayload | null => {
+    if (!responsable) return null;
+    return fillResponsableFromUser(responsable, resolveById, missingNames);
+  };
+
+  const enriched: ResponsablesPayload = {
+    elabora: fillOptional(payload.elabora),
+    revisa: payload.revisa.map((responsable) =>
+      fillResponsableFromUser(responsable, resolveById, missingNames),
+    ),
+    aprueba: payload.aprueba.map((responsable) =>
+      fillResponsableFromUser(responsable, resolveById, missingNames),
+    ),
+    enterado: payload.enterado.map((responsable) =>
+      fillResponsableFromUser(responsable, resolveById, missingNames),
+    ),
+  };
+
+  return { payload: enriched, missing: Array.from(missingNames) };
+}
+
 export const collectAllResponsables = (payload: ResponsablesPayload): ResponsablePayload[] => {
   const list: ResponsablePayload[] = [];
   if (payload.elabora) list.push(payload.elabora);
