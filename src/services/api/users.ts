@@ -2,8 +2,10 @@ import { api } from '@/lib/api';
 import type { MeResponseDto } from '@/types/me';
 
 export type UpdateMySignatureResponse = {
-  url?: string;
-  signatureUrl?: string;
+  data: {
+    url?: string;
+    signatureUrl?: string;
+  }
 };
 
 export const getMe = () => api.get<MeResponseDto>('/users/me');

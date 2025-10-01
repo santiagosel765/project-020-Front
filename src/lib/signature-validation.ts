@@ -228,16 +228,16 @@ export async function validateAndSanitizeSignature(
   let workingCanvas = trimWhitespace(baseCanvas);
   const aspect = workingCanvas.width / workingCanvas.height;
 
-  if (aspect < opts.minAspect || aspect > opts.maxAspect) {
-    throw new SignatureValidationError('invalid-aspect', 'Relación de aspecto no válida.');
-  }
+  // if (aspect < opts.minAspect || aspect > opts.maxAspect) {
+  //   throw new SignatureValidationError('invalid-aspect', 'Relación de aspecto no válida.');
+  // }
 
   workingCanvas = resizeCanvasIfNeeded(workingCanvas, opts.maxWidth, opts.maxHeight);
 
   const inkRatio = calculateInkRatio(workingCanvas);
-  if (inkRatio < opts.minInk || inkRatio > opts.maxInk) {
-    throw new SignatureValidationError('invalid-ink', 'Proporción de tinta no válida.');
-  }
+  // if (inkRatio < opts.minInk || inkRatio > opts.maxInk) {
+  //   throw new SignatureValidationError('invalid-ink', 'Proporción de tinta no válida.');
+  // }
 
   const blob = await canvasToBlob(workingCanvas);
 
