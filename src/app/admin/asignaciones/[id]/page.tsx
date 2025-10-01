@@ -10,15 +10,15 @@ import { useToast } from "@/hooks/use-toast";
 import {
   getCuadroFirmaDetalle,
   getFirmantes,
+  type SignerFull,
   type SignerSummary,
 } from "@/services/documentsService";
 import { getEmpresas } from "@/services/empresasService";
 import { useSession } from "@/lib/session";
 import { Skeleton } from "@/components/ui/skeleton";
 import { fullName } from "@/lib/avatar";
-import { SignDocumentModal } from "@/components/sign/SignDocumentModal";
+import { SignDialog } from "@/components/sign-dialog";
 import { useSignAndPersist } from "@/hooks/useSignAndPersist";
-import type { SignSource } from "@/types/signatures";
 
 type NormalizedResponsibility = "ELABORA" | "REVISA" | "APRUEBA" | "ENTERADO" | null;
 
@@ -184,32 +184,51 @@ const mapResponsables = (
   return { responsables, elaboraId };
 };
 
+type SignContext = {
+  documentId: number;
+  firmantes: SignerFull[];
+};
+
+const mapSignerSummariesToFull = (items: SignerSummary[]): SignerFull[] =>
+  items.map((f) => {
+    const foto = f.user.urlFoto ?? f.user.url_foto ?? f.user.avatar ?? f.user.foto_perfil ?? null;
+    return {
+      user: {
+        id: Number(f.user.id),
+        nombre: fullName(f.user),
+        posicion: f.user.posicion?.nombre ?? undefined,
+        gerencia: f.user.gerencia?.nombre ?? undefined,
+        urlFoto: foto ?? undefined,
+        avatar: foto ?? undefined,
+      },
+      responsabilidad: {
+        id: Number(f.responsabilidad_firma.id),
+        nombre: f.responsabilidad_firma.nombre,
+      },
+      estaFirmado: f.estaFirmado,
+    } satisfies SignerFull;
+  });
+
 export default function AssignmentEditPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
   const { toast } = useToast();
-  const { isAdmin, isLoading: sessionLoading, me, signatureUrl } = useSession();
-  const { updateThenMaybeSign } = useSignAndPersist();
+  const { isAdmin, isLoading: sessionLoading, me } = useSession();
+  const { updateAssignment } = useSignAndPersist();
 
   const [initialValues, setInitialValues] = useState<AssignmentFormInitialValues | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [companies, setCompanies] = useState<Array<{ id: number; nombre: string }>>([]);
   const [elaboraAlreadySigned, setElaboraAlreadySigned] = useState(false);
-  const [signModalOpen, setSignModalOpen] = useState(false);
-  const [modalLoading, setModalLoading] = useState(false);
-  const [pendingSubmission, setPendingSubmission] = useState<
-    | {
-        values: AssignmentFormSubmitData;
-        isElabora: boolean;
-        alreadySigned: boolean;
-      }
-    | null
-  >(null);
+  const [signOpen, setSignOpen] = useState(false);
+  const [signContext, setSignContext] = useState<SignContext | null>(null);
   const pendingPromiseRef = useRef<{
     resolve: () => void;
     reject: (error: unknown) => void;
   } | null>(null);
+  const signedRef = useRef(false);
+  const signContextRef = useRef<SignContext | null>(null);
 
   const documentId = useMemo(() => {
     const rawId = params?.id;
@@ -218,6 +237,12 @@ export default function AssignmentEditPage() {
     if (!Number.isFinite(parsed)) return null;
     return parsed;
   }, [params?.id]);
+
+  useEffect(() => {
+    signContextRef.current = signContext;
+  }, [signContext]);
+
+  const currentUserId = useMemo(() => toNumber(me?.id), [me?.id]);
 
   useEffect(() => {
     if (sessionLoading) return;
@@ -321,79 +346,129 @@ export default function AssignmentEditPage() {
     };
   }, [documentId, isAdmin, me?.id, toast]);
 
-  const clearPendingState = useCallback(() => {
-    setSignModalOpen(false);
-    setPendingSubmission(null);
-    pendingPromiseRef.current = null;
-  }, []);
-
   const handleSubmit = useCallback(
     async (data: AssignmentFormSubmitData) => {
       if (!documentId) return;
 
-      const currentUserId = toNumber(me?.id);
       const elaboraSigner = data.signatories.find((signer) => signer.responsibility === "ELABORA");
       const nextElaboraId = toNumber(elaboraSigner?.id);
-      const isElabora = currentUserId != null && nextElaboraId != null && currentUserId === nextElaboraId;
+      const isElabora =
+        currentUserId != null && nextElaboraId != null && currentUserId === nextElaboraId;
       const alreadySignedForUser =
         isElabora && initialValues?.elaboraUserId === nextElaboraId ? elaboraAlreadySigned : false;
 
-      if (isElabora && !alreadySignedForUser) {
-        return new Promise<void>((resolve, reject) => {
-          pendingPromiseRef.current = { resolve, reject };
-          setPendingSubmission({ values: data, isElabora, alreadySigned: alreadySignedForUser });
-          setSignModalOpen(true);
-        });
+      const performUpdate = async () => {
+        await updateAssignment({ id: documentId, formValues: data });
+      };
+
+      if (!isElabora || alreadySignedForUser) {
+        await performUpdate();
+        router.push(`/documento/${documentId}?tab=cuadro`);
+        return;
       }
 
-      await updateThenMaybeSign({
-        id: documentId,
-        formValues: data,
-        isElabora,
-        alreadySigned: alreadySignedForUser,
+      return new Promise<void>((resolve, reject) => {
+        pendingPromiseRef.current = { resolve, reject };
+        void (async () => {
+          try {
+            await performUpdate();
+
+            let firmantesSummary: SignerSummary[];
+            try {
+              firmantesSummary = await getFirmantes(documentId);
+            } catch (error) {
+              console.error("Error fetching signers", error);
+              toast({
+                variant: "destructive",
+                title: "Firma pendiente",
+                description: "No se pudieron obtener los firmantes. Completa la firma en el detalle.",
+              });
+              router.push(`/documento/${documentId}?tab=cuadro`);
+              pendingPromiseRef.current = null;
+              resolve();
+              return;
+            }
+
+            const firmantes = mapSignerSummariesToFull(firmantesSummary);
+
+            if (currentUserId == null) {
+              toast({
+                variant: "destructive",
+                title: "Usuario no identificado",
+                description:
+                  "La asignación se actualizó, pero no se pudo determinar el usuario para firmar.",
+              });
+              router.push(`/documento/${documentId}?tab=cuadro`);
+              pendingPromiseRef.current = null;
+              resolve();
+              return;
+            }
+
+            signedRef.current = false;
+            setSignContext({ documentId, firmantes });
+            setSignOpen(true);
+          } catch (error) {
+            pendingPromiseRef.current?.reject(error);
+            pendingPromiseRef.current = null;
+          }
+        })();
       });
     },
     [
       documentId,
       elaboraAlreadySigned,
       initialValues?.elaboraUserId,
-      me?.id,
-      updateThenMaybeSign,
+      updateAssignment,
+      router,
+      toast,
+      currentUserId,
     ],
   );
 
-  const handleModalConfirm = useCallback(
-    async (signSource: SignSource) => {
-      if (!pendingSubmission || !documentId) return;
-      const pending = pendingPromiseRef.current;
-      setModalLoading(true);
-      try {
-        await updateThenMaybeSign({
-          id: documentId,
-          formValues: pendingSubmission.values,
-          isElabora: pendingSubmission.isElabora,
-          alreadySigned: pendingSubmission.alreadySigned,
-          signSource,
-        });
-        pending?.resolve();
-      } catch (error) {
-        pending?.reject(error);
-      } finally {
-        setModalLoading(false);
-        clearPendingState();
-      }
-    },
-    [clearPendingState, documentId, pendingSubmission, updateThenMaybeSign],
-  );
-
-  const handleModalClose = useCallback(() => {
-    if (modalLoading) return;
+  const handleSignDialogSigned = useCallback(async () => {
+    const context = signContextRef.current;
+    if (!context) return;
+    signedRef.current = true;
+    router.push(`/documento/${context.documentId}?tab=cuadro`);
     const pending = pendingPromiseRef.current;
     if (pending) {
-      pending.reject(new Error("signature-modal-cancelled"));
+      pending.resolve();
+      pendingPromiseRef.current = null;
     }
-    clearPendingState();
-  }, [clearPendingState, modalLoading]);
+  }, [router]);
+
+  const handleSignDialogClose = useCallback(() => {
+    setSignOpen(false);
+    const context = signContextRef.current;
+    const pending = pendingPromiseRef.current;
+
+    if (signedRef.current) {
+      signedRef.current = false;
+      setSignContext(null);
+      return;
+    }
+
+    if (context) {
+      toast({
+        variant: "destructive",
+        title: "Firma pendiente",
+        description: "Puedes completar la firma desde el detalle del documento.",
+      });
+      router.push(`/documento/${context.documentId}?tab=cuadro`);
+      if (pending) {
+        pending.resolve();
+        pendingPromiseRef.current = null;
+      }
+      setSignContext(null);
+      return;
+    }
+
+    if (pending) {
+      pending.reject(new Error("signature-dialog-cancelled"));
+      pendingPromiseRef.current = null;
+    }
+    setSignContext(null);
+  }, [router, toast]);
 
   if (sessionLoading) {
     return (
@@ -435,13 +510,16 @@ export default function AssignmentEditPage() {
         title="Editar asignación"
         description="Actualiza los metadatos, responsables y archivo del documento."
       />
-      <SignDocumentModal
-        open={signModalOpen}
-        onClose={handleModalClose}
-        onConfirm={handleModalConfirm}
-        loading={modalLoading}
-        currentSignatureUrl={signatureUrl ?? undefined}
-      />
+      {signContext && currentUserId != null && (
+        <SignDialog
+          open={signOpen}
+          onClose={handleSignDialogClose}
+          cuadroFirmaId={signContext.documentId}
+          firmantes={signContext.firmantes}
+          currentUserId={currentUserId}
+          onSigned={handleSignDialogSigned}
+        />
+      )}
     </div>
   );
 }

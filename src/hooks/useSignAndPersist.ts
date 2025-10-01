@@ -1,21 +1,12 @@
 "use client";
 
 import { useCallback, useMemo } from "react";
-import { useRouter } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
 import { useSession } from "@/lib/session";
 import { useQueryClient } from "@tanstack/react-query";
 import api from "@/lib/axiosConfig";
 import type { AssignmentFormSubmitData } from "@/components/assignments/AssignmentForm";
-import {
-  createCuadroFirma,
-  signCuadroFirma,
-  updateCuadroFirma,
-  updateDocumentoAsignacion,
-} from "@/services/documentsService";
-import type { SignSource } from "@/types/signatures";
-
-const RESPONSABILIDAD_ELABORA_ID = 4;
+import { createCuadroFirma, updateCuadroFirma, updateDocumentoAsignacion } from "@/services/documentsService";
 
 const extractItems = (payload: any): any[] => {
   if (!payload || typeof payload !== "object") return [];
@@ -66,24 +57,13 @@ const normalizeMessage = (value: unknown): string => {
   return String(value);
 };
 
-export type { SignSource };
-
-type CreateThenSignArgs = {
-  formValues: AssignmentFormSubmitData;
-  signSource: SignSource;
-};
-
-type UpdateThenMaybeSignArgs = {
+type UpdateAssignmentArgs = {
   id: number;
   formValues: AssignmentFormSubmitData;
-  isElabora: boolean;
-  alreadySigned: boolean;
-  signSource?: SignSource;
 };
 
 export function useSignAndPersist() {
   const { toast } = useToast();
-  const router = useRouter();
   const queryClient = useQueryClient();
   const { me } = useSession();
 
@@ -123,8 +103,8 @@ export function useSignAndPersist() {
     [currentUserId],
   );
 
-  const createThenSign = useCallback(
-    async ({ formValues, signSource }: CreateThenSignArgs) => {
+  const createAssignment = useCallback(
+    async (formValues: AssignmentFormSubmitData) => {
       if (!formValues.pdfFile) {
         throw new Error("PDF requerido");
       }
@@ -198,11 +178,8 @@ export function useSignAndPersist() {
           throw error;
         }
 
-        toast({
-          variant: "destructive",
-          title: "Error de creación",
-          description: message || "Hubo un problema al crear el documento.",
-        });
+        message = message || "No se pudo crear el documento.";
+        toast({ variant: "destructive", title: "Error", description: message });
         throw error;
       }
 
@@ -212,64 +189,16 @@ export function useSignAndPersist() {
           description:
             "No se pudo obtener el ID automáticamente. Revisa la lista de supervisión.",
         });
-        return;
+        return null;
       }
 
-      let signError: any = null;
-
-      const userIdForSignature = resolvedUserId ?? currentUserId;
-
-      if (userIdForSignature == null) {
-        toast({
-          variant: "destructive",
-          title: "Usuario no identificado",
-          description:
-            "El documento se creó, pero no se pudo determinar el usuario para firmar automáticamente.",
-        });
-        router.push(`/documento/${createdId}?tab=cuadro`);
-        return;
-      }
-
-      try {
-        await signCuadroFirma({
-          cuadroFirmaId: createdId,
-          userId: userIdForSignature,
-          responsabilidadId: RESPONSABILIDAD_ELABORA_ID,
-          source: signSource,
-        });
-        toast({ title: "Creado y firmado" });
-      } catch (error: any) {
-        console.error("Auto-sign error", error);
-        signError = error;
-        const serverMessage = normalizeMessage(
-          error?.response?.data?.message ?? error?.message ?? "",
-        );
-        toast({
-          variant: "destructive",
-          title: "Firma pendiente",
-          description:
-            serverMessage ||
-            "No se pudo firmar automáticamente. Puedes completar la firma desde el detalle.",
-        });
-      } finally {
-        router.push(`/documento/${createdId}?tab=cuadro`);
-      }
-
-      if (signError) {
-        return;
-      }
+      return createdId ?? null;
     },
-    [
-      currentUserId,
-      fetchCreatedId,
-      me?.id,
-      router,
-      toast,
-    ],
+    [fetchCreatedId, resolvedUserId, toast],
   );
 
-  const updateThenMaybeSign = useCallback(
-    async ({ id, formValues, isElabora, alreadySigned, signSource }: UpdateThenMaybeSignArgs) => {
+  const updateAssignment = useCallback(
+    async ({ id, formValues }: UpdateAssignmentArgs) => {
       const payload: Record<string, unknown> = {
         titulo: formValues.title,
         descripcion: formValues.description,
@@ -291,45 +220,10 @@ export function useSignAndPersist() {
           });
         }
 
-        if (isElabora && !alreadySigned && signSource) {
-          const userIdForSignature = resolvedUserId ?? currentUserId;
-
-          if (userIdForSignature == null) {
-            toast({
-              variant: "destructive",
-              title: "Usuario no identificado",
-              description:
-                "No se pudo determinar el usuario actual para firmar automáticamente.",
-            });
-          } else {
-            try {
-              await signCuadroFirma({
-                cuadroFirmaId: id,
-                userId: userIdForSignature,
-                responsabilidadId: RESPONSABILIDAD_ELABORA_ID,
-                source: signSource,
-              });
-              toast({ title: "Actualizado y firmado" });
-            } catch (error: any) {
-              console.error("Auto-sign update error", error);
-              const serverMessage = normalizeMessage(
-                error?.response?.data?.message ?? error?.message ?? "",
-              );
-              toast({
-                variant: "destructive",
-                title: "Firma pendiente",
-                description:
-                  serverMessage ||
-                  "El documento se actualizó pero la firma quedó pendiente. Puedes completarla desde el detalle.",
-              });
-            }
-          }
-        } else {
-          toast({
-            title: "Actualizado",
-            description: "La asignación se actualizó correctamente.",
-          });
-        }
+        toast({
+          title: "Actualizado",
+          description: "La asignación se actualizó correctamente.",
+        });
 
         await Promise.all([
           queryClient.invalidateQueries({ queryKey: ["documents"] }),
@@ -337,8 +231,6 @@ export function useSignAndPersist() {
           queryClient.invalidateQueries({ queryKey: ["documents", "supervision", "stats"] }),
           queryClient.invalidateQueries({ queryKey: ["documents", "me"] }),
         ]);
-
-        router.push(`/documento/${id}?tab=cuadro`);
       } catch (error: any) {
         console.error("Error updating assignment", error);
         const status = error?.response?.status ?? error?.status;
@@ -366,8 +258,8 @@ export function useSignAndPersist() {
         throw error;
       }
     },
-    [currentUserId, me?.id, queryClient, router, toast],
+    [queryClient, resolvedUserId, toast],
   );
 
-  return { createThenSign, updateThenMaybeSign };
+  return { createAssignment, updateAssignment };
 }
