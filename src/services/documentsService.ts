@@ -2,6 +2,7 @@ import { api } from '@/lib/api';
 import { unwrapArray, unwrapOne } from '@/lib/apiEnvelope';
 import { PageEnvelope } from '@/lib/pagination';
 import { initials, fullName, initialsFromFullName } from '@/lib/avatar';
+import type { CuadroFirmaUpdatePayload } from '@/types/documents';
 
 export type DocEstado = 'Pendiente' | 'En Progreso' | 'Rechazado' | 'Completado';
 export type SupervisionDoc = {
@@ -233,7 +234,10 @@ export async function createCuadroFirma(body: FormData) {
   return unwrapOne<any>(data);
 }
 
-export async function updateCuadroFirma(id: number, payload: Record<string, any>) {
+export async function updateCuadroFirma(
+  id: number,
+  payload: CuadroFirmaUpdatePayload & { empresa_id?: number | null },
+) {
   const body: Record<string, any> = { ...payload };
 
   if (body.idUser == null) {
@@ -257,7 +261,11 @@ export async function updateCuadroFirma(id: number, payload: Record<string, any>
     }
   }
 
-  const { data } = await api.patch(`/documents/cuadro-firmas/${id}`, body);
+  const sanitized = Object.fromEntries(
+    Object.entries(body).filter(([, value]) => value !== undefined),
+  );
+
+  const { data } = await api.patch(`/api/documents/cuadro-firmas/${id}`, sanitized);
   return unwrapOne<any>(data);
 }
 
