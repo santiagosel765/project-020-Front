@@ -30,6 +30,7 @@ import {
   validateAndSanitizeSignature,
 } from "@/lib/signature-validation";
 import { updateMySignature } from "@/services/api/users";
+import { ALLOWED_IMAGE_TYPES, MAX_UPLOAD } from "@/lib/uploads";
 
 const SettingsDialogContext = React.createContext({
   setOpen: (open: boolean) => {},
@@ -224,6 +225,34 @@ export function SettingsDialog({ children }: { children: React.ReactNode }) {
     setSignatureError(null);
     const file = event.target.files?.[0];
     if (!file) {
+      if (event.target) {
+        event.target.value = "";
+      }
+      return;
+    }
+
+    if (!ALLOWED_IMAGE_TYPES.includes(file.type as (typeof ALLOWED_IMAGE_TYPES)[number])) {
+      const message = "Solo se permiten imágenes PNG o JPG.";
+      setSignatureError(message);
+      toast({
+        variant: "destructive",
+        title: "Formato no permitido",
+        description: message,
+      });
+      if (event.target) {
+        event.target.value = "";
+      }
+      return;
+    }
+
+    if (file.size > MAX_UPLOAD) {
+      const message = "El tamaño máximo permitido es de 2 MB.";
+      setSignatureError(message);
+      toast({
+        variant: "destructive",
+        title: "Archivo demasiado grande",
+        description: message,
+      });
       if (event.target) {
         event.target.value = "";
       }

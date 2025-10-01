@@ -37,7 +37,7 @@ import { getUsers } from "@/services/usersService";
 import type { User } from "@/lib/data";
 import {
   buildResponsablesPayload,
-  collectAllResponsables,
+  enrichResponsables,
   getResponsabilidadIdForRole,
   type ResponsabilidadRole,
 } from "@/lib/responsables";
@@ -587,21 +587,16 @@ export function AssignmentForm({
         elaboraUserId: elaboraId,
       });
 
-      const faltantes = Array.from(
-        new Set(
-          collectAllResponsables(responsables)
-            .filter((responsable) => !responsable.puesto || !responsable.gerencia)
-            .map((responsable) => responsable.nombre),
-        ),
+      const { payload: enrichedResponsables, missing } = enrichResponsables(
+        responsables,
+        (userId) => resolveUserData(userId),
       );
 
-      if (faltantes.length > 0) {
+      if (missing.length > 0) {
         toast({
-          variant: "destructive",
-          title: "Información faltante",
-          description: `Falta puesto/gerencia para ${faltantes.join(", ")}`,
+          title: "Información completada",
+          description: `Se completó automáticamente puesto y/o gerencia con "N/D" para ${missing.join(", ")}.`,
         });
-        return;
       }
 
       await onSubmit({
@@ -610,7 +605,7 @@ export function AssignmentForm({
         version: finalVersion,
         code: trimmedCode,
         empresaId: currentEmpresaId,
-        responsables,
+        responsables: enrichedResponsables,
         pdfFile,
         observaciones: trimmedObservaciones,
         hasFileChange,
