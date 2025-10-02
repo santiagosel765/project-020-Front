@@ -35,15 +35,9 @@ import { SignersTable } from "@/components/signers-table";
 import SelectedSigners from "@/components/assignments/SelectedSigners";
 import { getUsers } from "@/services/usersService";
 import type { User } from "@/lib/data";
-import {
-  buildResponsablesPayload,
-  enrichResponsables,
-  getResponsabilidadIdForRole,
-  type ResponsabilidadRole,
-} from "@/lib/responsables";
+import { buildResponsables } from "@/lib/responsables";
 import { useSession } from "@/lib/session";
 import { useForm } from "react-hook-form";
-import type { ResponsablesPayload } from "@/types/documents";
 
 const toNumericId = (raw: unknown): number | null => {
   if (typeof raw === "number" && Number.isFinite(raw)) return raw;
@@ -53,13 +47,12 @@ const toNumericId = (raw: unknown): number | null => {
   return null;
 };
 
-type Responsibility = ResponsabilidadRole;
+type Responsibility = "ELABORA" | "REVISA" | "APRUEBA" | "ENTERADO";
 
 type Signatory = {
   id: number;
   name: string;
   responsibility: Responsibility | null;
-  responsabilidadId: number | null;
   userData?: any;
 };
 
@@ -89,7 +82,7 @@ export type AssignmentFormSubmitData = {
   version: string;
   code: string;
   empresaId: number | null;
-  responsables: ResponsablesPayload;
+  responsables: ReturnType<typeof buildResponsables>;
   pdfFile: File | null;
   observaciones: string;
   hasFileChange: boolean;
@@ -209,7 +202,7 @@ export function AssignmentForm({
 }: AssignmentFormProps) {
   const { toast } = useToast();
   const { me } = useSession();
-
+  console.log({initialValues})
   const { watch, setValue, reset, getValues } = useForm<{ empresaId: number | null }>({
     defaultValues: { empresaId: initialValues?.empresaId ?? null },
   });
@@ -268,14 +261,39 @@ export function AssignmentForm({
           initialValues.responsables.map((r) => ({
             id: r.id,
             name: r.nombre,
-            responsibility: (r.responsabilidad ?? null) as Responsibility | null,
-            responsabilidadId: r.responsabilidadId ?? null,
+            responsibility: r.responsabilidad,
             userData: r.user ?? undefined,
           })),
         );
       }
     }
   }, [initialValues]);
+
+  useEffect(() => {
+  // ? Si hay initialValues y usuarios cargados, sincroniza signatories con los datos frescos de los usuarios
+  if (initialValues && Array.isArray(initialValues.responsables) && users.length > 0) {
+
+    const responsableIds = initialValues.responsables.map(r => r.id);
+
+    const signers = responsableIds
+      .map(id => {
+        const user = users.find(u => toNumericId((u as any).id ?? (u as any).userId ?? (u as any).uid) === id);
+        if (!user) return null;
+
+        const responsabilidad = initialValues.responsables!.find(r => r.id === id)?.responsabilidad ?? null;
+        return {
+          id,
+          name: user.name,
+          responsibility: responsabilidad,
+          userData: user,
+        };
+      })
+      .filter(Boolean) as Signatory[];
+
+    setSignatories(signers);
+  }
+  // Solo depende de initialValues y users
+}, [initialValues, users]);
 
   useEffect(() => {
     reset({ empresaId: initialValues?.empresaId ?? null });
@@ -400,9 +418,8 @@ export function AssignmentForm({
       return;
     }
     setSignatories((prev) =>
-      [...prev, { id: nid, name: user.name, responsibility: null, responsabilidadId: null, userData: user }].sort(
-        (a, b) =>
-          a.name.localeCompare(b.name),
+      [...prev, { id: nid, name: user.name, responsibility: null, userData: user }].sort((a, b) =>
+        a.name.localeCompare(b.name),
       ),
     );
     setSearchTerm("");
@@ -410,23 +427,10 @@ export function AssignmentForm({
 
   const removeSignatory = (userId: number) => {
     setSignatories((prev) => prev.filter((s) => s.id !== userId));
-    setElaboraId((prev) => (prev === userId ? null : prev));
   };
 
   const handleResponsibilityChange = (userId: number, value: Responsibility) => {
-    const responsabilidadId = getResponsabilidadIdForRole(value);
-    setSignatories((prev) =>
-      prev.map((s) =>
-        s.id === userId
-          ? { ...s, responsibility: value, responsabilidadId }
-          : s,
-      ),
-    );
-    setElaboraId((prev) => {
-      if (value === "ELABORA") return userId;
-      if (prev === userId) return null;
-      return prev;
-    });
+    setSignatories((prev) => prev.map((s) => (s.id === userId ? { ...s, responsibility: value } : s)));
   };
 
   const handlePdfUploadClick = () => {
@@ -483,7 +487,6 @@ export function AssignmentForm({
     if (!(hasRevisa && hasAprueba)) return true;
     return false;
   }, [isSubmitting, hasPdfSelected, title, description, version, code, signatories, empresaId]);
-
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
@@ -553,51 +556,91 @@ export function AssignmentForm({
     }
 
     setIsSubmitting(true);
+    
+    const elaboraSigner = signatories.find((signer) => signer.responsibility === "ELABORA");
+    const elaboraUserData =
+      elaboraSigner
+        ? resolveUserData(elaboraSigner.id, elaboraSigner.name)
+        : elaboraId != null
+        ? resolveUserData(
+            elaboraId,
+            initialValues?.responsables?.find((responsable) => responsable.id === elaboraId)?.nombre ?? undefined,
+          )
+        : null;
 
-    const selectedResponsables: Parameters<
-      typeof buildResponsablesPayload
-    >[0]["seleccionados"] = signatories.map((signer) => {
-      const role = signer.responsibility;
-      const resolvedUser = resolveUserData(signer.id, signer.name);
-      const responsabilidadId =
-        signer.responsabilidadId != null
-          ? signer.responsabilidadId
-          : role
-          ? getResponsabilidadIdForRole(role)
-          : null;
-
-      if (!role || responsabilidadId == null) {
-        throw Object.assign(new Error(`Falta responsabilidad para ${signer.name}`), {
-          name: "AssignmentValidationError",
-        });
-      }
-
-      return {
-        user: resolvedUser,
-        responsabilidadId,
-        role,
-        responsabilidadNombre: role,
-        fallbackNombre: signer.name,
-      };
-    });
+    const revisaUsers = signatories
+      .filter((signer) => signer.responsibility === "REVISA")
+      .map((signer) => resolveUserData(signer.id, signer.name));
+    const apruebaUsers = signatories
+      .filter((signer) => signer.responsibility === "APRUEBA")
+      .map((signer) => resolveUserData(signer.id, signer.name));
+    const enteradoUsers = signatories
+      .filter((signer) => signer.responsibility === "ENTERADO")
+      .map((signer) => resolveUserData(signer.id, signer.name));
 
     try {
-      const responsables = buildResponsablesPayload({
-        seleccionados: selectedResponsables,
-        elaboraUserId: elaboraId,
+      const responsables = buildResponsables({
+        elaboraUser: elaboraUserData,
+        revisaUsers,
+        apruebaUsers,
+        enteradoUsers,
       });
 
-      const { payload: enrichedResponsables, missing } = enrichResponsables(
-        responsables,
-        (userId) => resolveUserData(userId),
-      );
+      const pickText = (candidates: unknown[]) => {
+        for (const candidate of candidates) {
+          if (typeof candidate === "string") {
+            const trimmed = candidate.trim();
+            if (trimmed) {
+              return trimmed;
+            }
+          }
+        }
+        return "N/D";
+      };
 
-      if (missing.length > 0) {
-        toast({
-          title: "Información completada",
-          description: `Se completó automáticamente puesto y/o gerencia con "N/D" para ${missing.join(", ")}.`,
-        });
-      }
+      const normalizeResponsable = <T extends { puesto: string; gerencia: string }>(
+        responsable: T | undefined,
+        user?: any,
+      ): T | undefined => {
+        if (!responsable) return responsable;
+
+        console.log({user})
+
+        const puesto = pickText([
+          responsable.puesto,
+          user?.posicionNombre,
+          user?.posicion?.nombre,
+        ]);
+
+        // const puesto = user?.posicionNombre;
+
+        const gerencia = pickText([
+          responsable.gerencia,
+          user?.gerenciaNombre,
+          user?.gerencia?.nombre,
+        ]);
+
+        // const gerencia = user?.gerenciaNombre;
+
+        return {
+          ...responsable,
+          puesto,
+          gerencia,
+        };
+      };
+
+      const responsablesWithFallback = {
+        elabora: normalizeResponsable(responsables.elabora, elaboraUserData ?? undefined),
+        revisa: responsables.revisa.map((responsable, index) =>
+          normalizeResponsable(responsable, revisaUsers[index])!,
+        ),
+        aprueba: responsables.aprueba.map((responsable, index) =>
+          normalizeResponsable(responsable, apruebaUsers[index])!,
+        ),
+        enterado: responsables.enterado.map((responsable, index) =>
+          normalizeResponsable(responsable, enteradoUsers[index])!,
+        ),
+      };
 
       await onSubmit({
         title: trimmedTitle,
@@ -605,7 +648,7 @@ export function AssignmentForm({
         version: finalVersion,
         code: trimmedCode,
         empresaId: currentEmpresaId,
-        responsables: enrichedResponsables,
+        responsables: responsablesWithFallback,
         pdfFile,
         observaciones: trimmedObservaciones,
         hasFileChange,
@@ -622,15 +665,7 @@ export function AssignmentForm({
         }
         setPdfFile(null);
       }
-    } catch (error: any) {
-      if (error?.name === "AssignmentValidationError") {
-        toast({
-          variant: "destructive",
-          title: "Información faltante",
-          description: error?.message ?? "Verifica los datos de los responsables.",
-        });
-        return;
-      }
+    } catch (error) {
       console.error("Assignment form submit error", error);
     } finally {
       setIsSubmitting(false);

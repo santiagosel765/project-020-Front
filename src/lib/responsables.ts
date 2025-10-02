@@ -1,50 +1,20 @@
-import type {
-  ResponsablePayload,
-  ResponsablesPayload,
-  ResponsabilidadRole,
-} from "@/types/documents";
-
-const DEFAULT_RESPONSABILIDAD_IDS: Record<ResponsabilidadRole, number> = {
+const RESPONSABILIDAD_ID = {
   REVISA: 1,
   APRUEBA: 2,
   ENTERADO: 3,
   ELABORA: 4,
-};
+} as const;
 
-const RESPONSABILIDAD_ID_MAP: Record<ResponsabilidadRole, Set<number>> = {
-  REVISA: new Set([DEFAULT_RESPONSABILIDAD_IDS.REVISA]),
-  APRUEBA: new Set([DEFAULT_RESPONSABILIDAD_IDS.APRUEBA]),
-  ENTERADO: new Set([DEFAULT_RESPONSABILIDAD_IDS.ENTERADO]),
-  ELABORA: new Set([DEFAULT_RESPONSABILIDAD_IDS.ELABORA]),
-};
+type Role = keyof typeof RESPONSABILIDAD_ID;
 
-const RESPONSABILIDAD_ROLE_NAMES: Record<ResponsabilidadRole, string[]> = {
-  REVISA: ["REVISA", "REV", "REVISION"],
-  APRUEBA: ["APRUEBA", "APR", "APROB"],
-  ENTERADO: ["ENTERADO", "ENT"],
-  ELABORA: ["ELABORA", "ELAB"],
-};
-
-const RESPONSABILIDAD_ROLES: ResponsabilidadRole[] = [
-  "ELABORA",
-  "REVISA",
-  "APRUEBA",
-  "ENTERADO",
-];
-
-const firstNonEmptyString = (values: Array<string | null | undefined>): string | null => {
+const firstNonEmptyString = (values: Array<string | null | undefined>) => {
   for (const value of values) {
-    if (typeof value !== "string") continue;
-    const trimmed = value.trim();
-    if (trimmed) return trimmed;
+    if (typeof value === "string") {
+      const trimmed = value.trim();
+      if (trimmed) return trimmed;
+    }
   }
-  return null;
-};
-
-const sanitizeText = (value?: string | null): string | null => {
-  if (typeof value !== "string") return null;
-  const trimmed = value.trim();
-  return trimmed ? trimmed : null;
+  return "";
 };
 
 const toNumber = (value: unknown): number | null => {
@@ -56,19 +26,18 @@ const toNumber = (value: unknown): number | null => {
   return null;
 };
 
-const extractUserId = (user: any): number | null =>
+const extractId = (user: any): number | null =>
   toNumber(
     user?.id ??
       user?.userId ??
       user?.usuarioId ??
-      user?.idUsuario ??
-      user?.usuario_id ??
       user?.user_id ??
+      user?.usuario_id ??
       user?.uid ??
       user?.value,
   );
 
-const extractFullName = (user: any): string | null => {
+const fullName = (user: any): string => {
   const parts = [
     firstNonEmptyString([user?.primer_nombre, user?.primerNombre, user?.first_name, user?.firstName]),
     firstNonEmptyString([user?.segundo_name, user?.segundoNombre, user?.middle_name, user?.middleName]),
@@ -76,253 +45,87 @@ const extractFullName = (user: any): string | null => {
     firstNonEmptyString([user?.primer_apellido, user?.primerApellido, user?.last_name, user?.lastName]),
     firstNonEmptyString([user?.segundo_apellido, user?.segundoApellido, user?.second_last_name, user?.secondLastName]),
     firstNonEmptyString([user?.apellido_casada, user?.apellidoCasada, user?.married_name, user?.marriedName]),
-  ].filter(Boolean) as string[];
+  ].filter(Boolean);
 
   if (parts.length) {
     return parts.join(" ").replace(/\s+/g, " ").trim();
   }
 
-  const direct = firstNonEmptyString([user?.nombre, user?.name, user?.displayName]);
-  return direct;
+  if (typeof user?.nombre === "string") return user.nombre.trim();
+  if (typeof user?.name === "string") return user.name.trim();
+
+  return "";
 };
 
-const extractPosition = (user: any): string | null =>
+const extractPosition = (user: any): string =>
   firstNonEmptyString([
     user?.posicionNombre,
     user?.posicion?.nombre,
     user?.puesto,
     user?.position,
     user?.cargo,
-    user?.roleName,
   ]);
 
-const extractGerencia = (user: any): string | null =>
+const extractGerencia = (user: any): string =>
   firstNonEmptyString([
     user?.gerenciaNombre,
     user?.gerencia?.nombre,
     user?.gerencia,
     user?.department,
     user?.departamento,
-    user?.area,
   ]);
 
-const registerResponsabilidadId = (role: ResponsabilidadRole, responsabilidadId: number) => {
-  if (!Number.isFinite(responsabilidadId)) return;
-  RESPONSABILIDAD_ID_MAP[role].add(responsabilidadId);
+export type ResponsableDTO = {
+  userId: number;
+  nombre: string;
+  puesto: string;
+  gerencia: string;
+  responsabilidadId: (typeof RESPONSABILIDAD_ID)[Role];
 };
 
-const normalizeResponsabilidadName = (value?: string | null): ResponsabilidadRole | null => {
-  const raw = typeof value === "string" ? value.trim().toUpperCase() : "";
-  if (!raw) return null;
-  for (const role of RESPONSABILIDAD_ROLES) {
-    if (RESPONSABILIDAD_ROLE_NAMES[role].some((candidate) => raw.includes(candidate))) {
-      return role;
-    }
-  }
-  return null;
-};
+export function toResponsibleDTO(user: any, rol: Role): ResponsableDTO {
+  const userId = extractId(user);
 
-const resolveRoleFromId = (
-  responsabilidadId: number,
-  fallbackName?: string | null,
-): ResponsabilidadRole | null => {
-  for (const role of RESPONSABILIDAD_ROLES) {
-    if (RESPONSABILIDAD_ID_MAP[role].has(responsabilidadId)) {
-      return role;
-    }
-  }
-
-  const normalized = normalizeResponsabilidadName(fallbackName);
-  if (normalized) {
-    registerResponsabilidadId(normalized, responsabilidadId);
-    return normalized;
-  }
-
-  return null;
-};
-
-const ensureResponsabilidadId = (value: unknown): number | null => {
-  const parsed = toNumber(value);
-  return parsed != null ? parsed : null;
-};
-
-const ensureNombre = (user: any, fallback?: string | null, userId?: number | null): string => {
-  const nombre = sanitizeText(extractFullName(user)) ?? sanitizeText(fallback);
-  if (nombre) return nombre;
-  if (Number.isFinite(userId)) return `Usuario ${userId}`;
-  return "Usuario";
-};
-
-const toResponsablePayload = (
-  user: any,
-  responsabilidadId: number,
-  fallbackNombre?: string | null,
-): ResponsablePayload => {
-  const userId = extractUserId(user);
   if (userId == null) {
     throw new Error("El usuario seleccionado no tiene un identificador válido");
   }
 
-  const nombre = ensureNombre(user, fallbackNombre, userId);
-  const puesto = sanitizeText(extractPosition(user));
-  const gerencia = sanitizeText(extractGerencia(user));
-
   return {
     userId,
-    nombre,
-    puesto,
-    gerencia,
-    responsabilidadId,
-  } satisfies ResponsablePayload;
-};
-
-export interface ResponsableSelection {
-  user: any;
-  responsabilidadId: number | string;
-  role?: ResponsabilidadRole | null;
-  responsabilidadNombre?: string | null;
-  fallbackNombre?: string | null;
-}
-
-export interface BuildResponsablesPayloadInput {
-  seleccionados: ResponsableSelection[];
-  elaboraUserId?: number | null;
-}
-
-export const getResponsabilidadIdForRole = (role: ResponsabilidadRole): number => {
-  const ids = RESPONSABILIDAD_ID_MAP[role];
-  const first = ids.values().next().value as number | undefined;
-  if (typeof first === "number" && Number.isFinite(first)) return first;
-  return DEFAULT_RESPONSABILIDAD_IDS[role];
-};
-
-export const buildResponsablesPayload = ({
-  seleccionados,
-  elaboraUserId,
-}: BuildResponsablesPayloadInput): ResponsablesPayload => {
-  const payload: ResponsablesPayload = {
-    elabora: null,
-    revisa: [],
-    aprueba: [],
-    enterado: [],
+    nombre: fullName(user),
+    puesto: extractPosition(user),
+    gerencia: extractGerencia(user),
+    responsabilidadId: RESPONSABILIDAD_ID[rol],
   };
+}
 
-  seleccionados.forEach((selection) => {
-    const responsabilidadId = ensureResponsabilidadId(selection.responsabilidadId);
-    if (responsabilidadId == null) {
-      throw new Error("Falta el identificador de responsabilidad para uno de los firmantes");
-    }
+export interface BuildResponsablesInput {
+  elaboraUser?: any | null;
+  revisaUsers?: any[] | null;
+  apruebaUsers?: any[] | null;
+  enteradoUsers?: any[] | null;
+}
 
-    const userId = extractUserId(selection.user);
-    const roleFromSelection = selection.role ?? normalizeResponsabilidadName(selection.responsabilidadNombre);
-    const resolvedRole =
-      roleFromSelection ??
-      (userId != null && elaboraUserId != null && userId === elaboraUserId ? "ELABORA" : null) ??
-      resolveRoleFromId(responsabilidadId, selection.responsabilidadNombre);
+export type BuildResponsablesOutput = {
+  elabora?: ResponsableDTO;
+  revisa: ResponsableDTO[];
+  aprueba: ResponsableDTO[];
+  enterado: ResponsableDTO[];
+};
 
-    if (!resolvedRole) {
-      throw new Error("No se pudo determinar la responsabilidad de uno de los firmantes");
-    }
-
-    registerResponsabilidadId(resolvedRole, responsabilidadId);
-    const responsable = toResponsablePayload(selection.user, responsabilidadId, selection.fallbackNombre);
-
-    switch (resolvedRole) {
-      case "ELABORA":
-        payload.elabora = responsable;
-        break;
-      case "REVISA":
-        payload.revisa.push(responsable);
-        break;
-      case "APRUEBA":
-        payload.aprueba.push(responsable);
-        break;
-      case "ENTERADO":
-        payload.enterado.push(responsable);
-        break;
-      default:
-        break;
-    }
-  });
+export const buildResponsables = ({
+  elaboraUser,
+  revisaUsers,
+  apruebaUsers,
+  enteradoUsers,
+}: BuildResponsablesInput): BuildResponsablesOutput => {
+  const payload: BuildResponsablesOutput = {
+    elabora: elaboraUser ? toResponsibleDTO(elaboraUser, "ELABORA") : undefined,
+    revisa: Array.isArray(revisaUsers) ? revisaUsers.map((user) => toResponsibleDTO(user, "REVISA")) : [],
+    aprueba: Array.isArray(apruebaUsers) ? apruebaUsers.map((user) => toResponsibleDTO(user, "APRUEBA")) : [],
+    enterado: Array.isArray(enteradoUsers) ? enteradoUsers.map((user) => toResponsibleDTO(user, "ENTERADO")) : [],
+  };
 
   return payload;
 };
 
-const fillResponsableFromUser = (
-  responsable: ResponsablePayload,
-  resolveById: (id: number) => any | null,
-  missingNames: Set<string>,
-): ResponsablePayload => {
-  const resolvedUser = Number.isFinite(responsable.userId)
-    ? resolveById(responsable.userId)
-    : null;
-
-  let puesto = sanitizeText(responsable.puesto);
-  let gerencia = sanitizeText(responsable.gerencia);
-
-  if (!puesto && resolvedUser) {
-    puesto = sanitizeText(extractPosition(resolvedUser));
-  }
-
-  if (!gerencia && resolvedUser) {
-    gerencia = sanitizeText(extractGerencia(resolvedUser));
-  }
-
-  let markedMissing = false;
-
-  if (!puesto) {
-    puesto = "N/D";
-    markedMissing = true;
-  }
-
-  if (!gerencia) {
-    gerencia = "N/D";
-    markedMissing = true;
-  }
-
-  if (markedMissing) {
-    missingNames.add(responsable.nombre);
-  }
-
-  return {
-    ...responsable,
-    puesto,
-    gerencia,
-  } satisfies ResponsablePayload;
-};
-
-export function enrichResponsables(
-  payload: ResponsablesPayload,
-  resolveById: (id: number) => any | null,
-): { payload: ResponsablesPayload; missing: string[] } {
-  const missingNames = new Set<string>();
-
-  const fillOptional = (responsable: ResponsablePayload | null): ResponsablePayload | null => {
-    if (!responsable) return null;
-    return fillResponsableFromUser(responsable, resolveById, missingNames);
-  };
-
-  const enriched: ResponsablesPayload = {
-    elabora: fillOptional(payload.elabora),
-    revisa: payload.revisa.map((responsable) =>
-      fillResponsableFromUser(responsable, resolveById, missingNames),
-    ),
-    aprueba: payload.aprueba.map((responsable) =>
-      fillResponsableFromUser(responsable, resolveById, missingNames),
-    ),
-    enterado: payload.enterado.map((responsable) =>
-      fillResponsableFromUser(responsable, resolveById, missingNames),
-    ),
-  };
-
-  return { payload: enriched, missing: Array.from(missingNames) };
-}
-
-export const collectAllResponsables = (payload: ResponsablesPayload): ResponsablePayload[] => {
-  const list: ResponsablePayload[] = [];
-  if (payload.elabora) list.push(payload.elabora);
-  list.push(...payload.revisa, ...payload.aprueba, ...payload.enterado);
-  return list;
-};
-
-export type { ResponsabilidadRole };

@@ -7,7 +7,6 @@ import { useQueryClient } from "@tanstack/react-query";
 import api from "@/lib/axiosConfig";
 import type { AssignmentFormSubmitData } from "@/components/assignments/AssignmentForm";
 import { createCuadroFirma, updateCuadroFirma, updateDocumentoAsignacion } from "@/services/documentsService";
-import type { CuadroFirmaUpdatePayload } from "@/types/documents";
 
 const extractItems = (payload: any): any[] => {
   if (!payload || typeof payload !== "object") return [];
@@ -200,25 +199,15 @@ export function useSignAndPersist() {
 
   const updateAssignment = useCallback(
     async ({ id, formValues }: UpdateAssignmentArgs) => {
-      const payload: CuadroFirmaUpdatePayload & { empresa_id?: number | null } = {
+      const payload: Record<string, unknown> = {
         titulo: formValues.title,
         descripcion: formValues.description,
         version: formValues.version,
         codigo: formValues.code,
-        empresaId: formValues.empresaId ?? null,
+        empresa_id: formValues.empresaId ?? null,
         responsables: formValues.responsables,
         idUser: resolvedUserId ?? null,
       };
-
-      if (formValues.empresaId != null) {
-        payload.empresa_id = formValues.empresaId;
-      } else {
-        payload.empresa_id = null;
-      }
-
-      if (formValues.observaciones) {
-        payload.observaciones = formValues.observaciones;
-      }
 
       try {
         await updateCuadroFirma(id, payload);

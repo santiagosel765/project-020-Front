@@ -29,7 +29,6 @@ import {
   SignatureValidationError,
   validateAndSanitizeSignature,
 } from '@/lib/signature-validation';
-import { ALLOWED_IMAGE_TYPES, MAX_UPLOAD } from '@/lib/uploads';
 
 export type SignDialogProps = {
   open: boolean;
@@ -125,30 +124,6 @@ export function SignDialog({
     setUploadPreview(null);
 
     if (!file) {
-      return;
-    }
-
-    if (!ALLOWED_IMAGE_TYPES.includes(file.type as (typeof ALLOWED_IMAGE_TYPES)[number])) {
-      toast({
-        variant: 'destructive',
-        title: 'Formato no permitido',
-        description: 'Solo se aceptan imágenes PNG o JPG.',
-      });
-      if (e.target) {
-        e.target.value = '';
-      }
-      return;
-    }
-
-    if (file.size > MAX_UPLOAD) {
-      toast({
-        variant: 'destructive',
-        title: 'Archivo demasiado grande',
-        description: 'El tamaño máximo permitido es de 2 MB.',
-      });
-      if (e.target) {
-        e.target.value = '';
-      }
       return;
     }
 
