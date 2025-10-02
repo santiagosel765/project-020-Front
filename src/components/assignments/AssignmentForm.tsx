@@ -39,6 +39,9 @@ import { buildResponsables } from "@/lib/responsables";
 import { useSession } from "@/lib/session";
 import { useForm } from "react-hook-form";
 
+// Desactiva el incremento automático al editar
+const AUTO_BUMP_ON_EDIT = false;
+
 const toNumericId = (raw: unknown): number | null => {
   if (typeof raw === "number" && Number.isFinite(raw)) return raw;
   if (typeof raw === "string" && raw.trim() !== "" && !Number.isNaN(Number(raw))) {
@@ -178,6 +181,8 @@ const isGreaterVersion = (a: string, b: string) => {
 
   return false;
 };
+
+const isValidVersion = (v: string) => /^\d+(\.\d+){0,3}$/.test(v.trim());
 
 export interface AssignmentFormProps {
   mode: "create" | "edit";
@@ -478,6 +483,7 @@ export function AssignmentForm({
     if (isSubmitting) return true;
     if (!hasPdfSelected) return true;
     if (!title.trim() || !description.trim() || !version.trim() || !code.trim()) return true;
+    if (!isValidVersion(version)) return true;
     if (empresaId == null) return true;
     if (signatories.length === 0) return true;
     const hasAllResponsibilities = signatories.every((s) => s.responsibility);
@@ -525,9 +531,18 @@ export function AssignmentForm({
     let finalVersion = version.trim();
     const hasFileChange = Boolean(pdfFile);
 
+    if (!isValidVersion(finalVersion)) {
+      toast({
+        variant: "destructive",
+        title: "Versión inválida",
+        description: "Usa dígitos con puntos opcionales, por ejemplo: 1, 1.0 o 1.2.3.",
+      });
+      return;
+    }
+
     let autoVersionApplied = false;
 
-    if (mode === "edit" && initialValues) {
+    if (mode === "edit" && initialValues && AUTO_BUMP_ON_EDIT) {
       const currentResponsablesSummary = summarizeSignatories(signatories);
       const metaChanged =
         trimmedTitle !== normalizeString(initialValues.title) ||
@@ -548,7 +563,7 @@ export function AssignmentForm({
       }
     }
 
-    if (autoVersionApplied) {
+    if (autoVersionApplied && AUTO_BUMP_ON_EDIT) {
       toast({
         title: "Versión actualizada",
         description: `Se incrementó automáticamente la versión a ${finalVersion} para reflejar los cambios.`,
