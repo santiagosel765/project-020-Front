@@ -322,7 +322,7 @@ export const DocumentSummaryDialog = forwardRef<
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogContent
         size="xl"
-        className="p-0 max-w-none h-[92vh] sm:h-auto overflow-hidden [&_[data-dialog-content]]:h-full sm:[&_[data-dialog-content]]:h-auto [&_[data-dialog-content]]:max-h-[min(calc(100vh-48px),900px)] [&_[data-dialog-content]]:max-w-[1100px] [&_[data-dialog-content]]:w-full [&_[data-dialog-content]]:mx-auto [&_[data-dialog-content]]:p-0"
+        className="p-0 max-w-none h-[90vh] lg:h-auto overflow-hidden [&_[data-dialog-content]]:h-full lg:[&_[data-dialog-content]]:h-auto [&_[data-dialog-content]]:max-h-[min(calc(100vh-96px),900px)] [&_[data-dialog-content]]:max-w-[1100px] [&_[data-dialog-content]]:w-full [&_[data-dialog-content]]:mx-auto [&_[data-dialog-content]]:p-0"
         aria-describedby={undefined}
         onEscapeKeyDown={() => {
           abortStreaming();
@@ -361,16 +361,16 @@ export const DocumentSummaryDialog = forwardRef<
 
           <div className="flex-1 flex flex-col p-4 sm:p-6 gap-4 overflow-hidden">
             {/* Panel de acciones principales */}
-            <Card className="border border-blue-200/70 dark:border-blue-800/70 shadow-sm backdrop-blur-sm bg-white/80 dark:bg-slate-950/70">
-              <CardContent className="p-4 sm:p-5">
-                <div className="flex flex-col gap-4 2xl:flex-row 2xl:items-start 2xl:justify-between">
+            <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30 border-blue-200 dark:border-blue-800">
+              <CardContent className="p-4">
+                <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
                   {/* Acciones de resumen */}
                   <div className="flex flex-col gap-3 xl:flex-1">
-                    <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+                    <div className="flex flex-col sm:flex-row sm:flex-wrap gap-3">
                       <Button
                         onClick={generateSummary}
                         disabled={isLoading}
-                        className="h-11 w-full sm:w-auto px-5 bg-gradient-to-r from-primary to-primary/90 hover:from-primary/95 hover:to-primary text-white shadow-md hover:shadow-lg transition-all duration-200"
+                        className="h-12 w-full sm:w-auto px-6 bg-gradient-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary text-white shadow-lg hover:shadow-xl transition-all duration-200"
                       >
                         {isLoading ? (
                           <>
@@ -384,13 +384,12 @@ export const DocumentSummaryDialog = forwardRef<
                           </>
                         )}
                       </Button>
-
-                      <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:flex-row">
+                      <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
                         <Button
                           variant="outline"
                           onClick={handleCopy}
                           disabled={!markdown || isLoading}
-                          className="h-11 w-full sm:w-auto px-4 border-2 hover:bg-green-50 hover:text-green-700 hover:border-green-300 transition-colors"
+                          className="h-12 w-full sm:w-auto px-4 border-2 hover:bg-green-50 hover:text-green-700 hover:border-green-300 transition-colors"
                         >
                           <Sparkles className="mr-2 h-4 w-4" />
                           Copiar
@@ -399,14 +398,14 @@ export const DocumentSummaryDialog = forwardRef<
                           variant="outline"
                           onClick={handleDownload}
                           disabled={!markdown || isLoading}
-                          className="h-11 w-full sm:w-auto px-4 border-2 hover:bg-blue-50 hover:text-blue-700 hover:border-blue-300 transition-colors"
+                          className="h-12 w-full sm:w-auto px-4 border-2 hover:bg-blue-50 hover:text-blue-700 hover:border-blue-300 transition-colors"
                         >
                           <Sparkles className="mr-2 h-4 w-4" />
                           Descargar
                         </Button>
                       </div>
                     </div>
-                    <p className="text-xs sm:text-sm text-muted-foreground">
+                    <p className="text-sm text-muted-foreground">
                       Genera, comparte o descarga el resumen con un solo clic.
                     </p>
                   </div>
@@ -416,7 +415,7 @@ export const DocumentSummaryDialog = forwardRef<
                     ref={ttsRef}
                     markdown={markdown}
                     variant="compact"
-                    className="w-full 2xl:max-w-sm"
+                    className="w-full xl:max-w-sm"
                   />
                 </div>
               </CardContent>

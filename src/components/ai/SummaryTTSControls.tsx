@@ -346,7 +346,7 @@ const SummaryTTSControls = forwardRef<SummaryTTSControlsHandle, SummaryTTSContro
     return (
       <Card
         className={cn(
-          "w-full bg-white/70 dark:bg-gray-900/60 backdrop-blur-sm border border-purple-200/70 dark:border-purple-800/60 shadow-sm",
+          "w-full bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm border-2 border-purple-200 dark:border-purple-800 shadow-lg",
           className,
         )}
       >
@@ -369,7 +369,7 @@ const SummaryTTSControls = forwardRef<SummaryTTSControlsHandle, SummaryTTSContro
                 </p>
                 <Badge
                   variant="secondary"
-                  className="mt-1 bg-purple-100/80 text-purple-700 border-purple-200 text-xs"
+                  className="mt-1 bg-purple-100 text-purple-700 border-purple-200 text-xs"
                 >
                   {statusLabel}
                 </Badge>
@@ -392,7 +392,7 @@ const SummaryTTSControls = forwardRef<SummaryTTSControlsHandle, SummaryTTSContro
                 }}
                 disabled={!voices.length || !isSupported}
               >
-                <SelectTrigger className="h-10 w-full min-w-0 border border-purple-200 bg-white px-3 text-sm font-medium text-purple-900 shadow-sm transition-colors hover:border-purple-300 focus:border-purple-500 focus:ring-2 focus:ring-purple-200 dark:bg-gray-800 dark:text-purple-100 dark:border-purple-700">
+                <SelectTrigger className="h-10 w-full min-w-0 border-2 border-purple-200 bg-white px-3 text-sm font-medium text-purple-900 shadow-sm transition-colors hover:border-purple-300 focus:border-purple-500 focus:ring-2 focus:ring-purple-200 dark:bg-gray-800 dark:text-purple-100 dark:border-purple-700">
                   <SelectValue placeholder={voicePlaceholder} />
                 </SelectTrigger>
                 <SelectContent
@@ -424,8 +424,12 @@ const SummaryTTSControls = forwardRef<SummaryTTSControlsHandle, SummaryTTSContro
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-10 w-10 rounded-full transition-all bg-emerald-500 hover:bg-emerald-600 text-white shadow-md"
-                    onClick={status === "paused" ? handleResume : handlePlay}
+                    className={`h-10 w-10 rounded-full transition-all ${
+                      status === "idle" 
+                        ? "bg-green-500 hover:bg-green-600 text-white shadow-lg" 
+                        : "bg-green-500 hover:bg-green-600 text-white shadow-lg"
+                    }`}
+                    onClick={status === "paused" ? handleResume : handlePlay} 
                     disabled={!canStartPlayback}
                     aria-label={status === "paused" ? "Reanudar lectura" : "Reproducir resumen"}
                   >
