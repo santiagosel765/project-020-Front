@@ -504,3 +504,49 @@ export async function signDocument(payload: {
   }
 }
 
+export const DOCUMENT_SUMMARY_ANALYZE_PATH = '/api/documents/analyze-pdf'; // TODO: ajustar path si el backend difiere
+const DOCUMENT_CHAT_BASE_PATH = '/api/v1/documents/ai/chat'; // TODO: ajustar path si el backend difiere
+
+export async function startDocChat(cuadroFirmasId: number, init: RequestInit = {}) {
+  const response = await fetch(`${DOCUMENT_CHAT_BASE_PATH}/start/${cuadroFirmasId}`, {
+    method: 'POST',
+    ...init,
+  });
+
+  if (!response.ok) {
+    throw new Error('No se pudo iniciar el chat del documento');
+  }
+
+  return (await response.json()) as { sessionId: string };
+}
+
+type SendDocChatOptions = {
+  signal?: AbortSignal;
+  stream?: boolean;
+};
+
+export async function sendDocChatMessage(
+  sessionId: string,
+  message: string,
+  opts: SendDocChatOptions = {}
+) {
+  const response = await fetch(`${DOCUMENT_CHAT_BASE_PATH}/${sessionId}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    signal: opts.signal,
+    body: JSON.stringify({ message }),
+  });
+
+  if (!response.ok) {
+    throw new Error('Error al enviar mensaje');
+  }
+
+  if (opts.stream && response.body) {
+    return response.body;
+  }
+
+  return (await response.json()) as { content: string };
+}
+

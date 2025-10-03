@@ -420,7 +420,6 @@ export default function DocumentDetailPage() {
           ref={summaryDialogRef}
           documentId={detalle.id}
           cuadroFirmasId={detalle.id}
-          docData={detalle}
         />
       )}
     </div>

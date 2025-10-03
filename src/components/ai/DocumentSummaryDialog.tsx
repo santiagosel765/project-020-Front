@@ -5,22 +5,34 @@ import React, {
   useCallback,
   useEffect,
   useImperativeHandle,
+  useMemo,
   useRef,
   useState,
-} from 'react';
-import ReactMarkdown from 'react-markdown';
-import { Loader2, Copy, Download, Play, Pause, Square } from 'lucide-react';
+} from "react";
+import ReactMarkdown from "react-markdown";
+import { Loader2 } from "lucide-react";
 
-import { useToast } from '@/hooks/use-toast';
-import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import type { CuadroFirmaDetalle } from '@/services/documentsService';
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useToast } from "@/hooks/use-toast";
+import {
+  DOCUMENT_SUMMARY_ANALYZE_PATH,
+  startDocChat,
+} from "@/services/documentsService";
+
+import { DocChatPanel } from "./DocChatPanel";
+import { SummaryActions } from "./SummaryActions";
+import {
+  SummaryTTSControls,
+  SummaryTTSControlsHandle,
+} from "./SummaryTTSControls";
 
 export interface DocumentSummaryDialogProps {
   documentId: number;
   cuadroFirmasId: number;
-  docData: CuadroFirmaDetalle | null;
 }
 
 export interface DocumentSummaryDialogHandle {
@@ -29,513 +41,340 @@ export interface DocumentSummaryDialogHandle {
   regenerate: () => Promise<void>;
 }
 
-export const DocumentSummaryDialog = forwardRef<DocumentSummaryDialogHandle, DocumentSummaryDialogProps>(
-  ({ documentId, cuadroFirmasId, docData: _docData }, ref) => {
-    const { toast } = useToast();
-    const [isOpen, setIsOpen] = useState(false);
-    const [isLoading, setIsLoading] = useState(false);
-    const [error, setError] = useState<string | null>(null);
-    const [markdown, setMarkdown] = useState('');
-    const [speechStatus, setSpeechStatus] = useState<'idle' | 'playing' | 'paused'>('idle');
-    const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
-    const [selectedVoice, setSelectedVoice] = useState<SpeechSynthesisVoice | null>(null);
-    const controller = useRef<AbortController | null>(null);
-    const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
-    const speakingRef = useRef(false);
-    const pausedRef = useRef(false);
-    const speakTimeoutRef = useRef<number | null>(null);
+type StreamState = {
+  controller: AbortController | null;
+  reader: ReadableStreamDefaultReader<Uint8Array> | null;
+};
 
-    const isSpeechSupported = typeof window !== 'undefined' && 'speechSynthesis' in window;
+const parseStreamChunk = (raw: string) => {
+  return raw
+    .split(/\n/)
+    .map((line) => line.replace(/^data:\s*/i, ""))
+    .filter((line) => line && line !== "[DONE]")
+    .join("\n");
+};
 
-    const stopTTS = useCallback(() => {
-      if (!isSpeechSupported) return;
-      if (speakTimeoutRef.current !== null) {
-        window.clearTimeout(speakTimeoutRef.current);
-        speakTimeoutRef.current = null;
-      }
-      speakingRef.current = false;
-      pausedRef.current = false;
-      window.speechSynthesis.cancel();
-      utteranceRef.current = null;
-      setSpeechStatus('idle');
-    }, [isSpeechSupported]);
+export const DocumentSummaryDialog = forwardRef<
+  DocumentSummaryDialogHandle,
+  DocumentSummaryDialogProps
+>(({ documentId, cuadroFirmasId }, ref) => {
+  const { toast } = useToast();
+  const [open, setOpen] = useState(false);
+  const [markdown, setMarkdown] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState("summary");
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const streamState = useRef<StreamState>({ controller: null, reader: null });
+  const ttsRef = useRef<SummaryTTSControlsHandle | null>(null);
+  const titleRef = useRef<HTMLHeadingElement | null>(null);
+  const sessionPromiseRef = useRef<Promise<string> | null>(null);
 
-    useEffect(() => {
-      if (!isSpeechSupported) return;
-
-      const preferenceOrder = ['es-gt', 'es-mx', 'es-us', 'es-es'];
-
-      const loadVoices = () => {
-        const allVoices = window.speechSynthesis.getVoices();
-        const spanishVoices = allVoices
-          .filter((voice) => voice.lang?.toLowerCase().startsWith('es'))
-          .sort((a, b) => {
-            const langA = a.lang?.toLowerCase() ?? '';
-            const langB = b.lang?.toLowerCase() ?? '';
-            const priorityA = preferenceOrder.findIndex((pref) => langA.startsWith(pref));
-            const priorityB = preferenceOrder.findIndex((pref) => langB.startsWith(pref));
-            const safePriorityA = priorityA === -1 ? preferenceOrder.length : priorityA;
-            const safePriorityB = priorityB === -1 ? preferenceOrder.length : priorityB;
-            if (safePriorityA !== safePriorityB) {
-              return safePriorityA - safePriorityB;
-            }
-            return a.name.localeCompare(b.name);
-          });
-
-        setVoices(spanishVoices);
-
-        setSelectedVoice((current) => {
-          if (current && spanishVoices.some((voice) => voice.voiceURI === current.voiceURI)) {
-            return current;
-          }
-
-          let savedVoiceIdentifier: string | null = null;
-          try {
-            savedVoiceIdentifier = localStorage.getItem('ttsVoiceURI');
-          } catch (error) {
-            savedVoiceIdentifier = null;
-          }
-
-          const savedVoice = savedVoiceIdentifier
-            ? spanishVoices.find(
-                (voice) =>
-                  voice.voiceURI === savedVoiceIdentifier || voice.name === savedVoiceIdentifier,
-              )
-            : undefined;
-
-          if (savedVoice) {
-            return savedVoice;
-          }
-
-          return spanishVoices[0] ?? null;
-        });
-      };
-
-      loadVoices();
-      window.speechSynthesis.addEventListener('voiceschanged', loadVoices);
-
-      return () => {
-        window.speechSynthesis.removeEventListener('voiceschanged', loadVoices);
-      };
-    }, [isSpeechSupported]);
-
-    useEffect(() => {
-      if (typeof window === 'undefined' || !selectedVoice) return;
+  const abortStreaming = useCallback(() => {
+    const { controller, reader } = streamState.current;
+    if (controller) {
+      controller.abort();
+    }
+    if (reader) {
       try {
-        const identifier = selectedVoice.voiceURI || selectedVoice.name || '';
-        if (identifier) {
-          localStorage.setItem('ttsVoiceURI', identifier);
-        }
+        reader.cancel();
       } catch (error) {
-        // ignore write errors
+        // ignore cancellation errors
       }
-    }, [selectedVoice]);
+    }
+    streamState.current = { controller: null, reader: null };
+    setIsLoading(false);
+  }, []);
 
-    const speakMarkdown = useCallback(
-      (md: string) => {
-        if (!isSpeechSupported || !selectedVoice) return;
+  const stopTTS = useCallback(() => {
+    ttsRef.current?.stop();
+  }, []);
 
-        if (speakTimeoutRef.current !== null) {
-          window.clearTimeout(speakTimeoutRef.current);
-          speakTimeoutRef.current = null;
-        }
-
-        window.speechSynthesis.cancel();
-        speakingRef.current = true;
-        pausedRef.current = false;
-
-        const sanitized = md
-          .replace(/```[\s\S]*?```/g, ' ')
-          .replace(/`[^`]*`/g, ' ')
-          .replace(/\*\*(.*?)\*\*/g, '$1')
-          .replace(/\*(.*?)\*/g, '$1')
-          .replace(/__(.*?)__/g, '$1')
-          .replace(/_(.*?)_/g, '$1')
-          .replace(/!\[[^\]]*\]\([^)]+\)/g, ' ')
-          .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
-          .replace(/>+/g, ' ')
-          .replace(/#+\s*/g, '')
-          .replace(/[-*]\s+/g, '')
-          .replace(/\r/g, '')
-          .split('\n')
-          .map((line) => line.trim())
-          .join('\n')
-          .replace(/[ \t]{2,}/g, ' ')
-          .trim();
-
-        if (!sanitized) {
-          speakingRef.current = false;
-          setSpeechStatus('idle');
-          return;
-        }
-
-        const rawParts = sanitized
-          .split(/\n{2,}/)
-          .flatMap((paragraph) => paragraph.split(/(?<=\.)\s+/))
-          .map((part) => part.trim())
-          .filter(Boolean);
-
-        const MAX_CHARS = 200;
-        const parts: string[] = [];
-
-        rawParts.forEach((part) => {
-          let remaining = part;
-          while (remaining.length > 0) {
-            if (remaining.length <= MAX_CHARS) {
-              parts.push(remaining.trim());
-              break;
-            }
-            let sliceIndex = remaining.lastIndexOf(' ', MAX_CHARS);
-            if (sliceIndex <= 0) {
-              sliceIndex = MAX_CHARS;
-            }
-            const chunk = remaining.slice(0, sliceIndex).trim();
-            if (chunk) {
-              parts.push(chunk);
-            }
-            remaining = remaining.slice(sliceIndex).trim();
-          }
+  const ensureSession = useCallback(async () => {
+    if (sessionId) return sessionId;
+    if (sessionPromiseRef.current) {
+      return sessionPromiseRef.current;
+    }
+    const promise = startDocChat(cuadroFirmasId)
+      .then(({ sessionId: newSessionId }) => {
+        setSessionId(newSessionId);
+        return newSessionId;
+      })
+      .catch((error) => {
+        toast({
+          variant: "destructive",
+          title: "No se pudo iniciar el chat",
+          description: error?.message || "Intenta nuevamente más tarde.",
         });
+        throw error;
+      })
+      .finally(() => {
+        sessionPromiseRef.current = null;
+      });
+    sessionPromiseRef.current = promise;
+    return promise;
+  }, [cuadroFirmasId, sessionId, toast]);
 
-        if (!parts.length) {
-          speakingRef.current = false;
-          setSpeechStatus('idle');
-          return;
-        }
-
-        let index = 0;
-
-        const speakNext = () => {
-          if (!speakingRef.current || index >= parts.length) {
-            speakingRef.current = false;
-            pausedRef.current = false;
-            utteranceRef.current = null;
-            setSpeechStatus('idle');
-            return;
-          }
-
-          const utterance = new SpeechSynthesisUtterance(parts[index]);
-          utterance.voice = selectedVoice;
-          utterance.lang = selectedVoice.lang;
-          utterance.rate = 1.05;
-          utterance.pitch = 1.05;
-          utterance.volume = 1;
-          utterance.onend = () => {
-            if (!speakingRef.current) return;
-            index += 1;
-            if (index >= parts.length) {
-              speakingRef.current = false;
-              pausedRef.current = false;
-              utteranceRef.current = null;
-              setSpeechStatus('idle');
-              return;
-            }
-            speakTimeoutRef.current = window.setTimeout(() => {
-              speakTimeoutRef.current = null;
-              if (speakingRef.current) {
-                speakNext();
-              }
-            }, 300);
-          };
-          utterance.onerror = () => {
-            speakingRef.current = false;
-            pausedRef.current = false;
-            utteranceRef.current = null;
-            setSpeechStatus('idle');
-          };
-          utterance.onpause = () => {
-            pausedRef.current = true;
-            setSpeechStatus('paused');
-          };
-          utterance.onresume = () => {
-            pausedRef.current = false;
-            setSpeechStatus('playing');
-          };
-
-          utteranceRef.current = utterance;
-          window.speechSynthesis.speak(utterance);
-          setSpeechStatus('playing');
-        };
-
-        speakNext();
-      },
-      [isSpeechSupported, selectedVoice],
-    );
-
-    const handleVoiceChange = useCallback(
-      (identifier: string) => {
-        const nextVoice =
-          voices.find((voice) => voice.voiceURI === identifier || voice.name === identifier) ?? null;
-        if (!nextVoice) return;
-        setSelectedVoice(nextVoice);
-        try {
-          const storageIdentifier = nextVoice.voiceURI || nextVoice.name || '';
-          if (storageIdentifier) {
-            localStorage.setItem('ttsVoiceURI', storageIdentifier);
-          }
-        } catch (error) {
-          // ignore write errors
-        }
-        stopTTS();
-      },
-      [stopTTS, voices],
-    );
-
-    const handlePlay = useCallback(() => {
-      if (!isSpeechSupported || !markdown.trim() || !selectedVoice || speechStatus !== 'idle') return;
+  useEffect(() => {
+    if (open) {
+      setActiveTab("summary");
+      setTimeout(() => {
+        titleRef.current?.focus();
+      }, 0);
+      void ensureSession().catch(() => undefined);
+    } else {
+      abortStreaming();
       stopTTS();
-      speakMarkdown(markdown);
-    }, [isSpeechSupported, markdown, selectedVoice, speakMarkdown, speechStatus, stopTTS]);
+    }
+  }, [abortStreaming, ensureSession, open, stopTTS]);
 
-    const handlePause = useCallback(() => {
-      if (!isSpeechSupported || speechStatus !== 'playing') return;
-      window.speechSynthesis.pause();
-      pausedRef.current = true;
-      setSpeechStatus('paused');
-    }, [isSpeechSupported, speechStatus]);
-
-    const handleResume = useCallback(() => {
-      if (!isSpeechSupported || speechStatus !== 'paused') return;
-      window.speechSynthesis.resume();
-      pausedRef.current = false;
-      setSpeechStatus('playing');
-    }, [isSpeechSupported, speechStatus]);
-
-    const handleStop = useCallback(() => {
+  useEffect(() => {
+    return () => {
+      abortStreaming();
       stopTTS();
-    }, [stopTTS]);
+    };
+  }, [abortStreaming, stopTTS]);
 
-    const copyToClipboard = useCallback(async () => {
-      if (!markdown.trim()) return;
-      try {
-        if (typeof navigator !== 'undefined' && navigator.clipboard) {
-          await navigator.clipboard.writeText(markdown);
-          toast({ title: 'Copiado', description: 'Resumen copiado al portapapeles.' });
-        }
-      } catch (err) {
-        toast({ variant: 'destructive', title: 'Error', description: 'No se pudo copiar el resumen.' });
-      }
-    }, [markdown, toast]);
-
-    const downloadMarkdown = useCallback(() => {
-      if (!markdown.trim()) return;
-      try {
-        const blob = new Blob([markdown], { type: 'text/markdown;charset=utf-8' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `resumen_${documentId}.md`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
-      } catch (err) {
-        toast({ variant: 'destructive', title: 'Error', description: 'No se pudo descargar el resumen.' });
-      }
-    }, [documentId, markdown, toast]);
+  useEffect(() => {
+    setSessionId(null);
+    sessionPromiseRef.current = null;
+  }, [cuadroFirmasId]);
 
   const generateSummary = useCallback(async () => {
-    setError(null);
-    setMarkdown("");
-    setIsLoading(true);
+    abortStreaming();
     stopTTS();
-    controller.current?.abort();
-    const abortController = new AbortController();
-    controller.current = abortController;
+    setMarkdown("");
+    setError(null);
+    setIsLoading(true);
+    setActiveTab("summary");
+
+    const controller = new AbortController();
+    streamState.current = { controller, reader: null };
 
     try {
       const response = await fetch(
-        `/api/documents/analyze-pdf/${cuadroFirmasId}`,
+        `${DOCUMENT_SUMMARY_ANALYZE_PATH}/${cuadroFirmasId}`,
         {
           method: "POST",
-          signal: abortController.signal,
-        }
+          signal: controller.signal,
+        },
       );
 
-      if (!response.ok || !response.body) {
-        throw new Error("No se pudo generar el resumen");
+      if (!response.ok) {
+        throw new Error("No se pudo generar el resumen del documento.");
+      }
+
+      if (!response.body) {
+        const text = await response.text();
+        setMarkdown(text);
+        return;
       }
 
       const reader = response.body.getReader();
-      const decoder = new TextDecoder("utf-8");
-      let accumulated = "";
-      let done = false;
-      setIsLoading(false);
-      while (!done) {
-        const { value, done: streamDone } = await reader.read();
-        done = streamDone;
+      const decoder = new TextDecoder();
+      streamState.current.reader = reader;
+
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) {
+          break;
+        }
         if (value) {
           const chunk = decoder.decode(value, { stream: true });
-          accumulated += chunk;
-          setMarkdown(accumulated);
+          const parsed = parseStreamChunk(chunk);
+          if (!parsed) continue;
+          setMarkdown((prev) => `${prev}${parsed}`);
         }
       }
-    } catch (err) {
-      if (err instanceof DOMException && err.name === "AbortError") {
+      const remaining = decoder.decode();
+      if (remaining) {
+        const parsed = parseStreamChunk(remaining);
+        if (parsed) {
+          setMarkdown((prev) => `${prev}${parsed}`);
+        }
+      }
+    } catch (error: any) {
+      if (controller.signal.aborted) {
         return;
       }
-      console.error(err);
-      setError("No se pudo generar el resumen");
+      const description = error?.message || "Intenta nuevamente.";
+      setError(description);
+      toast({
+        variant: "destructive",
+        title: "Error al generar resumen",
+        description,
+      });
     } finally {
+      streamState.current = { controller: null, reader: null };
       setIsLoading(false);
-      controller.current = null;
     }
-  }, [cuadroFirmasId]);
+  }, [abortStreaming, cuadroFirmasId, stopTTS, toast]);
 
-
-    const handleOpenChange = useCallback(
-      (open: boolean) => {
-        setIsOpen(open);
-        if (!open) {
-          controller.current?.abort();
-          controller.current = null;
-          stopTTS();
-        }
+  useImperativeHandle(
+    ref,
+    () => ({
+      open: () => setOpen(true),
+      close: () => setOpen(false),
+      regenerate: async () => {
+        setOpen(true);
+        await generateSummary();
       },
-      [stopTTS],
-    );
+    }),
+    [generateSummary],
+  );
 
-    useImperativeHandle(
-      ref,
-      () => ({
-        open: () => {
-          setIsOpen(true);
-        },
-        close: () => {
-          setIsOpen(false);
-        },
-        regenerate: () => generateSummary(),
-      }),
-      [generateSummary],
-    );
+  const handleCopy = useCallback(async () => {
+    if (!markdown) return;
+    try {
+      await navigator.clipboard.writeText(markdown);
+      toast({
+        title: "Resumen copiado",
+        description: "El resumen se copió al portapapeles.",
+      });
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "No se pudo copiar",
+        description: "Intenta nuevamente.",
+      });
+    }
+  }, [markdown, toast]);
 
-    useEffect(() => {
-      if (isOpen) {
-        void generateSummary();
-      }
-    }, [generateSummary, isOpen]);
+  const handleDownload = useCallback(() => {
+    if (!markdown) return;
+    const blob = new Blob([markdown], { type: "text/markdown;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `documento-${documentId}-resumen.md`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }, [documentId, markdown]);
 
-    useEffect(() => {
-      return () => {
-        controller.current?.abort();
-        controller.current = null;
-        stopTTS();
-      };
-    }, [stopTTS]);
-
+  const summaryContent = useMemo(() => {
+    if (markdown) {
+      return (
+        <ReactMarkdown className="prose prose-sm max-w-none dark:prose-invert">
+          {markdown}
+        </ReactMarkdown>
+      );
+    }
+    if (isLoading) {
+      return (
+        <div className="space-y-3">
+          <div className="h-4 w-3/4 animate-pulse rounded bg-muted" />
+          <div className="h-4 w-2/3 animate-pulse rounded bg-muted" />
+          <div className="h-4 w-1/2 animate-pulse rounded bg-muted" />
+        </div>
+      );
+    }
     return (
-      <Dialog open={isOpen} onOpenChange={handleOpenChange}>
-        <DialogContent
-          aria-describedby="summary-pdf-desc"
-          className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[92vw] md:w-[min(96vw,1100px)] h-[88dvh] md:h-[82dvh] overflow-hidden p-0 sm:rounded-2xl [&_[data-dialog-content]]:h-full [&_[data-dialog-content]]:w-[92vw] [&_[data-dialog-content]]:p-0 md:[&_[data-dialog-content]]:w-[min(96vw,1100px)] [&_[data-dialog-content]]:!max-h-[88dvh] md:[&_[data-dialog-content]]:!max-h-[82dvh]"
-        >
-          <div className="flex h-full flex-col">
-            <DialogHeader className="px-6 pt-6 pb-4">
-              <DialogTitle>Resumen del documento</DialogTitle>
-              <DialogDescription id="summary-pdf-desc" className="sr-only">
-                Herramientas para generar y gestionar el resumen asistido por IA del documento.
-              </DialogDescription>
-            </DialogHeader>
+      <div className="rounded-md border border-dashed p-6 text-center text-sm text-muted-foreground">
+        Genera un resumen para visualizarlo aquí.
+      </div>
+    );
+  }, [isLoading, markdown]);
 
-            {/* Body del modal */}
-            <div className="flex flex-1 flex-col gap-4 px-4 pb-6">
-              <div className="px-2 md:px-6 flex flex-col gap-2 md:flex-row md:flex-wrap md:items-center md:justify-between">
-                {/* IZQUIERDA: acciones */}
-                <div className="grid w-full grid-cols-2 gap-2 md:inline-flex md:w-auto md:gap-2 md:whitespace-nowrap">
-                  <Button onClick={generateSummary} disabled={isLoading} className="col-span-2 h-11 w-full md:h-10 md:w-auto">
-                    {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    {isLoading ? 'Generando…' : 'Generar'}
-                  </Button>
-                  <Button variant="outline" onClick={copyToClipboard} disabled={!markdown.trim()} className="h-11 w-full md:h-10 md:w-auto">
-                    <Copy className="mr-2 h-4 w-4" /> Copiar
-                  </Button>
-                  <Button variant="outline" onClick={downloadMarkdown} disabled={!markdown.trim()} className="h-11 w-full md:h-10 md:w-auto">
-                    <Download className="mr-2 h-4 w-4" /> Descargar .md
-                  </Button>
-                </div>
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogContent
+        className="max-w-[95vw] gap-0 p-0 md:max-w-[min(98vw,1200px)]"
+        onEscapeKeyDown={() => {
+          abortStreaming();
+          stopTTS();
+        }}
+        onInteractOutside={() => {
+          abortStreaming();
+          stopTTS();
+        }}
+      >
+        <div className="flex h-[90dvh] flex-col md:h-[85dvh]">
+          <DialogHeader className="px-6 pt-6 pb-4">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <DialogTitle
+                  ref={titleRef}
+                  tabIndex={-1}
+                  className="text-lg font-semibold outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  Resumen IA del Documento
+                </DialogTitle>
+                <p className="sr-only">
+                  Genera un resumen inteligente y conversa con la IA sobre el documento.
+                </p>
+              </div>
+              <Badge variant="secondary" className="uppercase">
+                IA
+              </Badge>
+            </div>
+          </DialogHeader>
 
-                {/* DERECHA: TTS */}
-                {isSpeechSupported ? (
-                  <div className="flex w-full items-center gap-2 md:w-auto md:flex-nowrap md:justify-end md:min-w-[420px] md:pl-4">
-                    {voices.length > 0 && (
-                      <select
-                        className="h-11 w-full rounded-md border bg-background px-2 text-sm md:h-10 md:w-64"
-                        value={selectedVoice ? selectedVoice.voiceURI || selectedVoice.name : ''}
-                        onChange={(e) => handleVoiceChange(e.target.value)}
-                        aria-label="Seleccionar voz para lectura"
-                      >
-                        {voices.map((voice, i) => (
-                          <option key={`${voice.voiceURI || voice.name}-${i}`} value={voice.voiceURI || voice.name}>
-                            {voice.name || voice.voiceURI}
-                          </option>
-                        ))}
-                      </select>
-                    )}
-                    <Button variant="outline" size="icon" className="h-11 w-11 md:h-10 md:w-10" onClick={handlePlay} aria-label="Reproducir" disabled={!markdown.trim() || !selectedVoice || speechStatus !== 'idle'}>
-                      <Play className="h-4 w-4" />
-                    </Button>
-                    {speechStatus === 'playing' && (
-                      <Button variant="outline" size="icon" className="h-11 w-11 md:h-10 md:w-10" onClick={handlePause} aria-label="Pausar">
-                        <Pause className="h-4 w-4" />
-                      </Button>
-                    )}
-                    {speechStatus === 'paused' && (
-                      <Button variant="outline" size="icon" className="h-11 w-11 md:h-10 md:w-10" onClick={handleResume} aria-label="Reanudar">
-                        <Play className="h-4 w-4" />
-                      </Button>
-                    )}
-                    <Button variant="outline" size="icon" className="h-11 w-11 md:h-10 md:w-10" onClick={handleStop} aria-label="Detener" disabled={speechStatus === 'idle'}>
-                      <Square className="h-4 w-4" />
-                    </Button>
-                  </div>
-                ) : (
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <div className="flex w-full items-center gap-2 md:w-auto md:flex-nowrap md:justify-end md:min-w-[420px] md:pl-4">
-                        <select className="h-11 w-full rounded-md border bg-background px-2 text-sm md:h-10 md:w-64" value="" disabled aria-label="Seleccionar voz para lectura">
-                          <option>Sin voces disponibles</option>
-                        </select>
-                        <Button variant="outline" size="icon" className="h-11 w-11 md:h-10 md:w-10" disabled>
-                          <Play className="h-4 w-4" />
-                        </Button>
-                        <Button variant="outline" size="icon" className="h-11 w-11 md:h-10 md:w-10" disabled>
-                          <Pause className="h-4 w-4" />
-                        </Button>
-                        <Button variant="outline" size="icon" className="h-11 w-11 md:h-10 md:w-10" disabled>
-                          <Square className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </TooltipTrigger>
-                    <TooltipContent>Lectura no soportada en este navegador</TooltipContent>
-                  </Tooltip>
-                )}
-              </div>
-              <div
-                className="flex-1 min-h-0 overflow-y-auto px-2 md:px-4"
-                role="document"
-                aria-live="polite"
-              >
-                {markdown.trim() ? (
-                  <div className="space-y-3 text-justify leading-relaxed text-sm">
-                    <ReactMarkdown className="prose prose-sm max-w-none text-foreground text-justify leading-relaxed dark:prose-invert [&_*]:text-justify [&_*]:leading-relaxed">
-                      {markdown}
-                    </ReactMarkdown>
-                  </div>
-                ) : isLoading ? (
-                  <div className="flex min-h-[16rem] items-center justify-center gap-2 text-sm text-muted-foreground">
-                    <Loader2 className="h-4 w-4 animate-spin" /> Generando resumen…
-                  </div>
-                ) : (
-                  <p className="text-sm text-muted-foreground">Genera el resumen para visualizarlo aquí.</p>
-                )}
-              </div>
-              {error && <p className="px-2 text-sm text-destructive md:px-4">{error}</p>}
+          <div className="sticky top-0 z-20 border-y bg-background/95 px-6 py-3 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-background/75">
+            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+              <SummaryActions
+                disabled={!markdown}
+                isLoading={isLoading}
+                onGenerate={() => void generateSummary()}
+                onCopy={() => void handleCopy()}
+                onDownload={handleDownload}
+              />
+              <SummaryTTSControls
+                ref={ttsRef}
+                markdown={markdown}
+                className="flex flex-1 justify-start md:justify-end"
+              />
             </div>
           </div>
-        </DialogContent>
-      </Dialog>
-    );
-  },
-);
 
-DocumentSummaryDialog.displayName = 'DocumentSummaryDialog';
+          <Tabs
+            value={activeTab}
+            onValueChange={setActiveTab}
+            className="flex flex-1 flex-col overflow-hidden"
+          >
+            <div className="px-6 pt-4">
+              <TabsList className="grid w-full grid-cols-2 md:w-auto">
+                <TabsTrigger value="summary">Resumen</TabsTrigger>
+                <TabsTrigger value="chat">Chat del documento</TabsTrigger>
+              </TabsList>
+            </div>
+            <TabsContent
+              value="summary"
+              className="flex-1 overflow-hidden"
+            >
+              <ScrollArea className="h-full px-6 pb-6">
+                <div className="flex flex-col gap-4 py-4">
+                  {isLoading && (
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Generando resumen…
+                    </div>
+                  )}
+                  {error && (
+                    <Alert variant="destructive">
+                      <AlertTitle>Error</AlertTitle>
+                      <AlertDescription>{error}</AlertDescription>
+                    </Alert>
+                  )}
+                  {summaryContent}
+                </div>
+              </ScrollArea>
+            </TabsContent>
+            <TabsContent value="chat" className="flex-1 overflow-hidden">
+              <div className="flex h-full flex-col">
+                <DocChatPanel
+                  cuadroFirmasId={cuadroFirmasId}
+                  sessionId={sessionId}
+                  onRequireSession={ensureSession}
+                />
+              </div>
+            </TabsContent>
+          </Tabs>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+});
+
+DocumentSummaryDialog.displayName = "DocumentSummaryDialog";
