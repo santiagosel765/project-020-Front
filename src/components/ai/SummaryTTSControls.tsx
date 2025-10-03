@@ -12,6 +12,7 @@ import React, {
 } from "react";
 
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import {
   Select,
   SelectContent,
@@ -31,6 +32,7 @@ import {
 export interface SummaryTTSControlsProps {
   markdown: string;
   className?: string;
+  variant?: "default" | "compact";
 }
 
 export interface SummaryTTSControlsHandle {
@@ -95,7 +97,7 @@ function splitIntoSegments(text: string) {
 }
 
 const SummaryTTSControls = forwardRef<SummaryTTSControlsHandle, SummaryTTSControlsProps>(
-  ({ markdown, className }, ref) => {
+  ({ markdown, className, variant = "default" }, ref) => {
     const { toast } = useToast();
     const [status, setStatus] = useState<TTSStatus>("idle");
     const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
@@ -108,6 +110,7 @@ const SummaryTTSControls = forwardRef<SummaryTTSControlsHandle, SummaryTTSContro
     const statusRef = useRef<TTSStatus>("idle");
 
     const sanitizedMarkdown = useMemo(() => sanitizeMarkdown(markdown), [markdown]);
+    const isCompact = variant === "compact";
 
     const clearQueue = useCallback(() => {
       queueRef.current = [];
@@ -135,13 +138,6 @@ const SummaryTTSControls = forwardRef<SummaryTTSControlsHandle, SummaryTTSContro
       const updateVoices = () => {
         const available = sortVoices(window.speechSynthesis.getVoices());
         setVoices(available);
-        setSelectedVoice((current) => {
-          if (current && available.some((voice) => voice.voiceURI === current.voiceURI)) {
-            return current;
-          }
-          const stored = loadPreferredVoice(available);
-          return stored ?? available[0] ?? null;
-        });
       };
 
       updateVoices();
@@ -151,6 +147,21 @@ const SummaryTTSControls = forwardRef<SummaryTTSControlsHandle, SummaryTTSContro
         window.speechSynthesis.removeEventListener("voiceschanged", updateVoices);
       };
     }, [isSupported]);
+
+    useEffect(() => {
+      if (!voices.length) {
+        setSelectedVoice(null);
+        return;
+      }
+
+      setSelectedVoice((current) => {
+        if (current && voices.some((voice) => voice.voiceURI === current.voiceURI)) {
+          return current;
+        }
+        const stored = loadPreferredVoice(voices);
+        return stored ?? voices[0] ?? null;
+      });
+    }, [voices]);
 
     useEffect(() => {
       if (!selectedVoice) return;
@@ -265,7 +276,10 @@ const SummaryTTSControls = forwardRef<SummaryTTSControlsHandle, SummaryTTSContro
       sanitizedMarkdown && selectedVoice && isSupported,
     );
 
-    const voiceValue = selectedVoice?.voiceURI || selectedVoice?.name || "";
+    const voiceIdentifier = useMemo(() => {
+      if (!selectedVoice) return "";
+      return selectedVoice.voiceURI || selectedVoice.name || "";
+    }, [selectedVoice]);
 
     const voicePlaceholder = !isSupported
       ? "Lectura no disponible"
@@ -273,106 +287,148 @@ const SummaryTTSControls = forwardRef<SummaryTTSControlsHandle, SummaryTTSContro
       ? "Selecciona voz"
       : "Cargando voces…";
 
+    const selectTriggerClass = cn(
+      "min-w-0",
+      isCompact ? "h-8 text-sm" : "h-10 text-sm",
+      isCompact ? "w-full sm:w-56" : "w-full sm:w-60",
+    );
+
+    const iconButtonClass = cn(
+      isCompact ? "h-8 w-8" : "h-10 w-10",
+      "rounded-full",
+    );
+
+    const buttons = (
+      <div className="flex items-center gap-2">
+        {showPlayButton && (
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            onClick={status === "paused" ? handleResume : handlePlay}
+            disabled={!canStartPlayback}
+            className={iconButtonClass}
+            aria-label={status === "paused" ? "Reanudar lectura" : "Reproducir resumen"}
+            aria-pressed={status === "playing"}
+          >
+            <Play className="h-4 w-4" />
+          </Button>
+        )}
+        {showPauseButton && (
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            onClick={handlePause}
+            className={iconButtonClass}
+            aria-label="Pausar lectura"
+            aria-pressed={status === "paused"}
+          >
+            <Pause className="h-4 w-4" />
+          </Button>
+        )}
+        {showStopButton && (
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            onClick={handleStop}
+            className={iconButtonClass}
+            aria-label="Detener lectura"
+          >
+            <Square className="h-4 w-4" />
+          </Button>
+        )}
+      </div>
+    );
+
+    const select = (
+      <Select
+        value={voiceIdentifier || undefined}
+        onValueChange={(value) => {
+          const fallback = voices[0] ?? null;
+          const voice = voices.find((v) => v.voiceURI === value || v.name === value);
+          const nextVoice = voice ?? fallback;
+          stop();
+          setSelectedVoice(nextVoice);
+        }}
+        disabled={!voices.length || !isSupported}
+      >
+        <SelectTrigger className={selectTriggerClass}>
+          <SelectValue placeholder={voicePlaceholder} />
+        </SelectTrigger>
+        <SelectContent
+          position="popper"
+          sideOffset={8}
+          avoidCollisions={false}
+          className="z-[70]"
+        >
+          {voices.map((voice) => {
+            const id = voice.voiceURI || voice.name;
+            return (
+              <SelectItem key={id} value={id}>
+                {formatVoiceLabel(voice)}
+              </SelectItem>
+            );
+          })}
+        </SelectContent>
+      </Select>
+    );
+
+    if (isCompact) {
+      return (
+        <div
+          className={cn(
+            "rounded-lg border p-2 text-sm sm:p-3",
+            className,
+          )}
+        >
+          <div className="flex items-center gap-2 sm:gap-3">
+            <span className="font-medium text-foreground" title="Lectura IA">
+              Lectura IA
+            </span>
+            <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
+              <div className="min-w-0 flex-1 sm:min-w-[8rem]">
+                {select}
+              </div>
+              <Badge
+                variant="secondary"
+                className="hidden whitespace-nowrap px-2 py-0.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground sm:inline-flex"
+              >
+                {statusLabel}
+              </Badge>
+            </div>
+            <div className="ml-auto">{buttons}</div>
+          </div>
+          <span className="sr-only" aria-live="polite">
+            {statusLabel}
+          </span>
+        </div>
+      );
+    }
+
     return (
       <div
         className={cn(
-          "rounded-2xl border bg-muted/40 p-4 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-muted/30",
+          "rounded-xl border bg-muted/40 p-3 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-muted/30 sm:p-4",
           className,
         )}
       >
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-3">
-            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/15 text-primary">
-              <Bot className="h-6 w-6" aria-hidden="true" />
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary">
+              <Bot className="h-5 w-5" aria-hidden="true" />
             </div>
-            <div className="flex flex-col">
-              <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                Lectura IA
-              </span>
-              <span aria-live="polite" className="text-sm font-semibold text-foreground">
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-foreground">Lectura IA</p>
+              <p className="text-xs text-muted-foreground" aria-live="polite">
                 {statusLabel}
-              </span>
-              {status === "playing" && (
-                <div className="mt-1 flex h-4 items-end gap-1">
-                  {Array.from({ length: 3 }).map((_, index) => (
-                    <span
-                      key={index}
-                      className="w-1.5 rounded-full bg-primary/80 animate-pulse"
-                      style={{
-                        animationDelay: `${index * 120}ms`,
-                        height: `${0.55 + index * 0.3}rem`,
-                      }}
-                    />
-                  ))}
-                </div>
-              )}
+              </p>
             </div>
           </div>
           <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:items-center sm:justify-end">
-            <Select
-              value={voiceValue}
-              onValueChange={(value) => {
-                const voice = voices.find(
-                  (v) => v.voiceURI === value || v.name === value,
-                );
-                setSelectedVoice(voice ?? null);
-                stop();
-              }}
-              disabled={!voices.length || !isSupported}
-            >
-              <SelectTrigger className="h-11 w-full rounded-full border-muted sm:h-10 sm:w-[160px]">
-                <SelectValue placeholder={voicePlaceholder} />
-              </SelectTrigger>
-              <SelectContent>
-                {voices.map((voice) => {
-                  const id = voice.voiceURI || voice.name;
-                  return (
-                    <SelectItem key={id} value={voice.voiceURI || voice.name}>
-                      {formatVoiceLabel(voice)}
-                    </SelectItem>
-                  );
-                })}
-              </SelectContent>
-            </Select>
-            <div className="flex items-center gap-2">
-              {showPlayButton && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="icon"
-                  onClick={status === "paused" ? handleResume : handlePlay}
-                  disabled={!canStartPlayback}
-                  className="h-11 w-11 rounded-full sm:h-10 sm:w-10"
-                  aria-label={status === "paused" ? "Reanudar lectura" : "Reproducir resumen"}
-                >
-                  <Play className="h-5 w-5" />
-                </Button>
-              )}
-              {showPauseButton && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="icon"
-                  onClick={handlePause}
-                  className="h-11 w-11 rounded-full sm:h-10 sm:w-10"
-                  aria-label="Pausar lectura"
-                >
-                  <Pause className="h-5 w-5" />
-                </Button>
-              )}
-              {showStopButton && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="icon"
-                  onClick={handleStop}
-                  className="h-11 w-11 rounded-full sm:h-10 sm:w-10"
-                  aria-label="Detener lectura"
-                >
-                  <Square className="h-5 w-5" />
-                </Button>
-              )}
-            </div>
+            <div className="sm:w-60">{select}</div>
+            {buttons}
           </div>
         </div>
       </div>

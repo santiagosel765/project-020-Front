@@ -266,7 +266,7 @@ export const DocumentSummaryDialog = forwardRef<
   const summaryContent = useMemo(() => {
     if (markdown) {
       return (
-        <ReactMarkdown className="prose prose-sm max-w-none dark:prose-invert">
+        <ReactMarkdown className="prose prose-sm max-w-none leading-6 dark:prose-invert">
           {markdown}
         </ReactMarkdown>
       );
@@ -296,8 +296,8 @@ export const DocumentSummaryDialog = forwardRef<
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogContent
-        className="max-w-[95vw] gap-0 p-0 md:max-w-[min(98vw,1200px)]"
-        aria-describedby="summary-desc"
+        className="grid place-items-center p-4 sm:p-6 [&_[data-dialog-content]]:max-h-[90vh] [&_[data-dialog-content]]:w-[min(96vw,560px)] [&_[data-dialog-content]]:gap-4 [&_[data-dialog-content]]:p-4 md:[&_[data-dialog-content]]:w-[min(92vw,900px)] sm:[&_[data-dialog-content]]:gap-5"
+        aria-describedby={undefined}
         onEscapeKeyDown={() => {
           abortStreaming();
           stopTTS();
@@ -311,18 +311,18 @@ export const DocumentSummaryDialog = forwardRef<
           titleRef.current?.focus();
         }}
       >
-        <div className="flex h-[90dvh] flex-col md:h-[85dvh]">
-          <DialogHeader className="px-6 pt-6 pb-4">
+        <div className="flex max-h-[82vh] flex-col">
+          <DialogHeader className="mb-0 space-y-3 p-0">
             <div className="flex items-start justify-between gap-3">
-              <div>
+              <div className="space-y-2">
                 <DialogTitle
                   ref={titleRef}
                   tabIndex={-1}
-                  className="text-lg font-semibold outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  className="text-base font-semibold outline-none focus-visible:ring-2 focus-visible:ring-ring sm:text-lg"
                 >
                   Resumen IA del Documento
                 </DialogTitle>
-                <DialogDescription id="summary-desc" className="mt-1 text-sm text-muted-foreground">
+                <DialogDescription className="sr-only md:not-sr-only md:text-sm md:text-muted-foreground">
                   Genera un resumen inteligente y conversa con la IA sobre el documento.
                 </DialogDescription>
               </div>
@@ -332,22 +332,21 @@ export const DocumentSummaryDialog = forwardRef<
             </div>
           </DialogHeader>
 
-          <div className="sticky top-0 z-20 border-y bg-background/95 px-6 py-3 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-background/75">
-            <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-              <SummaryActions
-                disabled={!markdown}
-                isLoading={isLoading}
-                onGenerate={() => void generateSummary()}
-                onCopy={() => void handleCopy()}
-                onDownload={handleDownload}
-                className="w-full md:w-auto"
-              />
-              <SummaryTTSControls
-                ref={ttsRef}
-                markdown={markdown}
-                className="w-full md:max-w-lg"
-              />
-            </div>
+          <div className="flex flex-col gap-3 sm:gap-4 md:flex-row md:items-start md:justify-between">
+            <SummaryActions
+              disabled={!markdown}
+              isLoading={isLoading}
+              onGenerate={() => void generateSummary()}
+              onCopy={() => void handleCopy()}
+              onDownload={handleDownload}
+              className="md:flex-1"
+            />
+            <SummaryTTSControls
+              ref={ttsRef}
+              markdown={markdown}
+              variant="compact"
+              className="w-full md:max-w-sm"
+            />
           </div>
 
           <Tabs
@@ -355,18 +354,19 @@ export const DocumentSummaryDialog = forwardRef<
             onValueChange={setActiveTab}
             className="flex flex-1 flex-col overflow-hidden"
           >
-            <div className="px-6 pt-4">
-              <TabsList className="grid w-full grid-cols-2 md:w-auto">
-                <TabsTrigger value="summary">Resumen</TabsTrigger>
-                <TabsTrigger value="chat">Chat del documento</TabsTrigger>
+            <div className="pt-2">
+              <TabsList className="grid h-9 w-full grid-cols-2 text-sm md:w-auto">
+                <TabsTrigger value="summary" className="h-9 text-sm">
+                  Resumen
+                </TabsTrigger>
+                <TabsTrigger value="chat" className="h-9 text-sm">
+                  Chat del documento
+                </TabsTrigger>
               </TabsList>
             </div>
-            <TabsContent
-              value="summary"
-              className="flex-1 overflow-hidden"
-            >
-              <ScrollArea className="h-full px-6 pb-6">
-                <div className="flex flex-col gap-4 py-4">
+            <TabsContent value="summary" className="flex-1 overflow-hidden">
+              <ScrollArea className="max-h-[60vh] md:max-h-[70vh]">
+                <div className="space-y-3 px-1 pb-2 pt-4 sm:space-y-4 sm:px-1">
                   {isLoading && (
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
                       <Loader2 className="h-4 w-4 animate-spin" />
