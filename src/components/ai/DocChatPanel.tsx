@@ -229,32 +229,45 @@ export function DocChatPanel({
 
   return (
     <div className="flex h-full flex-col">
+      <div className="border-b border-muted-200/70 bg-muted/30 px-4 py-3 dark:border-muted-800/70 dark:bg-muted/10">
+        <div className="flex items-center gap-3">
+          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-primary">
+            <Bot className="h-4 w-4" />
+          </div>
+          <div>
+            <p className="text-sm font-semibold text-foreground">Chat del documento</p>
+            <p className="text-xs text-muted-foreground">
+              Conversa con la IA sobre secciones específicas del archivo.
+            </p>
+          </div>
+        </div>
+      </div>
       <div className="flex-1 overflow-hidden">
         <ScrollArea ref={scrollAreaRef} className="h-full pr-4">
           <div className="flex flex-col gap-4 p-4 text-sm">
             {messages.length === 0 ? (
-              <p className="text-muted-foreground">
+              <div className="rounded-xl border border-dashed border-muted-200 bg-muted/20 px-4 py-6 text-center text-muted-foreground dark:border-muted-800 dark:bg-muted/10">
                 Inicia una conversación para consultar detalles del documento.
-              </p>
+              </div>
             ) : (
               messages.map((message) => (
                 <div
                   key={message.id}
                   className={cn(
-                    "flex gap-3", 
+                    "flex gap-3",
                     message.role === "user" ? "justify-end" : "justify-start",
                   )}
                 >
                   {message.role === "assistant" && (
-                    <div className="mt-1 flex h-6 w-6 items-center justify-center rounded-full bg-muted">
+                    <div className="mt-1 flex h-7 w-7 items-center justify-center rounded-full bg-primary/10 text-primary">
                       <Bot className="h-4 w-4" />
                     </div>
                   )}
                   <div
                     className={cn(
-                      "max-w-full rounded-lg px-3 py-2", 
+                      "max-w-[85%] rounded-2xl px-4 py-3 shadow-sm",
                       message.role === "assistant"
-                        ? "bg-muted text-left"
+                        ? "bg-background border border-muted-200 text-left dark:border-muted-800"
                         : "bg-primary text-primary-foreground",
                     )}
                   >
@@ -263,10 +276,10 @@ export function DocChatPanel({
                         {message.content || (message.isStreaming ? "IA está escribiendo…" : "")}
                       </ReactMarkdown>
                     ) : (
-                      <p>{message.content}</p>
+                      <p className="font-medium">{message.content}</p>
                     )}
                     {message.isStreaming && message.role === "assistant" && (
-                      <div className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
+                      <div className="mt-2 flex items-center gap-1 text-xs text-muted-foreground">
                         <Loader2 className="h-3 w-3 animate-spin" />
                         <span>IA está escribiendo…</span>
                       </div>
@@ -280,7 +293,7 @@ export function DocChatPanel({
       </div>
       <form
         onSubmit={handleSubmit}
-        className="space-y-3 border-t bg-background/95 p-4"
+        className="space-y-3 border-t border-muted-200/70 bg-background/95 p-4 backdrop-blur-sm dark:border-muted-800/70"
       >
         <Textarea
           ref={textareaRef}
@@ -297,16 +310,21 @@ export function DocChatPanel({
           }}
           rows={3}
           placeholder={placeholder}
+          className="resize-none border border-muted-200/80 shadow-sm focus-visible:ring-2 focus-visible:ring-primary/40 dark:border-muted-800"
         />
         <div className="flex flex-wrap items-center justify-between gap-3">
           <span className="text-xs text-muted-foreground">
             {input.length}/{MAX_INPUT_CHARS}
           </span>
-          <Button type="submit" disabled={!input.trim() || isSending}>
+          <Button
+            type="submit"
+            disabled={!input.trim() || isSending}
+            className="gap-2 bg-primary hover:bg-primary/90"
+          >
             {isSending ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
-              <Send className="mr-2 h-4 w-4" />
+              <Send className="h-4 w-4" />
             )}
             {isSending ? "IA está escribiendo…" : "Enviar"}
           </Button>

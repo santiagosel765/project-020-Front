@@ -274,7 +274,7 @@ export const DocumentSummaryDialog = forwardRef<
   const summaryContent = useMemo(() => {
     if (markdown) {
       return (
-        <ReactMarkdown className="prose prose-lg max-w-none text-foreground leading-relaxed dark:prose-invert 
+        <ReactMarkdown className="prose prose-base sm:prose-lg max-w-none text-foreground leading-relaxed dark:prose-invert
                                 prose-headings:font-semibold prose-headings:text-primary
                                 prose-p:text-gray-700 dark:prose-p:text-gray-300 prose-p:leading-7
                                 prose-strong:font-bold prose-strong:text-primary
@@ -321,7 +321,8 @@ export const DocumentSummaryDialog = forwardRef<
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogContent
-        className="p-0 max-w-4xl h-[90vh] overflow-hidden [&_[data-dialog-content]]:max-h-none [&_[data-dialog-content]]:w-full [&_[data-dialog-content]]:p-0"
+        size="xl"
+        className="p-0 max-w-none h-[92vh] sm:h-auto overflow-hidden [&_[data-dialog-content]]:h-full sm:[&_[data-dialog-content]]:h-auto [&_[data-dialog-content]]:max-h-[min(calc(100vh-48px),900px)] [&_[data-dialog-content]]:max-w-[1100px] [&_[data-dialog-content]]:w-full [&_[data-dialog-content]]:mx-auto [&_[data-dialog-content]]:p-0"
         aria-describedby={undefined}
         onEscapeKeyDown={() => {
           abortStreaming();
@@ -336,9 +337,9 @@ export const DocumentSummaryDialog = forwardRef<
           titleRef.current?.focus();
         }}
       >
-        <div className="flex flex-col h-full bg-gradient-to-br from-background to-muted/20">
+        <div className="flex flex-col h-full bg-gradient-to-br from-background to-muted/10">
           {/* Header mejorado */}
-          <DialogHeader className="px-6 pt-6 pb-4 border-b bg-gradient-to-r from-primary/5 to-primary/10">
+          <DialogHeader className="px-4 pt-6 pb-4 sm:px-6 border-b bg-gradient-to-r from-primary/5 to-primary/10">
             <div className="flex items-center gap-3">
               <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
                 <Bot className="h-6 w-6 text-primary" />
@@ -358,58 +359,64 @@ export const DocumentSummaryDialog = forwardRef<
             </div>
           </DialogHeader>
 
-          <div className="flex-1 flex flex-col p-6 gap-4 overflow-hidden">
+          <div className="flex-1 flex flex-col p-4 sm:p-6 gap-4 overflow-hidden">
             {/* Panel de acciones principales */}
-            <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30 border-blue-200 dark:border-blue-800">
-              <CardContent className="p-4">
-                <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between">
+            <Card className="border border-blue-200/70 dark:border-blue-800/70 shadow-sm backdrop-blur-sm bg-white/80 dark:bg-slate-950/70">
+              <CardContent className="p-4 sm:p-5">
+                <div className="flex flex-col gap-4 2xl:flex-row 2xl:items-start 2xl:justify-between">
                   {/* Acciones de resumen */}
-                  <div className="flex flex-col sm:flex-row gap-3 flex-1">
-                    <Button 
-                      onClick={generateSummary} 
-                      disabled={isLoading}
-                      className="h-12 px-6 bg-gradient-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary text-white shadow-lg hover:shadow-xl transition-all duration-200"
-                    >
-                      {isLoading ? (
-                        <>
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          Generando...
-                        </>
-                      ) : (
-                        <>
+                  <div className="flex flex-col gap-3 xl:flex-1">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+                      <Button
+                        onClick={generateSummary}
+                        disabled={isLoading}
+                        className="h-11 w-full sm:w-auto px-5 bg-gradient-to-r from-primary to-primary/90 hover:from-primary/95 hover:to-primary text-white shadow-md hover:shadow-lg transition-all duration-200"
+                      >
+                        {isLoading ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Generando...
+                          </>
+                        ) : (
+                          <>
+                            <Sparkles className="mr-2 h-4 w-4" />
+                            Generar Resumen IA
+                          </>
+                        )}
+                      </Button>
+
+                      <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:flex-row">
+                        <Button
+                          variant="outline"
+                          onClick={handleCopy}
+                          disabled={!markdown || isLoading}
+                          className="h-11 w-full sm:w-auto px-4 border-2 hover:bg-green-50 hover:text-green-700 hover:border-green-300 transition-colors"
+                        >
                           <Sparkles className="mr-2 h-4 w-4" />
-                          Generar Resumen IA
-                        </>
-                      )}
-                    </Button>
-                    
-                    <div className="flex gap-2">
-                      <Button 
-                        variant="outline" 
-                        onClick={handleCopy} 
-                        disabled={!markdown || isLoading}
-                        className="h-12 px-4 border-2 hover:bg-green-50 hover:text-green-700 hover:border-green-300 transition-colors"
-                      >
-                        <Sparkles className="mr-2 h-4 w-4" /> 
-                        Copiar
-                      </Button>
-                      <Button 
-                        variant="outline" 
-                        onClick={handleDownload} 
-                        disabled={!markdown || isLoading}
-                        className="h-12 px-4 border-2 hover:bg-blue-50 hover:text-blue-700 hover:border-blue-300 transition-colors"
-                      >
-                        <Sparkles className="mr-2 h-4 w-4" /> 
-                        Descargar
-                      </Button>
+                          Copiar
+                        </Button>
+                        <Button
+                          variant="outline"
+                          onClick={handleDownload}
+                          disabled={!markdown || isLoading}
+                          className="h-11 w-full sm:w-auto px-4 border-2 hover:bg-blue-50 hover:text-blue-700 hover:border-blue-300 transition-colors"
+                        >
+                          <Sparkles className="mr-2 h-4 w-4" />
+                          Descargar
+                        </Button>
+                      </div>
                     </div>
+                    <p className="text-xs sm:text-sm text-muted-foreground">
+                      Genera, comparte o descarga el resumen con un solo clic.
+                    </p>
                   </div>
 
                   {/* Control de voz */}
                   <SummaryTTSControls
                     ref={ttsRef}
                     markdown={markdown}
-                    className="w-full lg:w-auto"
+                    variant="compact"
+                    className="w-full 2xl:max-w-sm"
                   />
                 </div>
               </CardContent>
@@ -421,9 +428,9 @@ export const DocumentSummaryDialog = forwardRef<
               onValueChange={setActiveTab}
               className="flex-1 flex flex-col overflow-hidden"
             >
-              <TabsList className="grid h-11 w-full grid-cols-2 text-sm bg-muted/50 p-1 rounded-lg">
-                <TabsTrigger 
-                  value="summary" 
+              <TabsList className="grid h-10 w-full grid-cols-2 text-sm bg-muted/40 p-1 rounded-lg">
+                <TabsTrigger
+                  value="summary"
                   className="h-9 text-sm font-medium data-[state=active]:bg-background data-[state=active]:shadow-sm"
                 >
                   <FileText className="h-4 w-4 mr-2" />
@@ -439,8 +446,8 @@ export const DocumentSummaryDialog = forwardRef<
               </TabsList>
 
               <TabsContent value="summary" className="flex-1 overflow-hidden mt-4">
-                <Card className="h-full border-2 shadow-sm bg-gradient-to-b from-white to-gray-50/50 dark:from-gray-900 dark:to-gray-800/50">
-                  <CardContent className="h-full p-6 overflow-auto">
+                <Card className="h-full border border-muted-200/80 dark:border-muted-800/80 shadow-sm bg-card/90">
+                  <CardContent className="h-full p-4 sm:p-6 overflow-auto">
                     <div className="space-y-4">
                       {error && (
                         <Alert variant="destructive" className="mb-4">
@@ -455,7 +462,7 @@ export const DocumentSummaryDialog = forwardRef<
               </TabsContent>
 
               <TabsContent value="chat" className="flex-1 overflow-hidden mt-4">
-                <Card className="h-full border-2 shadow-sm">
+                <Card className="h-full border border-muted-200/80 dark:border-muted-800/80 shadow-sm bg-card/90">
                   <CardContent className="h-full p-0">
                     <DocChatPanel
                       cuadroFirmasId={cuadroFirmasId}
