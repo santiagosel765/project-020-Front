@@ -91,6 +91,28 @@ function splitIntoSegments(text: string) {
   return segments;
 }
 
+function formatVoiceLabel(voice: SpeechSynthesisVoice) {
+  const rawName = voice.name || voice.voiceURI || "";
+  const cleanedName = rawName
+    .replace(/\b(Microsoft|Google|Amazon|Apple|Online|Neural|Natural|Standard|Voice)\b/gi, "")
+    .replace(/\([^)]*\)/g, "")
+    .replace(/[-_]+/g, " ")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+
+  const simplifiedName = cleanedName
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .join(" ");
+
+  const langTag = (voice.lang || "").replace(/_/g, "-").toUpperCase();
+
+  const label = simplifiedName || rawName || langTag || "Voz";
+
+  return langTag ? `${label} (${langTag})` : label;
+}
+
 const SummaryTTSControls = forwardRef<SummaryTTSControlsHandle, SummaryTTSControlsProps>(
   ({ markdown, className, variant = "default" }, ref) => {
     const { toast } = useToast();
@@ -319,10 +341,24 @@ const SummaryTTSControls = forwardRef<SummaryTTSControlsHandle, SummaryTTSContro
       ? "Selecciona una voz"
       : "Cargando voces…";
 
+    const isCompact = variant === "compact";
+
     return (
-      <Card className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm border-2 border-purple-200 dark:border-purple-800 shadow-lg">
-        <CardContent className="p-4">
-          <div className="flex flex-col sm:flex-row items-center gap-4">
+      <Card
+        className={cn(
+          "w-full bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm border-2 border-purple-200 dark:border-purple-800 shadow-lg",
+          className,
+        )}
+      >
+        <CardContent className={cn("p-4", isCompact ? "sm:p-4" : "sm:p-5") }>
+          <div
+            className={cn(
+              "flex w-full flex-col gap-4",
+              isCompact
+                ? "md:flex-row md:items-start md:justify-between xl:items-center"
+                : "sm:flex-row sm:items-center sm:justify-between"
+            )}
+          >
             <div className="flex items-center gap-3 min-w-[200px]">
               <div className="flex h-10 w-10 items-center justify-center rounded-full bg-purple-100 dark:bg-purple-900">
                 <Volume2 className="h-5 w-5 text-purple-600 dark:text-purple-400" />
@@ -331,16 +367,21 @@ const SummaryTTSControls = forwardRef<SummaryTTSControlsHandle, SummaryTTSContro
                 <p className="text-sm font-medium text-purple-700 dark:text-purple-300">
                   ¿Escuchar resumen?
                 </p>
-                <Badge 
-                  variant="secondary" 
+                <Badge
+                  variant="secondary"
                   className="mt-1 bg-purple-100 text-purple-700 border-purple-200 text-xs"
                 >
                   {statusLabel}
                 </Badge>
               </div>
             </div>
-            
-            <div className="flex-1 flex flex-col sm:flex-row items-center gap-3 min-w-0">
+
+            <div
+              className={cn(
+                "flex-1 min-w-0 flex flex-col gap-3",
+                isCompact ? "sm:flex-col lg:flex-row lg:items-center" : "sm:flex-row sm:items-center"
+              )}
+            >
               <Select
                 value={voiceIdentifier || undefined}
                 onValueChange={(value) => {
@@ -351,10 +392,10 @@ const SummaryTTSControls = forwardRef<SummaryTTSControlsHandle, SummaryTTSContro
                 }}
                 disabled={!voices.length || !isSupported}
               >
-                <SelectTrigger className="h-10 min-w-[200px] border-2 border-purple-200 bg-white px-3 text-sm font-medium text-purple-900 shadow-sm transition-colors hover:border-purple-300 focus:border-purple-500 focus:ring-2 focus:ring-purple-200 dark:bg-gray-800 dark:text-purple-100 dark:border-purple-700">
+                <SelectTrigger className="h-10 w-full min-w-0 border-2 border-purple-200 bg-white px-3 text-sm font-medium text-purple-900 shadow-sm transition-colors hover:border-purple-300 focus:border-purple-500 focus:ring-2 focus:ring-purple-200 dark:bg-gray-800 dark:text-purple-100 dark:border-purple-700">
                   <SelectValue placeholder={voicePlaceholder} />
                 </SelectTrigger>
-                <SelectContent 
+                <SelectContent
                   position="popper"
                   sideOffset={8}
                   className="z-[100] max-h-[300px] w-[var(--radix-select-trigger-width)]"
@@ -362,22 +403,27 @@ const SummaryTTSControls = forwardRef<SummaryTTSControlsHandle, SummaryTTSContro
                 >
                   {voices.map((voice) => {
                     const id = voice.voiceURI || voice.name;
-                    const label = voice.name || voice.voiceURI;
-                    const langInfo = voice.lang ? ` (${voice.lang})` : '';
+                    const label = formatVoiceLabel(voice);
                     return (
                       <SelectItem key={id} value={id} className="text-sm">
-                        🗣️ {label}{langInfo}
+                        🗣️ {label}
                       </SelectItem>
                     );
                   })}
                 </SelectContent>
               </Select>
 
-              <div className="flex gap-2">
+              <div
+                className={cn(
+                  "flex gap-2",
+                  isCompact ? "justify-start" : "justify-center sm:justify-end",
+                  "w-full sm:w-auto"
+                )}
+              >
                 {showPlayButton && (
-                  <Button 
-                    variant="ghost" 
-                    size="icon" 
+                  <Button
+                    variant="ghost"
+                    size="icon"
                     className={`h-10 w-10 rounded-full transition-all ${
                       status === "idle" 
                         ? "bg-green-500 hover:bg-green-600 text-white shadow-lg" 
