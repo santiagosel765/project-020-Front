@@ -23,47 +23,42 @@ export function SummaryActions({
   className,
 }: SummaryActionsProps) {
   return (
-    <div
-      className={cn(
-        "flex flex-col gap-2 text-sm sm:flex-row sm:items-center",
-        className,
-      )}
-    >
+    <div className={cn("flex w-full flex-wrap items-center gap-2", className)}>
       <Button
         onClick={onGenerate}
         disabled={isLoading}
         size="sm"
-        className="w-full sm:w-auto"
+        className="flex-1 sm:flex-none"
       >
         {isLoading ? (
           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
         ) : (
           <Sparkles className="mr-2 h-4 w-4" />
         )}
-        {isLoading ? "Generando…" : "Generar Resumen IA"}
+        <span className="truncate">
+          {isLoading ? "Generando…" : "Generar Resumen IA"}
+        </span>
       </Button>
-      <div className="flex w-full gap-2 sm:w-auto sm:gap-3">
-        <Button
-          variant="secondary"
-          onClick={onCopy}
-          disabled={disabled || isLoading}
-          size="sm"
-          className="flex-1 sm:flex-none"
-        >
-          <Copy className="mr-2 h-4 w-4" />
-          Copiar
-        </Button>
-        <Button
-          variant="secondary"
-          onClick={onDownload}
-          disabled={disabled || isLoading}
-          size="sm"
-          className="flex-1 sm:flex-none"
-        >
-          <Download className="mr-2 h-4 w-4" />
-          Descargar
-        </Button>
-      </div>
+      <Button
+        variant="secondary"
+        onClick={onCopy}
+        disabled={disabled || isLoading}
+        size="sm"
+        className="px-2"
+      >
+        <Copy className="h-4 w-4" />
+        <span className="sr-only sm:not-sr-only sm:ml-2">Copiar</span>
+      </Button>
+      <Button
+        variant="secondary"
+        onClick={onDownload}
+        disabled={disabled || isLoading}
+        size="sm"
+        className="px-2"
+      >
+        <Download className="h-4 w-4" />
+        <span className="sr-only sm:not-sr-only sm:ml-2">Descargar</span>
+      </Button>
     </div>
   );
 }

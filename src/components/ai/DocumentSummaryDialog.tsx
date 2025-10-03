@@ -296,8 +296,8 @@ export const DocumentSummaryDialog = forwardRef<
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogContent
-        className="grid place-items-center p-4 sm:p-6 [&_[data-dialog-content]]:max-h-[90vh] [&_[data-dialog-content]]:w-[min(96vw,560px)] [&_[data-dialog-content]]:gap-4 [&_[data-dialog-content]]:p-4 md:[&_[data-dialog-content]]:w-[min(92vw,900px)] sm:[&_[data-dialog-content]]:gap-5"
-        aria-describedby={undefined}
+        aria-describedby="doc-summary-desc"
+        className="w-full max-w-[94vw] overflow-visible p-4 sm:max-w-[900px] sm:p-6"
         onEscapeKeyDown={() => {
           abortStreaming();
           stopTTS();
@@ -312,7 +312,7 @@ export const DocumentSummaryDialog = forwardRef<
         }}
       >
         <div className="flex max-h-[82vh] flex-col">
-          <DialogHeader className="mb-0 space-y-3 p-0">
+          <DialogHeader className="mb-3 p-0">
             <div className="flex items-start justify-between gap-3">
               <div className="space-y-2">
                 <DialogTitle
@@ -322,30 +322,32 @@ export const DocumentSummaryDialog = forwardRef<
                 >
                   Resumen IA del Documento
                 </DialogTitle>
-                <DialogDescription className="sr-only md:not-sr-only md:text-sm md:text-muted-foreground">
+                <DialogDescription
+                  id="doc-summary-desc"
+                  className="hidden md:block md:text-sm md:text-muted-foreground"
+                >
                   Genera un resumen inteligente y conversa con la IA sobre el documento.
                 </DialogDescription>
               </div>
-              <Badge variant="secondary" className="uppercase">
+              <Badge variant="secondary" className="shrink-0 self-start uppercase">
                 IA
               </Badge>
             </div>
           </DialogHeader>
 
-          <div className="flex flex-col gap-3 sm:gap-4 md:flex-row md:items-start md:justify-between">
+          <div className="flex flex-col gap-3 overflow-visible sm:gap-4">
             <SummaryActions
               disabled={!markdown}
               isLoading={isLoading}
               onGenerate={() => void generateSummary()}
               onCopy={() => void handleCopy()}
               onDownload={handleDownload}
-              className="md:flex-1"
             />
             <SummaryTTSControls
               ref={ttsRef}
               markdown={markdown}
               variant="compact"
-              className="w-full md:max-w-sm"
+              className="w-full overflow-visible"
             />
           </div>
 
