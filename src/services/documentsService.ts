@@ -505,7 +505,7 @@ export async function signDocument(payload: {
 }
 
 export const DOCUMENT_SUMMARY_ANALYZE_PATH = '/api/documents/analyze-pdf'; // TODO: ajustar path si el backend difiere
-const DOCUMENT_CHAT_BASE_PATH = '/api/v1/documents/ai/chat'; // TODO: ajustar path si el backend difiere
+const DOCUMENT_CHAT_BASE_PATH = '/api/documents/ai/chat'; // TODO: ajustar path si el backend difiere
 
 export async function startDocChat(cuadroFirmasId: number): Promise<{ sessionId: string }> {
   const response = await fetch(`${DOCUMENT_CHAT_BASE_PATH}/start/${cuadroFirmasId}`, {

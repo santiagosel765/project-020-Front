@@ -10,10 +10,11 @@ import React, {
   useState,
 } from "react";
 import ReactMarkdown from "react-markdown";
-import { Loader2 } from "lucide-react";
+import { Loader2, Sparkles, Bot, Volume2 } from "lucide-react";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -23,6 +24,7 @@ import {
 } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import {
   DOCUMENT_SUMMARY_ANALYZE_PATH,
@@ -30,11 +32,7 @@ import {
 } from "@/services/documentsService";
 
 import { DocChatPanel } from "./DocChatPanel";
-import { SummaryActions } from "./SummaryActions";
-import {
-  SummaryTTSControls,
-  SummaryTTSControlsHandle,
-} from "./SummaryTTSControls";
+import { SummaryTTSControls } from "./SummaryTTSControls";
 
 export interface DocumentSummaryDialogProps {
   documentId: number;
@@ -72,7 +70,7 @@ export const DocumentSummaryDialog = forwardRef<
   const [activeTab, setActiveTab] = useState("summary");
   const [sessionId, setSessionId] = useState<string | null>(null);
   const streamState = useRef<StreamState>({ controller: null, reader: null });
-  const ttsRef = useRef<SummaryTTSControlsHandle | null>(null);
+  const ttsRef = useRef<any>(null);
   const titleRef = useRef<HTMLHeadingElement | null>(null);
   const sessionPromiseRef = useRef<Promise<string> | null>(null);
 
@@ -200,6 +198,11 @@ export const DocumentSummaryDialog = forwardRef<
           setMarkdown((prev) => `${prev}${parsed}`);
         }
       }
+
+      toast({
+        title: "✨ Resumen generado",
+        description: "El resumen IA ha sido creado exitosamente.",
+      });
     } catch (error: any) {
       if (controller.signal.aborted) {
         return;
@@ -238,7 +241,7 @@ export const DocumentSummaryDialog = forwardRef<
     try {
       await navigator.clipboard.writeText(markdown);
       toast({
-        title: "Resumen copiado",
+        title: "✅ Copiado",
         description: "El resumen se copió al portapapeles.",
       });
     } catch (error) {
@@ -261,28 +264,50 @@ export const DocumentSummaryDialog = forwardRef<
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
-  }, [documentId, markdown]);
+    
+    toast({
+      title: "📥 Descargado",
+      description: "Resumen guardado como archivo Markdown.",
+    });
+  }, [documentId, markdown, toast]);
 
   const summaryContent = useMemo(() => {
     if (markdown) {
       return (
-        <ReactMarkdown className="prose prose-sm max-w-none leading-6 dark:prose-invert">
+        <ReactMarkdown className="prose prose-lg max-w-none text-foreground leading-relaxed dark:prose-invert 
+                                prose-headings:font-semibold prose-headings:text-primary
+                                prose-p:text-gray-700 dark:prose-p:text-gray-300 prose-p:leading-7
+                                prose-strong:font-bold prose-strong:text-primary
+                                prose-ul:list-disc prose-ol:list-decimal prose-li:leading-7
+                                prose-li:text-gray-700 dark:prose-li:text-gray-300
+                                [&_*]:leading-relaxed">
           {markdown}
         </ReactMarkdown>
       );
     }
     if (isLoading) {
       return (
-        <div className="space-y-3">
-          <div className="h-4 w-3/4 animate-pulse rounded bg-muted" />
-          <div className="h-4 w-2/3 animate-pulse rounded bg-muted" />
-          <div className="h-4 w-1/2 animate-pulse rounded bg-muted" />
+        <div className="flex flex-col items-center justify-center py-12 gap-4 text-center">
+          <div className="relative">
+            <Loader2 className="h-10 w-10 animate-spin text-primary" />
+            <Sparkles className="h-5 w-5 text-primary absolute -top-1 -right-1 animate-pulse" />
+          </div>
+          <div>
+            <p className="font-medium text-lg text-foreground">Generando resumen con IA</p>
+            <p className="text-sm text-muted-foreground mt-2">
+              Analizando el documento y extrayendo información clave...
+            </p>
+          </div>
         </div>
       );
     }
     return (
-      <div className="rounded-md border border-dashed p-6 text-center text-sm text-muted-foreground">
-        El resumen aparecerá aquí en cuanto esté listo.
+      <div className="flex flex-col items-center justify-center py-16 gap-4 text-center text-muted-foreground">
+        <Bot className="h-16 w-16 opacity-50" />
+        <div>
+          <p className="font-medium text-lg">Listo para generar el resumen</p>
+          <p className="text-sm mt-1">Haz clic en "Generar Resumen IA" para comenzar</p>
+        </div>
       </div>
     );
   }, [isLoading, markdown]);
@@ -296,8 +321,8 @@ export const DocumentSummaryDialog = forwardRef<
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogContent
-        aria-describedby="doc-summary-desc"
-        className="w-full max-w-[94vw] overflow-visible p-4 sm:max-w-[900px] sm:p-6"
+        className="p-0 max-w-4xl h-[90vh] overflow-hidden [&_[data-dialog-content]]:max-h-none [&_[data-dialog-content]]:w-full [&_[data-dialog-content]]:p-0"
+        aria-describedby={undefined}
         onEscapeKeyDown={() => {
           abortStreaming();
           stopTTS();
@@ -311,90 +336,137 @@ export const DocumentSummaryDialog = forwardRef<
           titleRef.current?.focus();
         }}
       >
-        <div className="flex max-h-[82vh] flex-col">
-          <DialogHeader className="mb-3 p-0">
-            <div className="flex items-start justify-between gap-3">
-              <div className="space-y-2">
-                <DialogTitle
-                  ref={titleRef}
-                  tabIndex={-1}
-                  className="text-base font-semibold outline-none focus-visible:ring-2 focus-visible:ring-ring sm:text-lg"
-                >
+        <div className="flex flex-col h-full bg-gradient-to-br from-background to-muted/20">
+          {/* Header mejorado */}
+          <DialogHeader className="px-6 pt-6 pb-4 border-b bg-gradient-to-r from-primary/5 to-primary/10">
+            <div className="flex items-center gap-3">
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
+                <Bot className="h-6 w-6 text-primary" />
+              </div>
+              <div className="flex-1">
+                <DialogTitle className="flex items-center gap-3 text-xl">
                   Resumen IA del Documento
+                  <Badge variant="secondary" className="bg-gradient-to-r from-green-500 to-emerald-600 text-white border-0 text-xs">
+                    <Sparkles className="h-3 w-3 mr-1" />
+                    Inteligencia Artificial
+                  </Badge>
                 </DialogTitle>
-                <DialogDescription
-                  id="doc-summary-desc"
-                  className="hidden md:block md:text-sm md:text-muted-foreground"
-                >
-                  Genera un resumen inteligente y conversa con la IA sobre el documento.
+                <DialogDescription className="text-sm text-muted-foreground">
+                  Genera un resumen inteligente y conversa con la IA sobre el documento
                 </DialogDescription>
               </div>
-              <Badge variant="secondary" className="shrink-0 self-start uppercase">
-                IA
-              </Badge>
             </div>
           </DialogHeader>
 
-          <div className="flex flex-col gap-3 overflow-visible sm:gap-4">
-            <SummaryActions
-              disabled={!markdown}
-              isLoading={isLoading}
-              onGenerate={() => void generateSummary()}
-              onCopy={() => void handleCopy()}
-              onDownload={handleDownload}
-            />
-            <SummaryTTSControls
-              ref={ttsRef}
-              markdown={markdown}
-              variant="compact"
-              className="w-full overflow-visible"
-            />
-          </div>
+          <div className="flex-1 flex flex-col p-6 gap-4 overflow-hidden">
+            {/* Panel de acciones principales */}
+            <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30 border-blue-200 dark:border-blue-800">
+              <CardContent className="p-4">
+                <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between">
+                  {/* Acciones de resumen */}
+                  <div className="flex flex-col sm:flex-row gap-3 flex-1">
+                    <Button 
+                      onClick={generateSummary} 
+                      disabled={isLoading}
+                      className="h-12 px-6 bg-gradient-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary text-white shadow-lg hover:shadow-xl transition-all duration-200"
+                    >
+                      {isLoading ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Generando...
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles className="mr-2 h-4 w-4" />
+                          Generar Resumen IA
+                        </>
+                      )}
+                    </Button>
+                    
+                    <div className="flex gap-2">
+                      <Button 
+                        variant="outline" 
+                        onClick={handleCopy} 
+                        disabled={!markdown || isLoading}
+                        className="h-12 px-4 border-2 hover:bg-green-50 hover:text-green-700 hover:border-green-300 transition-colors"
+                      >
+                        <Sparkles className="mr-2 h-4 w-4" /> 
+                        Copiar
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        onClick={handleDownload} 
+                        disabled={!markdown || isLoading}
+                        className="h-12 px-4 border-2 hover:bg-blue-50 hover:text-blue-700 hover:border-blue-300 transition-colors"
+                      >
+                        <Sparkles className="mr-2 h-4 w-4" /> 
+                        Descargar
+                      </Button>
+                    </div>
+                  </div>
 
-          <Tabs
-            value={activeTab}
-            onValueChange={setActiveTab}
-            className="flex flex-1 flex-col overflow-hidden"
-          >
-            <div className="pt-2">
-              <TabsList className="grid h-9 w-full grid-cols-2 text-sm md:w-auto">
-                <TabsTrigger value="summary" className="h-9 text-sm">
+                  {/* Control de voz */}
+                  <SummaryTTSControls
+                    ref={ttsRef}
+                    markdown={markdown}
+                    className="w-full lg:w-auto"
+                  />
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Tabs y contenido */}
+            <Tabs
+              value={activeTab}
+              onValueChange={setActiveTab}
+              className="flex-1 flex flex-col overflow-hidden"
+            >
+              <TabsList className="grid h-11 w-full grid-cols-2 text-sm bg-muted/50 p-1 rounded-lg">
+                <TabsTrigger 
+                  value="summary" 
+                  className="h-9 text-sm font-medium data-[state=active]:bg-background data-[state=active]:shadow-sm"
+                >
+                  <FileText className="h-4 w-4 mr-2" />
                   Resumen
                 </TabsTrigger>
-                <TabsTrigger value="chat" className="h-9 text-sm">
+                <TabsTrigger 
+                  value="chat" 
+                  className="h-9 text-sm font-medium data-[state=active]:bg-background data-[state=active]:shadow-sm"
+                >
+                  <MessageSquare className="h-4 w-4 mr-2" />
                   Chat del documento
                 </TabsTrigger>
               </TabsList>
-            </div>
-            <TabsContent value="summary" className="flex-1 overflow-hidden">
-              <ScrollArea className="max-h-[60vh] md:max-h-[70vh]">
-                <div className="space-y-3 px-1 pb-2 pt-4 sm:space-y-4 sm:px-1">
-                  {isLoading && (
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Generando resumen…
+
+              <TabsContent value="summary" className="flex-1 overflow-hidden mt-4">
+                <Card className="h-full border-2 shadow-sm bg-gradient-to-b from-white to-gray-50/50 dark:from-gray-900 dark:to-gray-800/50">
+                  <CardContent className="h-full p-6 overflow-auto">
+                    <div className="space-y-4">
+                      {error && (
+                        <Alert variant="destructive" className="mb-4">
+                          <AlertTitle>Error</AlertTitle>
+                          <AlertDescription>{error}</AlertDescription>
+                        </Alert>
+                      )}
+                      {summaryContent}
                     </div>
-                  )}
-                  {error && (
-                    <Alert variant="destructive">
-                      <AlertTitle>Error</AlertTitle>
-                      <AlertDescription>{error}</AlertDescription>
-                    </Alert>
-                  )}
-                  {summaryContent}
-                </div>
-              </ScrollArea>
-            </TabsContent>
-            <TabsContent value="chat" className="flex-1 overflow-hidden">
-              <div className="flex h-full flex-col">
-                <DocChatPanel
-                  cuadroFirmasId={cuadroFirmasId}
-                  sessionId={sessionId}
-                  onRequireSession={ensureSession}
-                />
-              </div>
-            </TabsContent>
-          </Tabs>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              <TabsContent value="chat" className="flex-1 overflow-hidden mt-4">
+                <Card className="h-full border-2 shadow-sm">
+                  <CardContent className="h-full p-0">
+                    <DocChatPanel
+                      cuadroFirmasId={cuadroFirmasId}
+                      sessionId={sessionId}
+                      onRequireSession={ensureSession}
+                    />
+                  </CardContent>
+                </Card>
+              </TabsContent>
+            </Tabs>
+          </div>
         </div>
       </DialogContent>
     </Dialog>
@@ -402,3 +474,20 @@ export const DocumentSummaryDialog = forwardRef<
 });
 
 DocumentSummaryDialog.displayName = "DocumentSummaryDialog";
+
+// Iconos adicionales necesarios
+const FileText = ({ className }: { className?: string }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor">
+    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+    <polyline points="14 2 14 8 20 8" />
+    <line x1="16" y1="13" x2="8" y2="13" />
+    <line x1="16" y1="17" x2="8" y2="17" />
+    <polyline points="10 9 9 9 8 9" />
+  </svg>
+);
+
+const MessageSquare = ({ className }: { className?: string }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor">
+    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+  </svg>
+);

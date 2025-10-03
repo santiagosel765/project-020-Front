@@ -421,7 +421,6 @@ export function DocumentsTable({
         role="group"
         aria-label="Filtrar por mi firma"
       >
-        <span className="text-sm font-medium text-muted-foreground whitespace-nowrap">Mi firma</span>
         <div
           className={cn(
             "grid w-full grid-cols-3 gap-1",

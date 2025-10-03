@@ -1,6 +1,6 @@
 "use client";
 
-import { Bot, Pause, Play, Square } from "lucide-react";
+import { Volume2, Play, Pause, Square, Bot } from "lucide-react";
 import React, {
   useCallback,
   useEffect,
@@ -12,6 +12,8 @@ import React, {
 } from "react";
 
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
 import {
   Select,
   SelectContent,
@@ -21,10 +23,6 @@ import {
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
-import {
-  formatVoiceLabel,
-  sortVoices,
-} from "@/utils/voiceLabels";
 
 export interface SummaryTTSControlsProps {
   markdown: string;
@@ -38,34 +36,7 @@ export interface SummaryTTSControlsHandle {
 
 type TTSStatus = "idle" | "playing" | "paused";
 
-const MAX_SEGMENT_CHARS = 300;
-
-const VOICE_STORAGE_KEY = "ttsVoiceId";
-
-const voiceId = (v: SpeechSynthesisVoice) =>
-  `${v.name}__${v.lang}__${String(v.localService)}__${v.voiceURI || "no-uri"}`;
-
-const readStoredVoiceId = () => {
-  if (typeof window === "undefined") return null;
-  try {
-    return localStorage.getItem(VOICE_STORAGE_KEY);
-  } catch (error) {
-    return null;
-  }
-};
-
-const writeStoredVoiceId = (id: string | null) => {
-  if (typeof window === "undefined") return;
-  try {
-    if (id) {
-      localStorage.setItem(VOICE_STORAGE_KEY, id);
-    } else {
-      localStorage.removeItem(VOICE_STORAGE_KEY);
-    }
-  } catch (error) {
-    // ignore storage errors
-  }
-};
+const MAX_SEGMENT_CHARS = 200;
 
 function sanitizeMarkdown(markdown: string) {
   return markdown
@@ -134,7 +105,6 @@ const SummaryTTSControls = forwardRef<SummaryTTSControlsHandle, SummaryTTSContro
     const statusRef = useRef<TTSStatus>("idle");
 
     const sanitizedMarkdown = useMemo(() => sanitizeMarkdown(markdown), [markdown]);
-    const isCompact = variant === "compact";
 
     const clearQueue = useCallback(() => {
       queueRef.current = [];
@@ -159,88 +129,65 @@ const SummaryTTSControls = forwardRef<SummaryTTSControlsHandle, SummaryTTSContro
     useEffect(() => {
       if (!isSupported) return;
 
-      let attempts = 0;
-      let intervalId: number | undefined;
-
-      const applyVoices = () => {
-        const available = sortVoices(window.speechSynthesis.getVoices());
-        setVoices(available);
-        return available.length > 0;
+      const updateVoices = () => {
+        const allVoices = window.speechSynthesis.getVoices();
+        const spanishVoices = allVoices
+          .filter((voice) => voice.lang.toLowerCase().startsWith('es'))
+          .sort((a, b) => {
+            // Prefer Mexican Spanish voices
+            if (a.lang.includes('MX') && !b.lang.includes('MX')) return -1;
+            if (!a.lang.includes('MX') && b.lang.includes('MX')) return 1;
+            return a.name.localeCompare(b.name);
+          });
+        setVoices(spanishVoices);
       };
 
-      const handleVoicesChanged = () => {
-        applyVoices();
-      };
-
-      const hasVoices = applyVoices();
-      if (!hasVoices) {
-        intervalId = window.setInterval(() => {
-          attempts += 1;
-          if (applyVoices() || attempts >= 3) {
-            if (intervalId) {
-              window.clearInterval(intervalId);
-            }
-          }
-        }, 350);
-      }
-
-      window.speechSynthesis.addEventListener("voiceschanged", handleVoicesChanged);
+      updateVoices();
+      window.speechSynthesis.addEventListener("voiceschanged", updateVoices);
 
       return () => {
-        window.speechSynthesis.removeEventListener("voiceschanged", handleVoicesChanged);
-        if (intervalId) {
-          window.clearInterval(intervalId);
-        }
+        window.speechSynthesis.removeEventListener("voiceschanged", updateVoices);
       };
     }, [isSupported]);
 
     useEffect(() => {
       if (!voices.length) {
         setSelectedVoice(null);
-        writeStoredVoiceId(null);
         return;
       }
 
       setSelectedVoice((current) => {
-        if (current && voices.some((voice) => voiceId(voice) === voiceId(current))) {
+        if (current && voices.some((voice) => voice.voiceURI === current.voiceURI)) {
           return current;
         }
-
-        const storedId = readStoredVoiceId();
-        const storedVoice = storedId
-          ? voices.find((voice) => voiceId(voice) === storedId)
-          : null;
-        if (storedVoice) {
-          return storedVoice;
-        }
-
-        const browserLang = typeof navigator !== "undefined" ? navigator.language : undefined;
-        if (browserLang) {
-          const locale = browserLang.toLowerCase();
-          const exactMatch = voices.find(
-            (voice) => (voice.lang || "").toLowerCase() === locale,
-          );
-          if (exactMatch) {
-            return exactMatch;
+        
+        // Try to load preferred voice from localStorage
+        try {
+          const savedVoiceURI = localStorage.getItem('ttsVoiceURI');
+          if (savedVoiceURI) {
+            const savedVoice = voices.find(voice => 
+              voice.voiceURI === savedVoiceURI || voice.name === savedVoiceURI
+            );
+            if (savedVoice) return savedVoice;
           }
-          const baseLang = locale.split("-")[0];
-          const partialMatch = voices.find((voice) =>
-            (voice.lang || "").toLowerCase().startsWith(baseLang),
-          );
-          if (partialMatch) {
-            return partialMatch;
-          }
+        } catch (error) {
+          // Ignore localStorage errors
         }
-
+        
         return voices[0] ?? null;
       });
     }, [voices]);
 
     useEffect(() => {
-      if (selectedVoice) {
-        writeStoredVoiceId(voiceId(selectedVoice));
-      } else {
-        writeStoredVoiceId(null);
+      if (!selectedVoice) return;
+      
+      try {
+        const identifier = selectedVoice.voiceURI || selectedVoice.name || '';
+        if (identifier) {
+          localStorage.setItem('ttsVoiceURI', identifier);
+        }
+      } catch (error) {
+        // Ignore localStorage errors
       }
     }, [selectedVoice]);
 
@@ -265,10 +212,15 @@ const SummaryTTSControls = forwardRef<SummaryTTSControlsHandle, SummaryTTSContro
 
       const utterance = new SpeechSynthesisUtterance(segments[currentIndexRef.current]);
       utterance.voice = selectedVoice;
+      utterance.rate = 1.0;
+      utterance.pitch = 1.0;
+      utterance.volume = 1.0;
+      
       utterance.onend = () => {
         currentIndexRef.current += 1;
         speakNext();
       };
+      
       utterance.onerror = () => {
         toast({
           variant: "destructive",
@@ -277,9 +229,11 @@ const SummaryTTSControls = forwardRef<SummaryTTSControlsHandle, SummaryTTSContro
         });
         stop();
       };
+      
       utterance.onstart = () => {
         updateStatus("playing");
       };
+
       utteranceRef.current = utterance;
       window.speechSynthesis.speak(utterance);
     }, [finishPlayback, isSupported, selectedVoice, stop, toast, updateStatus]);
@@ -288,11 +242,12 @@ const SummaryTTSControls = forwardRef<SummaryTTSControlsHandle, SummaryTTSContro
       if (!isSupported) {
         toast({
           variant: "destructive",
-          title: "TTS no disponible",
-          description: "El navegador no soporta lectura en voz.",
+          title: "Lectura de voz no disponible",
+          description: "Tu navegador no soporta la función de lectura en voz alta.",
         });
         return;
       }
+      
       if (!sanitizedMarkdown) {
         toast({
           title: "Sin contenido",
@@ -300,10 +255,11 @@ const SummaryTTSControls = forwardRef<SummaryTTSControlsHandle, SummaryTTSContro
         });
         return;
       }
+      
       if (!selectedVoice) {
         toast({
           title: "Selecciona una voz",
-          description: "Elige una voz para usar lectura en voz alta.",
+          description: "Elige una voz para usar la lectura en voz alta.",
         });
         return;
       }
@@ -311,6 +267,7 @@ const SummaryTTSControls = forwardRef<SummaryTTSControlsHandle, SummaryTTSContro
       stop();
       queueRef.current = splitIntoSegments(sanitizedMarkdown);
       currentIndexRef.current = 0;
+      
       if (!queueRef.current.length) {
         toast({
           title: "Sin contenido",
@@ -318,6 +275,7 @@ const SummaryTTSControls = forwardRef<SummaryTTSControlsHandle, SummaryTTSContro
         });
         return;
       }
+      
       speakNext();
     }, [isSupported, sanitizedMarkdown, selectedVoice, speakNext, stop, toast]);
 
@@ -343,166 +301,124 @@ const SummaryTTSControls = forwardRef<SummaryTTSControlsHandle, SummaryTTSContro
       ? "Leyendo…"
       : status === "paused"
       ? "Pausado"
-      : "Listo";
+      : "Listo para leer";
 
     const showPlayButton = status === "idle" || status === "paused";
     const showPauseButton = status === "playing";
     const showStopButton = status === "playing" || status === "paused";
-    const canStartPlayback = Boolean(
-      sanitizedMarkdown && selectedVoice && isSupported,
-    );
+    const canStartPlayback = Boolean(sanitizedMarkdown && selectedVoice && isSupported);
 
-    const selectedVoiceId = useMemo(
-      () => (selectedVoice ? voiceId(selectedVoice) : undefined),
-      [selectedVoice],
-    );
+    const voiceIdentifier = useMemo(() => {
+      if (!selectedVoice) return "";
+      return selectedVoice.voiceURI || selectedVoice.name || "";
+    }, [selectedVoice]);
 
     const voicePlaceholder = !isSupported
       ? "Lectura no disponible"
       : voices.length
-      ? "Selecciona voz"
+      ? "Selecciona una voz"
       : "Cargando voces…";
 
-    const iconButtonClass = cn(
-      "h-8 w-8 rounded-full",
-      !isCompact && "sm:h-10 sm:w-10",
-    );
-
-    const controls = (
-      <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
-        {showPlayButton && (
-          <Button
-            type="button"
-            variant="outline"
-            size="icon"
-            onClick={status === "paused" ? handleResume : handlePlay}
-            disabled={!canStartPlayback}
-            className={iconButtonClass}
-            aria-label={status === "paused" ? "Reanudar lectura" : "Reproducir resumen"}
-            aria-pressed={status === "playing"}
-          >
-            <Play className="h-4 w-4" />
-          </Button>
-        )}
-        {showPauseButton && (
-          <Button
-            type="button"
-            variant="outline"
-            size="icon"
-            onClick={handlePause}
-            className={iconButtonClass}
-            aria-label="Pausar lectura"
-            aria-pressed={status === "paused"}
-          >
-            <Pause className="h-4 w-4" />
-          </Button>
-        )}
-        {showStopButton && (
-          <Button
-            type="button"
-            variant="outline"
-            size="icon"
-            onClick={handleStop}
-            className={iconButtonClass}
-            aria-label="Detener lectura"
-          >
-            <Square className="h-4 w-4" />
-          </Button>
-        )}
-      </div>
-    );
-
-    const handleVoiceChange = useCallback(
-      (value: string) => {
-        const nextVoice =
-          voices.find((voice) => voiceId(voice) === value) ?? voices[0] ?? null;
-        stop();
-        setSelectedVoice(nextVoice);
-      },
-      [stop, voices],
-    );
-
-    const select = (
-      <Select
-        value={selectedVoiceId}
-        onValueChange={handleVoiceChange}
-        disabled={!voices.length || !isSupported}
-      >
-        <SelectTrigger
-          className={cn(
-            "min-w-0 text-sm",
-            isCompact ? "h-8 w-full" : "h-10 w-full sm:w-60",
-          )}
-        >
-          <SelectValue placeholder={voicePlaceholder} />
-        </SelectTrigger>
-        <SelectContent
-          position="popper"
-          sideOffset={8}
-          collisionPadding={10}
-          className="z-[70]"
-        >
-          {voices.map((voice) => (
-            <SelectItem key={voiceId(voice)} value={voiceId(voice)}>
-              {formatVoiceLabel(voice)}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-    );
-
-    if (isCompact) {
-      return (
-        <div
-          className={cn(
-            "flex min-h-[40px] items-center gap-2 rounded-lg border bg-background/80 p-2 text-xs sm:text-sm sm:p-3",
-            "overflow-visible",
-            className,
-          )}
-        >
-          <span className="font-medium uppercase tracking-wide text-muted-foreground">
-            Lectura IA
-          </span>
-          <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
-            <div className="min-w-0 flex-1 sm:min-w-[12rem]">
-              <div className="w-[60%] min-w-[8rem] sm:w-auto">
-                {select}
+    return (
+      <Card className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm border-2 border-purple-200 dark:border-purple-800 shadow-lg">
+        <CardContent className="p-4">
+          <div className="flex flex-col sm:flex-row items-center gap-4">
+            <div className="flex items-center gap-3 min-w-[200px]">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-purple-100 dark:bg-purple-900">
+                <Volume2 className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-purple-700 dark:text-purple-300">
+                  ¿Escuchar resumen?
+                </p>
+                <Badge 
+                  variant="secondary" 
+                  className="mt-1 bg-purple-100 text-purple-700 border-purple-200 text-xs"
+                >
+                  {statusLabel}
+                </Badge>
               </div>
             </div>
-            {controls}
-          </div>
-          <span className="sr-only" aria-live="polite">
-            {statusLabel}
-          </span>
-        </div>
-      );
-    }
+            
+            <div className="flex-1 flex flex-col sm:flex-row items-center gap-3 min-w-0">
+              <Select
+                value={voiceIdentifier || undefined}
+                onValueChange={(value) => {
+                  const voice = voices.find((v) => v.voiceURI === value || v.name === value);
+                  const nextVoice = voice ?? voices[0] ?? null;
+                  stop();
+                  setSelectedVoice(nextVoice);
+                }}
+                disabled={!voices.length || !isSupported}
+              >
+                <SelectTrigger className="h-10 min-w-[200px] border-2 border-purple-200 bg-white px-3 text-sm font-medium text-purple-900 shadow-sm transition-colors hover:border-purple-300 focus:border-purple-500 focus:ring-2 focus:ring-purple-200 dark:bg-gray-800 dark:text-purple-100 dark:border-purple-700">
+                  <SelectValue placeholder={voicePlaceholder} />
+                </SelectTrigger>
+                <SelectContent 
+                  position="popper"
+                  sideOffset={8}
+                  className="z-[100] max-h-[300px] w-[var(--radix-select-trigger-width)]"
+                  avoidCollisions={false}
+                >
+                  {voices.map((voice) => {
+                    const id = voice.voiceURI || voice.name;
+                    const label = voice.name || voice.voiceURI;
+                    const langInfo = voice.lang ? ` (${voice.lang})` : '';
+                    return (
+                      <SelectItem key={id} value={id} className="text-sm">
+                        🗣️ {label}{langInfo}
+                      </SelectItem>
+                    );
+                  })}
+                </SelectContent>
+              </Select>
 
-    return (
-      <div
-        className={cn(
-          "rounded-xl border bg-muted/40 p-3 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-muted/30 sm:p-4",
-          className,
-        )}
-      >
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary">
-              <Bot className="h-5 w-5" aria-hidden="true" />
-            </div>
-            <div className="min-w-0">
-              <p className="text-sm font-medium text-foreground">Lectura IA</p>
-              <p className="text-xs text-muted-foreground" aria-live="polite">
-                {statusLabel}
-              </p>
+              <div className="flex gap-2">
+                {showPlayButton && (
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className={`h-10 w-10 rounded-full transition-all ${
+                      status === "idle" 
+                        ? "bg-green-500 hover:bg-green-600 text-white shadow-lg" 
+                        : "bg-green-500 hover:bg-green-600 text-white shadow-lg"
+                    }`}
+                    onClick={status === "paused" ? handleResume : handlePlay} 
+                    disabled={!canStartPlayback}
+                    aria-label={status === "paused" ? "Reanudar lectura" : "Reproducir resumen"}
+                  >
+                    <Play className="h-4 w-4" />
+                  </Button>
+                )}
+                
+                {showPauseButton && (
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="h-10 w-10 rounded-full bg-yellow-500 hover:bg-yellow-600 text-white shadow-lg transition-all"
+                    onClick={handlePause} 
+                    aria-label="Pausar lectura"
+                  >
+                    <Pause className="h-4 w-4" />
+                  </Button>
+                )}
+                
+                {showStopButton && (
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="h-10 w-10 rounded-full bg-red-500 hover:bg-red-600 text-white shadow-lg transition-all"
+                    onClick={handleStop} 
+                    aria-label="Detener lectura"
+                  >
+                    <Square className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
             </div>
           </div>
-          <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:items-center sm:justify-end">
-            <div className="min-w-0 sm:w-60">{select}</div>
-            {controls}
-          </div>
-        </div>
-      </div>
+        </CardContent>
+      </Card>
     );
   },
 );
