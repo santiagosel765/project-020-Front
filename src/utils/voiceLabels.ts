@@ -48,6 +48,8 @@ export function savePreferredVoice(voice: SpeechSynthesisVoice | null) {
     const identifier = voice ? voice.voiceURI || voice.name || "" : "";
     if (identifier) {
       localStorage.setItem(STORAGE_KEY, identifier);
+    } else {
+      localStorage.removeItem(STORAGE_KEY);
     }
   } catch (error) {
     // no-op

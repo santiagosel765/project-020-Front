@@ -1,11 +1,6 @@
 "use client";
 
-import {
-  Pause,
-  Play,
-  Square,
-  Volume2,
-} from "lucide-react";
+import { Bot, Pause, Play, Square } from "lucide-react";
 import React, {
   useCallback,
   useEffect,
@@ -25,6 +20,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
 import {
   formatVoiceLabel,
   loadPreferredVoice,
@@ -109,17 +105,27 @@ const SummaryTTSControls = forwardRef<SummaryTTSControlsHandle, SummaryTTSContro
     const currentIndexRef = useRef(0);
     const isClient = typeof window !== "undefined";
     const isSupported = isClient && "speechSynthesis" in window;
+    const statusRef = useRef<TTSStatus>("idle");
 
     const sanitizedMarkdown = useMemo(() => sanitizeMarkdown(markdown), [markdown]);
+
+    const clearQueue = useCallback(() => {
+      queueRef.current = [];
+      currentIndexRef.current = 0;
+      utteranceRef.current = null;
+    }, []);
+
+    const updateStatus = useCallback((next: TTSStatus) => {
+      statusRef.current = next;
+      setStatus(next);
+    }, []);
 
     const stop = useCallback(() => {
       if (!isSupported) return;
       window.speechSynthesis.cancel();
-      utteranceRef.current = null;
-      queueRef.current = [];
-      currentIndexRef.current = 0;
-      setStatus("idle");
-    }, [isSupported]);
+      clearQueue();
+      updateStatus("idle");
+    }, [clearQueue, isSupported, updateStatus]);
 
     useImperativeHandle(ref, () => ({ stop }), [stop]);
 
@@ -157,11 +163,16 @@ const SummaryTTSControls = forwardRef<SummaryTTSControlsHandle, SummaryTTSContro
       };
     }, [stop]);
 
+    const finishPlayback = useCallback(() => {
+      clearQueue();
+      updateStatus("idle");
+    }, [clearQueue, updateStatus]);
+
     const speakNext = useCallback(() => {
       if (!isSupported || !selectedVoice) return;
       const segments = queueRef.current;
       if (currentIndexRef.current >= segments.length) {
-        stop();
+        finishPlayback();
         return;
       }
 
@@ -179,10 +190,12 @@ const SummaryTTSControls = forwardRef<SummaryTTSControlsHandle, SummaryTTSContro
         });
         stop();
       };
+      utterance.onstart = () => {
+        updateStatus("playing");
+      };
       utteranceRef.current = utterance;
       window.speechSynthesis.speak(utterance);
-      setStatus("playing");
-    }, [isSupported, selectedVoice, stop, toast]);
+    }, [finishPlayback, isSupported, selectedVoice, stop, toast, updateStatus]);
 
     const handlePlay = useCallback(() => {
       if (!isSupported) {
@@ -224,28 +237,80 @@ const SummaryTTSControls = forwardRef<SummaryTTSControlsHandle, SummaryTTSContro
     const handlePause = useCallback(() => {
       if (!isSupported) return;
       window.speechSynthesis.pause();
-      setStatus("paused");
-    }, [isSupported]);
+      updateStatus("paused");
+    }, [isSupported, updateStatus]);
 
     const handleResume = useCallback(() => {
       if (!isSupported) return;
       window.speechSynthesis.resume();
-      setStatus("playing");
-    }, [isSupported]);
+      updateStatus("playing");
+    }, [isSupported, updateStatus]);
 
     const handleStop = useCallback(() => {
       stop();
     }, [stop]);
 
-    const disablePlay = !sanitizedMarkdown || status !== "idle" || !selectedVoice;
+    const statusLabel = !isSupported
+      ? "Lectura no disponible"
+      : status === "playing"
+      ? "Leyendo…"
+      : status === "paused"
+      ? "Pausado"
+      : "Listo";
+
+    const showPlayButton = status === "idle" || status === "paused";
+    const showPauseButton = status === "playing";
+    const showStopButton = status === "playing" || status === "paused";
+    const canStartPlayback = Boolean(
+      sanitizedMarkdown && selectedVoice && isSupported,
+    );
+
+    const voiceValue = selectedVoice?.voiceURI || selectedVoice?.name || "";
+
+    const voicePlaceholder = !isSupported
+      ? "Lectura no disponible"
+      : voices.length
+      ? "Selecciona voz"
+      : "Cargando voces…";
 
     return (
-      <div className={className}>
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="flex items-center gap-2">
-            <Volume2 className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+      <div
+        className={cn(
+          "rounded-2xl border bg-muted/40 p-4 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-muted/30",
+          className,
+        )}
+      >
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-3">
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/15 text-primary">
+              <Bot className="h-6 w-6" aria-hidden="true" />
+            </div>
+            <div className="flex flex-col">
+              <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                Lectura IA
+              </span>
+              <span aria-live="polite" className="text-sm font-semibold text-foreground">
+                {statusLabel}
+              </span>
+              {status === "playing" && (
+                <div className="mt-1 flex h-4 items-end gap-1">
+                  {Array.from({ length: 3 }).map((_, index) => (
+                    <span
+                      key={index}
+                      className="w-1.5 rounded-full bg-primary/80 animate-pulse"
+                      style={{
+                        animationDelay: `${index * 120}ms`,
+                        height: `${0.55 + index * 0.3}rem`,
+                      }}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+          <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:items-center sm:justify-end">
             <Select
-              value={selectedVoice?.voiceURI || selectedVoice?.name || ""}
+              value={voiceValue}
               onValueChange={(value) => {
                 const voice = voices.find(
                   (v) => v.voiceURI === value || v.name === value,
@@ -253,10 +318,10 @@ const SummaryTTSControls = forwardRef<SummaryTTSControlsHandle, SummaryTTSContro
                 setSelectedVoice(voice ?? null);
                 stop();
               }}
-              disabled={!voices.length}
+              disabled={!voices.length || !isSupported}
             >
-              <SelectTrigger className="w-[200px]">
-                <SelectValue placeholder="Selecciona voz" />
+              <SelectTrigger className="h-11 w-full rounded-full border-muted sm:h-10 sm:w-[160px]">
+                <SelectValue placeholder={voicePlaceholder} />
               </SelectTrigger>
               <SelectContent>
                 {voices.map((voice) => {
@@ -269,34 +334,45 @@ const SummaryTTSControls = forwardRef<SummaryTTSControlsHandle, SummaryTTSContro
                 })}
               </SelectContent>
             </Select>
-          </div>
-          <div className="flex items-center gap-2">
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={handlePlay}
-              disabled={disablePlay}
-            >
-              <Play className="mr-1 h-4 w-4" />
-              Reproducir
-            </Button>
-            {status === "playing" ? (
-              <Button size="sm" variant="outline" onClick={handlePause}>
-                <Pause className="mr-1 h-4 w-4" />
-                Pausa
-              </Button>
-            ) : status === "paused" ? (
-              <Button size="sm" variant="outline" onClick={handleResume}>
-                <Play className="mr-1 h-4 w-4" />
-                Reanudar
-              </Button>
-            ) : null}
-            {(status === "playing" || status === "paused") && (
-              <Button size="sm" variant="outline" onClick={handleStop}>
-                <Square className="mr-1 h-4 w-4" />
-                Detener
-              </Button>
-            )}
+            <div className="flex items-center gap-2">
+              {showPlayButton && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  onClick={status === "paused" ? handleResume : handlePlay}
+                  disabled={!canStartPlayback}
+                  className="h-11 w-11 rounded-full sm:h-10 sm:w-10"
+                  aria-label={status === "paused" ? "Reanudar lectura" : "Reproducir resumen"}
+                >
+                  <Play className="h-5 w-5" />
+                </Button>
+              )}
+              {showPauseButton && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  onClick={handlePause}
+                  className="h-11 w-11 rounded-full sm:h-10 sm:w-10"
+                  aria-label="Pausar lectura"
+                >
+                  <Pause className="h-5 w-5" />
+                </Button>
+              )}
+              {showStopButton && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  onClick={handleStop}
+                  className="h-11 w-11 rounded-full sm:h-10 sm:w-10"
+                  aria-label="Detener lectura"
+                >
+                  <Square className="h-5 w-5" />
+                </Button>
+              )}
+            </div>
           </div>
         </div>
       </div>
