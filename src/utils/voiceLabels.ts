@@ -31,13 +31,20 @@ export function sortVoices(voices: SpeechSynthesisVoice[]) {
     });
 }
 
-const STORAGE_KEY = "ttsVoiceURI";
+const STORAGE_KEY = "ttsVoiceId";
+
+const buildVoiceId = (voice: SpeechSynthesisVoice) =>
+  `${voice.name}__${voice.lang}__${String(voice.localService)}__${voice.voiceURI || "no-uri"}`;
 
 export function loadPreferredVoice(voices: SpeechSynthesisVoice[]) {
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (!stored) return null;
-    return voices.find((voice) => voice.voiceURI === stored || voice.name === stored) || null;
+    return (
+      voices.find((voice) => buildVoiceId(voice) === stored) ||
+      voices.find((voice) => voice.voiceURI === stored || voice.name === stored) ||
+      null
+    );
   } catch (error) {
     return null;
   }
@@ -45,7 +52,7 @@ export function loadPreferredVoice(voices: SpeechSynthesisVoice[]) {
 
 export function savePreferredVoice(voice: SpeechSynthesisVoice | null) {
   try {
-    const identifier = voice ? voice.voiceURI || voice.name || "" : "";
+    const identifier = voice ? buildVoiceId(voice) : "";
     if (identifier) {
       localStorage.setItem(STORAGE_KEY, identifier);
     } else {

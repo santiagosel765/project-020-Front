@@ -12,7 +12,6 @@ import React, {
 } from "react";
 
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import {
   Select,
   SelectContent,
@@ -24,8 +23,6 @@ import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import {
   formatVoiceLabel,
-  loadPreferredVoice,
-  savePreferredVoice,
   sortVoices,
 } from "@/utils/voiceLabels";
 
@@ -41,7 +38,34 @@ export interface SummaryTTSControlsHandle {
 
 type TTSStatus = "idle" | "playing" | "paused";
 
-const MAX_SEGMENT_CHARS = 200;
+const MAX_SEGMENT_CHARS = 300;
+
+const VOICE_STORAGE_KEY = "ttsVoiceId";
+
+const voiceId = (v: SpeechSynthesisVoice) =>
+  `${v.name}__${v.lang}__${String(v.localService)}__${v.voiceURI || "no-uri"}`;
+
+const readStoredVoiceId = () => {
+  if (typeof window === "undefined") return null;
+  try {
+    return localStorage.getItem(VOICE_STORAGE_KEY);
+  } catch (error) {
+    return null;
+  }
+};
+
+const writeStoredVoiceId = (id: string | null) => {
+  if (typeof window === "undefined") return;
+  try {
+    if (id) {
+      localStorage.setItem(VOICE_STORAGE_KEY, id);
+    } else {
+      localStorage.removeItem(VOICE_STORAGE_KEY);
+    }
+  } catch (error) {
+    // ignore storage errors
+  }
+};
 
 function sanitizeMarkdown(markdown: string) {
   return markdown
@@ -135,37 +159,89 @@ const SummaryTTSControls = forwardRef<SummaryTTSControlsHandle, SummaryTTSContro
     useEffect(() => {
       if (!isSupported) return;
 
-      const updateVoices = () => {
+      let attempts = 0;
+      let intervalId: number | undefined;
+
+      const applyVoices = () => {
         const available = sortVoices(window.speechSynthesis.getVoices());
         setVoices(available);
+        return available.length > 0;
       };
 
-      updateVoices();
-      window.speechSynthesis.addEventListener("voiceschanged", updateVoices);
+      const handleVoicesChanged = () => {
+        applyVoices();
+      };
+
+      const hasVoices = applyVoices();
+      if (!hasVoices) {
+        intervalId = window.setInterval(() => {
+          attempts += 1;
+          if (applyVoices() || attempts >= 3) {
+            if (intervalId) {
+              window.clearInterval(intervalId);
+            }
+          }
+        }, 350);
+      }
+
+      window.speechSynthesis.addEventListener("voiceschanged", handleVoicesChanged);
 
       return () => {
-        window.speechSynthesis.removeEventListener("voiceschanged", updateVoices);
+        window.speechSynthesis.removeEventListener("voiceschanged", handleVoicesChanged);
+        if (intervalId) {
+          window.clearInterval(intervalId);
+        }
       };
     }, [isSupported]);
 
     useEffect(() => {
       if (!voices.length) {
         setSelectedVoice(null);
+        writeStoredVoiceId(null);
         return;
       }
 
       setSelectedVoice((current) => {
-        if (current && voices.some((voice) => voice.voiceURI === current.voiceURI)) {
+        if (current && voices.some((voice) => voiceId(voice) === voiceId(current))) {
           return current;
         }
-        const stored = loadPreferredVoice(voices);
-        return stored ?? voices[0] ?? null;
+
+        const storedId = readStoredVoiceId();
+        const storedVoice = storedId
+          ? voices.find((voice) => voiceId(voice) === storedId)
+          : null;
+        if (storedVoice) {
+          return storedVoice;
+        }
+
+        const browserLang = typeof navigator !== "undefined" ? navigator.language : undefined;
+        if (browserLang) {
+          const locale = browserLang.toLowerCase();
+          const exactMatch = voices.find(
+            (voice) => (voice.lang || "").toLowerCase() === locale,
+          );
+          if (exactMatch) {
+            return exactMatch;
+          }
+          const baseLang = locale.split("-")[0];
+          const partialMatch = voices.find((voice) =>
+            (voice.lang || "").toLowerCase().startsWith(baseLang),
+          );
+          if (partialMatch) {
+            return partialMatch;
+          }
+        }
+
+        return voices[0] ?? null;
       });
     }, [voices]);
 
     useEffect(() => {
-      if (!selectedVoice) return;
-      savePreferredVoice(selectedVoice);
+      if (selectedVoice) {
+        writeStoredVoiceId(voiceId(selectedVoice));
+      } else {
+        writeStoredVoiceId(null);
+      }
     }, [selectedVoice]);
 
     useEffect(() => {
@@ -276,10 +352,10 @@ const SummaryTTSControls = forwardRef<SummaryTTSControlsHandle, SummaryTTSContro
       sanitizedMarkdown && selectedVoice && isSupported,
     );
 
-    const voiceIdentifier = useMemo(() => {
-      if (!selectedVoice) return "";
-      return selectedVoice.voiceURI || selectedVoice.name || "";
-    }, [selectedVoice]);
+    const selectedVoiceId = useMemo(
+      () => (selectedVoice ? voiceId(selectedVoice) : undefined),
+      [selectedVoice],
+    );
 
     const voicePlaceholder = !isSupported
       ? "Lectura no disponible"
@@ -287,19 +363,13 @@ const SummaryTTSControls = forwardRef<SummaryTTSControlsHandle, SummaryTTSContro
       ? "Selecciona voz"
       : "Cargando voces…";
 
-    const selectTriggerClass = cn(
-      "min-w-0",
-      isCompact ? "h-8 text-sm" : "h-10 text-sm",
-      isCompact ? "w-full sm:w-56" : "w-full sm:w-60",
-    );
-
     const iconButtonClass = cn(
-      isCompact ? "h-8 w-8" : "h-10 w-10",
-      "rounded-full",
+      "h-8 w-8 rounded-full",
+      !isCompact && "sm:h-10 sm:w-10",
     );
 
-    const buttons = (
-      <div className="flex items-center gap-2">
+    const controls = (
+      <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
         {showPlayButton && (
           <Button
             type="button"
@@ -342,35 +412,41 @@ const SummaryTTSControls = forwardRef<SummaryTTSControlsHandle, SummaryTTSContro
       </div>
     );
 
+    const handleVoiceChange = useCallback(
+      (value: string) => {
+        const nextVoice =
+          voices.find((voice) => voiceId(voice) === value) ?? voices[0] ?? null;
+        stop();
+        setSelectedVoice(nextVoice);
+      },
+      [stop, voices],
+    );
+
     const select = (
       <Select
-        value={voiceIdentifier || undefined}
-        onValueChange={(value) => {
-          const fallback = voices[0] ?? null;
-          const voice = voices.find((v) => v.voiceURI === value || v.name === value);
-          const nextVoice = voice ?? fallback;
-          stop();
-          setSelectedVoice(nextVoice);
-        }}
+        value={selectedVoiceId}
+        onValueChange={handleVoiceChange}
         disabled={!voices.length || !isSupported}
       >
-        <SelectTrigger className={selectTriggerClass}>
+        <SelectTrigger
+          className={cn(
+            "min-w-0 text-sm",
+            isCompact ? "h-8 w-full" : "h-10 w-full sm:w-60",
+          )}
+        >
           <SelectValue placeholder={voicePlaceholder} />
         </SelectTrigger>
         <SelectContent
           position="popper"
           sideOffset={8}
-          avoidCollisions={false}
+          collisionPadding={10}
           className="z-[70]"
         >
-          {voices.map((voice) => {
-            const id = voice.voiceURI || voice.name;
-            return (
-              <SelectItem key={id} value={id}>
-                {formatVoiceLabel(voice)}
-              </SelectItem>
-            );
-          })}
+          {voices.map((voice) => (
+            <SelectItem key={voiceId(voice)} value={voiceId(voice)}>
+              {formatVoiceLabel(voice)}
+            </SelectItem>
+          ))}
         </SelectContent>
       </Select>
     );
@@ -379,26 +455,21 @@ const SummaryTTSControls = forwardRef<SummaryTTSControlsHandle, SummaryTTSContro
       return (
         <div
           className={cn(
-            "rounded-lg border p-2 text-sm sm:p-3",
+            "flex min-h-[40px] items-center gap-2 rounded-lg border bg-background/80 p-2 text-xs sm:text-sm sm:p-3",
+            "overflow-visible",
             className,
           )}
         >
-          <div className="flex items-center gap-2 sm:gap-3">
-            <span className="font-medium text-foreground" title="Lectura IA">
-              Lectura IA
-            </span>
-            <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
-              <div className="min-w-0 flex-1 sm:min-w-[8rem]">
+          <span className="font-medium uppercase tracking-wide text-muted-foreground">
+            Lectura IA
+          </span>
+          <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
+            <div className="min-w-0 flex-1 sm:min-w-[12rem]">
+              <div className="w-[60%] min-w-[8rem] sm:w-auto">
                 {select}
               </div>
-              <Badge
-                variant="secondary"
-                className="hidden whitespace-nowrap px-2 py-0.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground sm:inline-flex"
-              >
-                {statusLabel}
-              </Badge>
             </div>
-            <div className="ml-auto">{buttons}</div>
+            {controls}
           </div>
           <span className="sr-only" aria-live="polite">
             {statusLabel}
@@ -427,8 +498,8 @@ const SummaryTTSControls = forwardRef<SummaryTTSControlsHandle, SummaryTTSContro
             </div>
           </div>
           <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:items-center sm:justify-end">
-            <div className="sm:w-60">{select}</div>
-            {buttons}
+            <div className="min-w-0 sm:w-60">{select}</div>
+            {controls}
           </div>
         </div>
       </div>
