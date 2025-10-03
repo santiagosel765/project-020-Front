@@ -507,10 +507,9 @@ export async function signDocument(payload: {
 export const DOCUMENT_SUMMARY_ANALYZE_PATH = '/api/documents/analyze-pdf'; // TODO: ajustar path si el backend difiere
 const DOCUMENT_CHAT_BASE_PATH = '/api/v1/documents/ai/chat'; // TODO: ajustar path si el backend difiere
 
-export async function startDocChat(cuadroFirmasId: number, init: RequestInit = {}) {
+export async function startDocChat(cuadroFirmasId: number): Promise<{ sessionId: string }> {
   const response = await fetch(`${DOCUMENT_CHAT_BASE_PATH}/start/${cuadroFirmasId}`, {
     method: 'POST',
-    ...init,
   });
 
   if (!response.ok) {
@@ -528,8 +527,8 @@ type SendDocChatOptions = {
 export async function sendDocChatMessage(
   sessionId: string,
   message: string,
-  opts: SendDocChatOptions = {}
-) {
+  opts: SendDocChatOptions = {},
+): Promise<ReadableStream<Uint8Array> | { content: string }> {
   const response = await fetch(`${DOCUMENT_CHAT_BASE_PATH}/${sessionId}`, {
     method: 'POST',
     headers: {

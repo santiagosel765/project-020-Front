@@ -14,7 +14,13 @@ import { Loader2 } from "lucide-react";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
@@ -118,9 +124,6 @@ export const DocumentSummaryDialog = forwardRef<
   useEffect(() => {
     if (open) {
       setActiveTab("summary");
-      setTimeout(() => {
-        titleRef.current?.focus();
-      }, 0);
       void ensureSession().catch(() => undefined);
     } else {
       abortStreaming();
@@ -136,9 +139,13 @@ export const DocumentSummaryDialog = forwardRef<
   }, [abortStreaming, stopTTS]);
 
   useEffect(() => {
+    abortStreaming();
+    stopTTS();
     setSessionId(null);
     sessionPromiseRef.current = null;
-  }, [cuadroFirmasId]);
+    setMarkdown("");
+    setError(null);
+  }, [abortStreaming, cuadroFirmasId, stopTTS]);
 
   const generateSummary = useCallback(async () => {
     abortStreaming();
@@ -216,11 +223,14 @@ export const DocumentSummaryDialog = forwardRef<
       open: () => setOpen(true),
       close: () => setOpen(false),
       regenerate: async () => {
-        setOpen(true);
+        if (!open) {
+          setOpen(true);
+          return;
+        }
         await generateSummary();
       },
     }),
-    [generateSummary],
+    [generateSummary, open],
   );
 
   const handleCopy = useCallback(async () => {
@@ -272,15 +282,22 @@ export const DocumentSummaryDialog = forwardRef<
     }
     return (
       <div className="rounded-md border border-dashed p-6 text-center text-sm text-muted-foreground">
-        Genera un resumen para visualizarlo aquí.
+        El resumen aparecerá aquí en cuanto esté listo.
       </div>
     );
   }, [isLoading, markdown]);
+
+  useEffect(() => {
+    if (open) {
+      void generateSummary();
+    }
+  }, [generateSummary, open]);
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogContent
         className="max-w-[95vw] gap-0 p-0 md:max-w-[min(98vw,1200px)]"
+        aria-describedby="summary-desc"
         onEscapeKeyDown={() => {
           abortStreaming();
           stopTTS();
@@ -288,6 +305,10 @@ export const DocumentSummaryDialog = forwardRef<
         onInteractOutside={() => {
           abortStreaming();
           stopTTS();
+        }}
+        onOpenAutoFocus={(event) => {
+          event.preventDefault();
+          titleRef.current?.focus();
         }}
       >
         <div className="flex h-[90dvh] flex-col md:h-[85dvh]">
@@ -301,9 +322,9 @@ export const DocumentSummaryDialog = forwardRef<
                 >
                   Resumen IA del Documento
                 </DialogTitle>
-                <p className="sr-only">
+                <DialogDescription id="summary-desc" className="mt-1 text-sm text-muted-foreground">
                   Genera un resumen inteligente y conversa con la IA sobre el documento.
-                </p>
+                </DialogDescription>
               </div>
               <Badge variant="secondary" className="uppercase">
                 IA
@@ -312,18 +333,19 @@ export const DocumentSummaryDialog = forwardRef<
           </DialogHeader>
 
           <div className="sticky top-0 z-20 border-y bg-background/95 px-6 py-3 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-background/75">
-            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
               <SummaryActions
                 disabled={!markdown}
                 isLoading={isLoading}
                 onGenerate={() => void generateSummary()}
                 onCopy={() => void handleCopy()}
                 onDownload={handleDownload}
+                className="w-full md:w-auto"
               />
               <SummaryTTSControls
                 ref={ttsRef}
                 markdown={markdown}
-                className="flex flex-1 justify-start md:justify-end"
+                className="w-full md:max-w-lg"
               />
             </div>
           </div>
