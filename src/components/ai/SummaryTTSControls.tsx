@@ -360,11 +360,11 @@ const SummaryTTSControls = forwardRef<SummaryTTSControlsHandle, SummaryTTSContro
             )}
           >
             <div className="flex items-center gap-3 min-w-[200px]">
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-purple-100 dark:bg-purple-900">
-                <Volume2 className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-purple-100/80 dark:bg-purple-900/70">
+                <Volume2 className="h-5 w-5 text-purple-600 dark:text-purple-300" />
               </div>
               <div>
-                <p className="text-sm font-medium text-purple-700 dark:text-purple-300">
+                <p className="text-sm font-semibold text-purple-700 dark:text-purple-200">
                   ¿Escuchar resumen?
                 </p>
                 <Badge
@@ -439,10 +439,10 @@ const SummaryTTSControls = forwardRef<SummaryTTSControlsHandle, SummaryTTSContro
                 
                 {showPauseButton && (
                   <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    className="h-10 w-10 rounded-full bg-yellow-500 hover:bg-yellow-600 text-white shadow-lg transition-all"
-                    onClick={handlePause} 
+                    variant="ghost"
+                    size="icon"
+                    className="h-10 w-10 rounded-full bg-amber-500 hover:bg-amber-600 text-white shadow-md transition-all"
+                    onClick={handlePause}
                     aria-label="Pausar lectura"
                   >
                     <Pause className="h-4 w-4" />
@@ -451,10 +451,10 @@ const SummaryTTSControls = forwardRef<SummaryTTSControlsHandle, SummaryTTSContro
                 
                 {showStopButton && (
                   <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    className="h-10 w-10 rounded-full bg-red-500 hover:bg-red-600 text-white shadow-lg transition-all"
-                    onClick={handleStop} 
+                    variant="ghost"
+                    size="icon"
+                    className="h-10 w-10 rounded-full bg-rose-500 hover:bg-rose-600 text-white shadow-md transition-all"
+                    onClick={handleStop}
                     aria-label="Detener lectura"
                   >
                     <Square className="h-4 w-4" />

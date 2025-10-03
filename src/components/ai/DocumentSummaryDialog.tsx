@@ -274,7 +274,7 @@ export const DocumentSummaryDialog = forwardRef<
   const summaryContent = useMemo(() => {
     if (markdown) {
       return (
-        <ReactMarkdown className="prose prose-lg max-w-none text-foreground leading-relaxed dark:prose-invert 
+        <ReactMarkdown className="prose prose-base sm:prose-lg max-w-none text-foreground leading-relaxed dark:prose-invert
                                 prose-headings:font-semibold prose-headings:text-primary
                                 prose-p:text-gray-700 dark:prose-p:text-gray-300 prose-p:leading-7
                                 prose-strong:font-bold prose-strong:text-primary
@@ -337,9 +337,9 @@ export const DocumentSummaryDialog = forwardRef<
           titleRef.current?.focus();
         }}
       >
-        <div className="flex flex-col h-full bg-gradient-to-br from-background to-muted/20">
+        <div className="flex flex-col h-full bg-gradient-to-br from-background to-muted/10">
           {/* Header mejorado */}
-          <DialogHeader className="px-6 pt-6 pb-4 border-b bg-gradient-to-r from-primary/5 to-primary/10">
+          <DialogHeader className="px-4 pt-6 pb-4 sm:px-6 border-b bg-gradient-to-r from-primary/5 to-primary/10">
             <div className="flex items-center gap-3">
               <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
                 <Bot className="h-6 w-6 text-primary" />
@@ -359,7 +359,7 @@ export const DocumentSummaryDialog = forwardRef<
             </div>
           </DialogHeader>
 
-          <div className="flex-1 flex flex-col p-6 gap-4 overflow-hidden">
+          <div className="flex-1 flex flex-col p-4 sm:p-6 gap-4 overflow-hidden">
             {/* Panel de acciones principales */}
             <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30 border-blue-200 dark:border-blue-800">
               <CardContent className="p-4">
@@ -384,7 +384,6 @@ export const DocumentSummaryDialog = forwardRef<
                           </>
                         )}
                       </Button>
-
                       <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
                         <Button
                           variant="outline"
@@ -428,9 +427,9 @@ export const DocumentSummaryDialog = forwardRef<
               onValueChange={setActiveTab}
               className="flex-1 flex flex-col overflow-hidden"
             >
-              <TabsList className="grid h-11 w-full grid-cols-2 text-sm bg-muted/50 p-1 rounded-lg">
-                <TabsTrigger 
-                  value="summary" 
+              <TabsList className="grid h-10 w-full grid-cols-2 text-sm bg-muted/40 p-1 rounded-lg">
+                <TabsTrigger
+                  value="summary"
                   className="h-9 text-sm font-medium data-[state=active]:bg-background data-[state=active]:shadow-sm"
                 >
                   <FileText className="h-4 w-4 mr-2" />
@@ -446,8 +445,8 @@ export const DocumentSummaryDialog = forwardRef<
               </TabsList>
 
               <TabsContent value="summary" className="flex-1 overflow-hidden mt-4">
-                <Card className="h-full border-2 shadow-sm bg-gradient-to-b from-white to-gray-50/50 dark:from-gray-900 dark:to-gray-800/50">
-                  <CardContent className="h-full p-6 overflow-auto">
+                <Card className="h-full border border-muted-200/80 dark:border-muted-800/80 shadow-sm bg-card/90">
+                  <CardContent className="h-full p-4 sm:p-6 overflow-auto">
                     <div className="space-y-4">
                       {error && (
                         <Alert variant="destructive" className="mb-4">
@@ -462,7 +461,7 @@ export const DocumentSummaryDialog = forwardRef<
               </TabsContent>
 
               <TabsContent value="chat" className="flex-1 overflow-hidden mt-4">
-                <Card className="h-full border-2 shadow-sm">
+                <Card className="h-full border border-muted-200/80 dark:border-muted-800/80 shadow-sm bg-card/90">
                   <CardContent className="h-full p-0">
                     <DocChatPanel
                       cuadroFirmasId={cuadroFirmasId}
