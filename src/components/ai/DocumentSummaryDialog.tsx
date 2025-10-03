@@ -321,7 +321,8 @@ export const DocumentSummaryDialog = forwardRef<
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogContent
-        className="p-0 max-w-4xl h-[90vh] overflow-hidden [&_[data-dialog-content]]:max-h-none [&_[data-dialog-content]]:w-full [&_[data-dialog-content]]:p-0"
+        size="xl"
+        className="p-0 max-w-none h-[90vh] lg:h-auto overflow-hidden [&_[data-dialog-content]]:h-full lg:[&_[data-dialog-content]]:h-auto [&_[data-dialog-content]]:max-h-[min(calc(100vh-96px),900px)] [&_[data-dialog-content]]:max-w-[1100px] [&_[data-dialog-content]]:w-full [&_[data-dialog-content]]:mx-auto [&_[data-dialog-content]]:p-0"
         aria-describedby={undefined}
         onEscapeKeyDown={() => {
           abortStreaming();
@@ -362,54 +363,60 @@ export const DocumentSummaryDialog = forwardRef<
             {/* Panel de acciones principales */}
             <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30 border-blue-200 dark:border-blue-800">
               <CardContent className="p-4">
-                <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between">
+                <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
                   {/* Acciones de resumen */}
-                  <div className="flex flex-col sm:flex-row gap-3 flex-1">
-                    <Button 
-                      onClick={generateSummary} 
-                      disabled={isLoading}
-                      className="h-12 px-6 bg-gradient-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary text-white shadow-lg hover:shadow-xl transition-all duration-200"
-                    >
-                      {isLoading ? (
-                        <>
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          Generando...
-                        </>
-                      ) : (
-                        <>
+                  <div className="flex flex-col gap-3 xl:flex-1">
+                    <div className="flex flex-col sm:flex-row sm:flex-wrap gap-3">
+                      <Button
+                        onClick={generateSummary}
+                        disabled={isLoading}
+                        className="h-12 w-full sm:w-auto px-6 bg-gradient-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary text-white shadow-lg hover:shadow-xl transition-all duration-200"
+                      >
+                        {isLoading ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Generando...
+                          </>
+                        ) : (
+                          <>
+                            <Sparkles className="mr-2 h-4 w-4" />
+                            Generar Resumen IA
+                          </>
+                        )}
+                      </Button>
+
+                      <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+                        <Button
+                          variant="outline"
+                          onClick={handleCopy}
+                          disabled={!markdown || isLoading}
+                          className="h-12 w-full sm:w-auto px-4 border-2 hover:bg-green-50 hover:text-green-700 hover:border-green-300 transition-colors"
+                        >
                           <Sparkles className="mr-2 h-4 w-4" />
-                          Generar Resumen IA
-                        </>
-                      )}
-                    </Button>
-                    
-                    <div className="flex gap-2">
-                      <Button 
-                        variant="outline" 
-                        onClick={handleCopy} 
-                        disabled={!markdown || isLoading}
-                        className="h-12 px-4 border-2 hover:bg-green-50 hover:text-green-700 hover:border-green-300 transition-colors"
-                      >
-                        <Sparkles className="mr-2 h-4 w-4" /> 
-                        Copiar
-                      </Button>
-                      <Button 
-                        variant="outline" 
-                        onClick={handleDownload} 
-                        disabled={!markdown || isLoading}
-                        className="h-12 px-4 border-2 hover:bg-blue-50 hover:text-blue-700 hover:border-blue-300 transition-colors"
-                      >
-                        <Sparkles className="mr-2 h-4 w-4" /> 
-                        Descargar
-                      </Button>
+                          Copiar
+                        </Button>
+                        <Button
+                          variant="outline"
+                          onClick={handleDownload}
+                          disabled={!markdown || isLoading}
+                          className="h-12 w-full sm:w-auto px-4 border-2 hover:bg-blue-50 hover:text-blue-700 hover:border-blue-300 transition-colors"
+                        >
+                          <Sparkles className="mr-2 h-4 w-4" />
+                          Descargar
+                        </Button>
+                      </div>
                     </div>
+                    <p className="text-sm text-muted-foreground">
+                      Genera, comparte o descarga el resumen con un solo clic.
+                    </p>
                   </div>
 
                   {/* Control de voz */}
                   <SummaryTTSControls
                     ref={ttsRef}
                     markdown={markdown}
-                    className="w-full lg:w-auto"
+                    variant="compact"
+                    className="w-full xl:max-w-sm"
                   />
                 </div>
               </CardContent>
